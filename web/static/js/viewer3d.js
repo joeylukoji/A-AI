@@ -39,6 +39,8 @@
     return false;
   }
 
+  let fallbackStarted = false;
+
   try {
     const ok = await loadArtifacts();
     if (!ok) {
@@ -51,9 +53,21 @@
   }
 
   async function fallbackCanvas() {
-    const res = await fetch(`/api/v1/projects/${projectId}`, { headers: { Accept: 'application/json' } });
-    const data = await res.json();
-    const plan = data.revision?.plan_document;
+    // Garde contre un double appel (ex : loadArtifacts() puis le catch englobant
+    // déclenchent tous deux le repli) qui dupliquerait les listeners resize et
+    // les boucles requestAnimationFrame ci-dessous.
+    if (fallbackStarted) return;
+    fallbackStarted = true;
+    let plan;
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error('project fetch failed');
+      const data = await res.json();
+      plan = data.revision?.plan_document;
+    } catch {
+      statusEl.textContent = 'Impossible de charger le plan de secours (réseau indisponible).';
+      return;
+    }
     if (!plan || !canvas) return;
     const ctx = canvas.getContext('2d');
     function resize() {

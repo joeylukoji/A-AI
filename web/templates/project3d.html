@@ -68,7 +68,7 @@
   </div>
 </div>
 
-<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+<script type="module" src="https://unpkg.com/@google/model-viewer@4.3.1/dist/model-viewer.min.js"></script>
 <script>
   window.AAI_PROJECT_ID = "{{.Project.ID}}";
 </script>
@@ -104,8 +104,22 @@
   });
 
   function pollJob(jobId) {
+    let errorStreak = 0;
     const poll = setInterval(async () => {
-      const j = await fetch(`/api/v1/jobs/${jobId}`, {headers:{'Accept':'application/json'}}).then(r=>r.json());
+      let j;
+      try {
+        const res = await fetch(`/api/v1/jobs/${jobId}`, {headers:{'Accept':'application/json'}});
+        if (!res.ok) throw new Error('job fetch failed');
+        j = await res.json();
+        errorStreak = 0;
+      } catch {
+        errorStreak += 1;
+        if (errorStreak >= 5) {
+          clearInterval(poll);
+          statusEl.textContent = 'Réseau indisponible — suivi du job interrompu.';
+        }
+        return;
+      }
       if (j.status !== 'succeeded' && j.status !== 'failed') return;
       statusEl.textContent = j.error ? `${j.type}: ${j.status} — ${j.error}` : `${j.type}: ${j.status}`;
       clearInterval(poll);
@@ -114,30 +128,47 @@
   }
 
   document.getElementById('btn-3d').onclick = async () => {
+    const btn3d = document.getElementById('btn-3d');
+    if (btn3d.disabled) return;
+    btn3d.disabled = true;
     statusEl.textContent = 'Enfilement…';
-    const res = await fetch(`/api/v1/projects/${projectId}/generate-3d`, { method:'POST', headers:{'Accept':'application/json'} });
-    const data = await res.json();
-    if (!res.ok) { statusEl.textContent = data.error?.message || 'Erreur 3D'; return; }
-    statusEl.textContent = `3D job ${data.job_id}`;
-    pollJob(data.job_id);
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/generate-3d`, { method:'POST', headers:{'Accept':'application/json'} });
+      const data = await res.json();
+      if (!res.ok) { statusEl.textContent = data.error?.message || 'Erreur 3D'; return; }
+      statusEl.textContent = `3D job ${data.job_id}`;
+      pollJob(data.job_id);
+    } catch {
+      statusEl.textContent = 'Réseau indisponible';
+    } finally {
+      btn3d.disabled = false;
+    }
   };
 
   document.querySelectorAll('.export-btn').forEach(btn => {
     btn.onclick = async () => {
       if (!revisionId) { alert('Générez un plan d’abord'); return; }
-      const res = await fetch(`/api/v1/revisions/${revisionId}/export`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ format: btn.dataset.export })
-      });
-      if (!res.ok) { alert('Export échoué'); return; }
-      const raw = await res.arrayBuffer();
-      const type = res.headers.get('Content-Type') || 'application/octet-stream';
-      const blob = new Blob([raw], { type });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `plan.${btn.dataset.export}`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      if (btn.disabled) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/v1/revisions/${revisionId}/export`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ format: btn.dataset.export })
+        });
+        if (!res.ok) { alert('Export échoué'); return; }
+        const raw = await res.arrayBuffer();
+        const type = res.headers.get('Content-Type') || 'application/octet-stream';
+        const blob = new Blob([raw], { type });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `plan.${btn.dataset.export}`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch {
+        alert('Export échoué — réseau indisponible');
+      } finally {
+        btn.disabled = false;
+      }
     };
   });
 </script>

@@ -76,8 +76,22 @@
     });
 
     function pollDevisJob(jobId) {
+      let errorStreak = 0;
       const poll = setInterval(async () => {
-        const j = await fetch(`/api/v1/jobs/${jobId}`, { headers: { Accept: 'application/json' } }).then(r => r.json());
+        let j;
+        try {
+          const res = await fetch(`/api/v1/jobs/${jobId}`, { headers: { Accept: 'application/json' } });
+          if (!res.ok) throw new Error('job fetch failed');
+          j = await res.json();
+          errorStreak = 0;
+        } catch {
+          errorStreak += 1;
+          if (errorStreak >= 5) {
+            clearInterval(poll);
+            devisStatus.textContent = 'Réseau indisponible — suivi du devis interrompu.';
+          }
+          return;
+        }
         devisStatus.textContent = j.error ? `${j.status} — ${j.error}` : j.status;
         if (j.status === 'succeeded') {
           clearInterval(poll);
@@ -102,6 +116,8 @@
         const data = await res.json();
         if (!res.ok) { devisStatus.textContent = data.error?.message || 'Erreur'; return; }
         pollDevisJob(data.job_id);
+      } catch {
+        devisStatus.textContent = 'Réseau indisponible';
       } finally {
         devisBtn.disabled = false;
       }

@@ -90,10 +90,12 @@
               window.PlanCompliance.render(plan, document.getElementById('compliance-score'));
               window.PlanCompliance.renderDimensions(plan, document.getElementById('plan-dimensions'));
             }
+            const escapeHtml = (value) => String(value == null ? '' : value)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             const legend = document.getElementById('room-legend');
             if (legend && style) {
               legend.innerHTML = (plan.rooms || []).map((room) => (
-                `<li class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-sm border border-zinc-400" style="background:${style.fill(room)}"></span>${style.label(room)}</li>`
+                `<li class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-sm border border-zinc-400" style="background:${escapeHtml(style.fill(room))}"></span>${escapeHtml(style.label(room))}</li>`
               )).join('');
             }
             const c = document.getElementById('plan-thumb');
@@ -196,8 +198,22 @@
     };
   }
   function pollJob(jobId) {
+    let errorStreak = 0;
     const poll = setInterval(async () => {
-      const j = await fetch(`/api/v1/jobs/${jobId}`, {headers:{'Accept':'application/json'}}).then(r=>r.json());
+      let j;
+      try {
+        const res = await fetch(`/api/v1/jobs/${jobId}`, {headers:{'Accept':'application/json'}});
+        if (!res.ok) throw new Error('job fetch failed');
+        j = await res.json();
+        errorStreak = 0;
+      } catch {
+        errorStreak += 1;
+        if (errorStreak >= 5) {
+          clearInterval(poll);
+          statusEl.textContent = 'Réseau indisponible — suivi du job interrompu.';
+        }
+        return;
+      }
       if (j.status !== 'succeeded' && j.status !== 'failed') return;
       statusEl.textContent = j.error ? `${j.type}: ${j.status} — ${j.error}` : `${j.type}: ${j.status}`;
       clearInterval(poll);
@@ -205,56 +221,81 @@
     }, 1000);
   }
 
+  const genButtons = [document.getElementById('btn-generate'), document.getElementById('btn-redo'), document.getElementById('btn-adapt')].filter(Boolean);
+  function setGenBusy(busy) { genButtons.forEach((b) => { b.disabled = busy; }); }
+
   async function startGenerate({ careful } = {}) {
+    setGenBusy(true);
     statusEl.textContent = careful ? 'On refait le plan, plus attentivement…' : 'Enfilement…';
-    const res = await fetch(`/api/v1/projects/${projectId}/generate`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','Accept':'application/json'},
-      body: JSON.stringify({
-        brief: document.getElementById('brief').value,
-        careful: Boolean(careful),
-        ...parcelBody()
-      })
-    });
-    const data = await res.json();
-    if (!res.ok) { statusEl.textContent = data.error?.message || 'Erreur'; return; }
-    statusEl.textContent = careful ? 'Refaire le plan…' : `Job ${data.job_id} queued`;
-    pollJob(data.job_id);
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/generate`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','Accept':'application/json'},
+        body: JSON.stringify({
+          brief: document.getElementById('brief').value,
+          careful: Boolean(careful),
+          ...parcelBody()
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) { statusEl.textContent = data.error?.message || 'Erreur'; return; }
+      statusEl.textContent = careful ? 'Refaire le plan…' : `Job ${data.job_id} queued`;
+      pollJob(data.job_id);
+    } catch {
+      statusEl.textContent = 'Réseau indisponible';
+    } finally {
+      setGenBusy(false);
+    }
   }
   document.getElementById('btn-generate').onclick = () => startGenerate();
   document.getElementById('btn-redo')?.addEventListener('click', () => startGenerate({ careful: true }));
 
   document.getElementById('btn-adapt')?.addEventListener('click', async () => {
+    setGenBusy(true);
     statusEl.textContent = 'Adaptation…';
-    const res = await fetch(`/api/v1/projects/${projectId}/adapt`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','Accept':'application/json'},
-      body: JSON.stringify(parcelBody())
-    });
-    const data = await res.json();
-    if (!res.ok) { statusEl.textContent = data.error?.message || 'Erreur'; return; }
-    pollJob(data.job_id);
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/adapt`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','Accept':'application/json'},
+        body: JSON.stringify(parcelBody())
+      });
+      const data = await res.json();
+      if (!res.ok) { statusEl.textContent = data.error?.message || 'Erreur'; return; }
+      pollJob(data.job_id);
+    } catch {
+      statusEl.textContent = 'Réseau indisponible';
+    } finally {
+      setGenBusy(false);
+    }
   });
 
   document.querySelectorAll('.export-btn').forEach(btn => {
     btn.onclick = async () => {
       if (!revisionId) { alert('Générez un plan d’abord'); return; }
-      const res = await fetch(`/api/v1/revisions/${revisionId}/export`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ format: btn.dataset.export })
-      });
-      if (!res.ok) { alert('Export échoué'); return; }
-      const raw = await res.arrayBuffer();
-      const type = res.headers.get('Content-Type') || 'application/octet-stream';
-      const blob = new Blob([raw], { type });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      const ext = btn.dataset.export === 'gltf' ? 'gltf' : btn.dataset.export;
-      a.download = `plan.${ext}`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      if (btn.dataset.export === 'dxf') {
-        statusEl.textContent = 'DXF téléchargé — ouvre-le dans QCAD Community ou LibreCAD pour modifier le plan.';
+      if (btn.disabled) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/v1/revisions/${revisionId}/export`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ format: btn.dataset.export })
+        });
+        if (!res.ok) { alert('Export échoué'); return; }
+        const raw = await res.arrayBuffer();
+        const type = res.headers.get('Content-Type') || 'application/octet-stream';
+        const blob = new Blob([raw], { type });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const ext = btn.dataset.export === 'gltf' ? 'gltf' : btn.dataset.export;
+        a.download = `plan.${ext}`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        if (btn.dataset.export === 'dxf') {
+          statusEl.textContent = 'DXF téléchargé — ouvre-le dans QCAD Community ou LibreCAD pour modifier le plan.';
+        }
+      } catch {
+        alert('Export échoué — réseau indisponible');
+      } finally {
+        btn.disabled = false;
       }
     };
   });

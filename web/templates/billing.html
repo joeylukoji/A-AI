@@ -63,12 +63,21 @@
 <script>
   document.querySelectorAll('.checkout-btn').forEach(btn => {
     btn.onclick = async () => {
-      const res = await fetch('/api/v1/billing/checkout', {
-        method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
-        body: JSON.stringify({ plan: btn.dataset.plan })
-      });
-      const data = await res.json();
-      if (data.url) location.href = data.url;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/v1/billing/checkout', {
+          method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
+          body: JSON.stringify({ plan: btn.dataset.plan })
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error?.message || 'Erreur lors du passage au forfait supérieur'); return; }
+        if (data.url) { location.href = data.url; return; }
+      } catch {
+        alert('Réseau indisponible');
+      } finally {
+        btn.disabled = false;
+      }
     };
   });
 </script>

@@ -60,6 +60,13 @@
     return prefix + Math.random().toString(36).slice(2, 8);
   }
   const samePt = (a, b, eps = EPS) => Math.abs(a.x - b.x) < eps && Math.abs(a.y - b.y) < eps;
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 
   function topology() {
     const walls = plan.walls;
@@ -190,7 +197,7 @@
       legend.innerHTML = (plan.rooms || []).map((room) => {
         const name = style ? style.label(room) : (room.name || room.type);
         const color = style ? style.fill(room) : '#ddd';
-        return `<li class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-sm border border-zinc-400" style="background:${color}"></span>${name}</li>`;
+        return `<li class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-sm border border-zinc-400" style="background:${escapeHtml(color)}"></span>${escapeHtml(name)}</li>`;
       }).join('');
     }
 
@@ -477,13 +484,17 @@
   setTool('select');
 
   // ---- sauvegarde -------------------------------------------------------------------
+  let saving = false;
   async function save() {
-    if (!cfg.canEdit) return;
+    if (!cfg.canEdit || saving) return;
     const issue = topology();
     if (issue) {
       status.textContent = issue;
       return;
     }
+    saving = true;
+    const saveBtn = document.getElementById('btn-save');
+    if (saveBtn) saveBtn.disabled = true;
     status.textContent = 'Enregistrement…';
     try {
       const res = await fetch(`/api/v1/projects/${cfg.projectId}/plan`, {
@@ -494,7 +505,8 @@
           base_revision_id: revisionId || null,
         }),
       });
-      const data = await res.json();
+      let data = {};
+      try { data = await res.json(); } catch { /* réponse non-JSON */ }
       if (!res.ok) {
         status.textContent = data.error?.message || 'Erreur';
         return;
@@ -503,6 +515,9 @@
       status.textContent = `Enregistré v${data.version}`;
     } catch {
       status.textContent = 'Réseau indisponible';
+    } finally {
+      saving = false;
+      if (saveBtn) saveBtn.disabled = false;
     }
   }
 
