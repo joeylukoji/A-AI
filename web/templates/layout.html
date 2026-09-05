@@ -67,6 +67,7 @@
 {{define "icon-cube"}}<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>{{end}}
 {{define "icon-pencil"}}<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z"/></svg>{{end}}
 {{define "icon-doc"}}<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>{{end}}
+{{define "icon-shield"}}<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.998 2.25 4.5 5.25v6.045c0 4.69 3.2 9.078 7.498 10.455 4.299-1.377 7.5-5.765 7.5-10.455V5.25l-7.5-3Zm0 6v4.5m0 3h.008v.008h-.008V15.75Z"/></svg>{{end}}
 {{define "icon-card"}}<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z"/></svg>{{end}}
 
 {{define "dash"}}
@@ -101,6 +102,9 @@
         <a href="/projects/{{.Project.ID}}/editor" class="navlink {{if eq .Nav "editor"}}navlink-active{{end}}">{{template "icon-pencil"}} Éditeur</a>
         {{end}}
         <a href="/billing" class="navlink {{if eq .Nav "billing"}}navlink-active{{end}}">{{template "icon-card"}} Abonnement</a>
+        {{if .IsPlatformAdmin}}
+        <a href="/admin" class="navlink {{if eq .Nav "admin"}}navlink-active{{end}}">{{template "icon-shield"}} Administration</a>
+        {{end}}
       </nav>
 
       {{if .Project}}

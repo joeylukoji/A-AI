@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -111,7 +112,7 @@ func TestProjectAndEditorPagesEscapeStoredXSSInPlanDocument(t *testing.T) {
 	for _, pg := range pages {
 		t.Run(pg.name, func(t *testing.T) {
 			rr := httptest.NewRecorder()
-			srv.render(rr, pg.name, pg.data)
+			srv.render(rr, httptest.NewRequest(http.MethodGet, "/", nil), pg.name, pg.data)
 			body := rr.Body.String()
 			if rr.Code >= 400 {
 				t.Fatalf("render failed: status %d body %s", rr.Code, body)

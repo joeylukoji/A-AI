@@ -15,6 +15,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/a-ai/a-ai/internal/admin"
 	"github.com/a-ai/a-ai/internal/artifact"
 	"github.com/a-ai/a-ai/internal/auth"
 	"github.com/a-ai/a-ai/internal/billing"
@@ -47,7 +48,7 @@ func idorTestServer(t *testing.T) *Server {
 		t.Skip("schema not migrated")
 	}
 
-	authSvc := auth.NewService(db)
+	authSvc := auth.NewService(db, nil)
 	projects := project.NewService(db)
 	jobsSvc := jobs.NewService(db, nil, "", "", slog.New(slog.NewTextHandler(io.Discard, nil)))
 	billingSvc := billing.NewService(db, "", "", "")
@@ -58,7 +59,7 @@ func idorTestServer(t *testing.T) *Server {
 	cfg := config.Config{InternalToken: "tok", AppEnv: "test"}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	return New(cfg, log, authSvc, projects, jobsSvc, billingSvc, artifacts, nil, nil, tmpl, static)
+	return New(cfg, log, authSvc, projects, jobsSvc, billingSvc, artifacts, admin.NewService(db), nil, nil, tmpl, static)
 }
 
 // registeredUser signs up a fresh user+org and returns their session token,

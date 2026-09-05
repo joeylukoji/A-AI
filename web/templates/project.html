@@ -79,65 +79,7 @@
         <script type="application/json" id="plan-thumb-data">{{.PlanJSON}}</script>
         <script src="/static/js/plan-style.js"></script>
         <script src="/static/js/plan-compliance.js"></script>
-        <script>
-          (function () {
-            const el = document.getElementById('plan-thumb-data');
-            const style = window.PlanStyle;
-            if (!el) return;
-            let plan;
-            try { plan = JSON.parse(el.textContent || '{}'); } catch { return; }
-            if (window.PlanCompliance) {
-              window.PlanCompliance.render(plan, document.getElementById('compliance-score'));
-              window.PlanCompliance.renderDimensions(plan, document.getElementById('plan-dimensions'));
-            }
-            const escapeHtml = (value) => String(value == null ? '' : value)
-              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-            const legend = document.getElementById('room-legend');
-            if (legend && style) {
-              legend.innerHTML = (plan.rooms || []).map((room) => (
-                `<li class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-sm border border-zinc-400" style="background:${escapeHtml(style.fill(room))}"></span>${escapeHtml(style.label(room))}</li>`
-              )).join('');
-            }
-            const c = document.getElementById('plan-thumb');
-            if (!c) return;
-            const ctx = c.getContext('2d');
-            const scale = 24, pad = 28;
-            const bw = (plan.floor && plan.floor.bounds && plan.floor.bounds.width) || 12;
-            const bd = (plan.floor && plan.floor.bounds && plan.floor.bounds.depth) || 10;
-            const toScreen = (p) => ({ x: pad + p.x * scale, y: pad + p.y * scale });
-            if (style && style.drawSite) style.drawSite(ctx, bw, bd, toScreen, c.width, c.height);
-            else { ctx.fillStyle = '#f7f4ef'; ctx.fillRect(0, 0, c.width, c.height); }
-            (plan.rooms || []).forEach((room) => {
-              if (!room.polygon || room.polygon.length < 3) return;
-              if (style && style.drawFloor) style.drawFloor(ctx, room, toScreen);
-              if (style && !(plan.furniture || []).length) style.drawFixtures(ctx, room, toScreen);
-            });
-            if (style && (plan.furniture || []).length) style.drawFurniture(ctx, plan.furniture, toScreen);
-            if (style && style.drawPorch) style.drawPorch(ctx, plan.openings, plan.walls, bd, toScreen);
-            if (style && style.drawWalls) style.drawWalls(ctx, plan.walls, toScreen, scale);
-            else {
-              (plan.walls || []).forEach((w) => {
-                ctx.beginPath();
-                ctx.moveTo(pad + w.a.x * scale, pad + w.a.y * scale);
-                ctx.lineTo(pad + w.b.x * scale, pad + w.b.y * scale);
-                ctx.strokeStyle = '#585856';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-              });
-            }
-            if (style && style.drawOpenings) style.drawOpenings(ctx, plan.openings, plan.walls, toScreen, scale);
-            (plan.rooms || []).forEach((room) => {
-              if (!room.polygon || room.polygon.length < 3) return;
-              const c0 = room.polygon.reduce((a, p) => ({ x: a.x + p.x, y: a.y + p.y }), { x: 0, y: 0 });
-              c0.x /= room.polygon.length;
-              c0.y /= room.polygon.length;
-              const text = style ? style.label(room) : (room.name || room.type || '');
-              ctx.fillStyle = '#1c1917';
-              ctx.font = 'bold 11px sans-serif';
-              ctx.fillText(text, pad + c0.x * scale - ctx.measureText(text).width / 2, pad + c0.y * scale);
-            });
-          })();
-        </script>
+        <script src="/static/js/plan-thumb.js"></script>
         {{end}}
       </div>
 
@@ -155,6 +97,38 @@
           <summary class="cursor-pointer text-zinc-400 font-semibold">PlanDocument JSON</summary>
           <pre id="plan-preview" class="mt-2 text-[10px] overflow-auto max-h-72 rounded-xl bg-zinc-100 dark:bg-zinc-950 border border-line dark:border-zinc-850 p-3">{{if .Revision}}{{printf "%s" .Revision.PlanDocument}}{{else}}Aucun plan généré.{{end}}</pre>
         </details>
+      </div>
+
+      <div class="card p-5 space-y-3 animate-blur-slide stagger-4">
+        <div class="flex items-center justify-between gap-3">
+          <p class="section-title">Historique des plans</p>
+          <span class="badge bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{{len .Revisions}} version(s)</span>
+        </div>
+        <p class="text-[10px] text-zinc-400">Chaque génération crée une nouvelle version. Les précédentes restent enregistrées et peuvent être restaurées.</p>
+        <ul class="space-y-2" id="revision-history">
+          {{range .Revisions}}
+          <li class="flex items-center justify-between gap-3 rounded-xl border border-line dark:border-zinc-850 px-3 py-2 {{if .IsCurrent}}bg-teal-500/5 border-teal-500/40{{end}}">
+            <div class="min-w-0">
+              <p class="text-xs font-bold flex items-center gap-2">
+                v{{.Version}}
+                {{if .IsCurrent}}<span class="badge bg-teal-500/10 text-teal-600 dark:text-teal-400">actuelle</span>{{end}}
+                <span class="badge bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{{.Source}}</span>
+                {{if .ComplianceScore}}
+                <span class="badge {{if ge .ComplianceScore 80}}bg-emerald-500/10 text-emerald-500{{else if ge .ComplianceScore 50}}bg-amber-500/10 text-amber-500{{else}}bg-red-500/10 text-red-500{{end}}">{{.ComplianceScore}}/100 {{.ComplianceGrade}}</span>
+                {{end}}
+              </p>
+              <p class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                {{.CreatedAt.Format "02/01/2006 15:04"}} · {{.RoomCount}} pièce(s){{if .HasPreview}} · aperçu{{end}}
+              </p>
+            </div>
+            {{if not .IsCurrent}}
+            <button type="button" class="btn-line text-[11px] shrink-0 restore-btn" data-revision="{{.ID}}">Restaurer</button>
+            {{end}}
+          </li>
+          {{else}}
+          <li class="text-xs text-zinc-500 dark:text-zinc-400">Aucun plan généré pour l'instant.</li>
+          {{end}}
+        </ul>
       </div>
     </div>
   </div>
@@ -267,6 +241,33 @@
     } finally {
       setGenBusy(false);
     }
+  });
+
+  document.querySelectorAll('.restore-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const previous = btn.textContent;
+      btn.textContent = 'Restauration…';
+      try {
+        const res = await fetch(`/api/v1/projects/${projectId}/revisions/${btn.dataset.revision}/restore`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json','Accept':'application/json'}
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          statusEl.textContent = data.error?.message || 'Restauration impossible';
+          btn.textContent = previous;
+          btn.disabled = false;
+          return;
+        }
+        location.reload();
+      } catch {
+        statusEl.textContent = 'Réseau indisponible';
+        btn.textContent = previous;
+        btn.disabled = false;
+      }
+    });
   });
 
   document.querySelectorAll('.export-btn').forEach(btn => {

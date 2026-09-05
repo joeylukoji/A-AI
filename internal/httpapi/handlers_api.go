@@ -599,6 +599,38 @@ func (s *Server) handleSavePlan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, rev)
 }
 
+// handleRestoreRevision makes a previously generated plan the current one.
+// Generating a new plan never deletes the old revisions (they are all in
+// plan_revisions); this is what lets a user actually go back to one.
+func (s *Server) handleRestoreRevision(w http.ResponseWriter, r *http.Request) {
+	p := principal(r)
+	if !p.Role.CanEdit() {
+		writeErr(w, http.StatusForbidden, "forbidden", "insufficient role")
+		return
+	}
+	projectID, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeErr(w, 404, "not_found", "project not found")
+		return
+	}
+	revisionID, err := uuid.Parse(r.PathValue("revisionID"))
+	if err != nil {
+		writeErr(w, 404, "not_found", "revision not found")
+		return
+	}
+	// SetCurrentRevision checks org ownership and the project/revision pairing
+	// in one statement, so no extra lookup is needed here.
+	if err := s.projects.SetCurrentRevision(r.Context(), p.Org.ID, projectID, revisionID); err != nil {
+		if errors.Is(err, project.ErrNotFound) {
+			writeErr(w, 404, "not_found", "revision not found")
+			return
+		}
+		s.internalError(w, r, err)
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true, "current_revision_id": revisionID})
+}
+
 func (s *Server) handleListRevisions(w http.ResponseWriter, r *http.Request) {
 	p := principal(r)
 	id, err := uuid.Parse(r.PathValue("id"))

@@ -18,7 +18,7 @@ func TestHealthz(t *testing.T) {
 	static := fstest.MapFS{"app.css": &fstest.MapFile{Data: []byte("body{}")}}
 	cfg := config.Config{InternalToken: "tok", AppEnv: "test"}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	srv := New(cfg, log, nil, nil, nil, nil, nil, nil, nil, tmpl, static)
+	srv := New(cfg, log, nil, nil, nil, nil, nil, nil, nil, nil, tmpl, static)
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rr := httptest.NewRecorder()

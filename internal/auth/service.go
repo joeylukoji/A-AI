@@ -25,10 +25,26 @@ var (
 
 type Service struct {
 	db *sql.DB
+	// adminEmails mirrors ADMIN_EMAILS. Authenticate treats it as an override
+	// on top of users.is_platform_admin so a newly registered administrator
+	// gets access immediately: the boot-time DB sync only covers accounts that
+	// already existed when the process started.
+	adminEmails map[string]bool
 }
 
-func NewService(db *sql.DB) *Service {
-	return &Service{db: db}
+func NewService(db *sql.DB, adminEmails []string) *Service {
+	set := make(map[string]bool, len(adminEmails))
+	for _, e := range adminEmails {
+		if e = strings.ToLower(strings.TrimSpace(e)); e != "" {
+			set[e] = true
+		}
+	}
+	return &Service{db: db, adminEmails: set}
+}
+
+// IsConfiguredAdmin reports whether an email is listed in ADMIN_EMAILS.
+func (s *Service) IsConfiguredAdmin(email string) bool {
+	return s.adminEmails[strings.ToLower(strings.TrimSpace(email))]
 }
 
 type Session struct {
@@ -162,6 +178,10 @@ type Principal struct {
 	User domain.User
 	Org  domain.Org
 	Role domain.Role
+	// IsPlatformAdmin is the cross-org administrator flag (users.is_platform_admin),
+	// granted from ADMIN_EMAILS at boot. It is unrelated to Role, which only
+	// carries rights inside the current org.
+	IsPlatformAdmin bool
 }
 
 func (s *Service) Authenticate(ctx context.Context, token string) (*Principal, error) {
@@ -172,7 +192,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (*Principal, e
 	var p Principal
 	var orgID uuid.UUID
 	err := s.db.QueryRowContext(ctx, `
-		SELECT u.id, u.email, u.name, o.id, o.name, o.slug, m.role
+		SELECT u.id, u.email, u.name, o.id, o.name, o.slug, m.role, u.is_platform_admin
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
 		JOIN orgs o ON o.id = s.org_id
@@ -180,7 +200,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (*Principal, e
 		WHERE s.token_hash=$1 AND s.expires_at > now()
 	`, hex.EncodeToString(sum[:])).Scan(
 		&p.User.ID, &p.User.Email, &p.User.Name,
-		&orgID, &p.Org.Name, &p.Org.Slug, &p.Role,
+		&orgID, &p.Org.Name, &p.Org.Slug, &p.Role, &p.IsPlatformAdmin,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -189,6 +209,11 @@ func (s *Service) Authenticate(ctx context.Context, token string) (*Principal, e
 		return nil, err
 	}
 	p.Org.ID = orgID
+	// ADMIN_EMAILS wins over the stored column so adding an address takes
+	// effect on the next request rather than the next restart.
+	if !p.IsPlatformAdmin && s.IsConfiguredAdmin(p.User.Email) {
+		p.IsPlatformAdmin = true
+	}
 	return &p, nil
 }
 

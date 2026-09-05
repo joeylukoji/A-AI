@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/a-ai/a-ai/internal/admin"
 	"github.com/a-ai/a-ai/internal/artifact"
 	"github.com/a-ai/a-ai/internal/auth"
 	"github.com/a-ai/a-ai/internal/billing"
@@ -63,7 +64,7 @@ func main() {
 		log.Warn("redis ping failed, SSE/queues degraded", "err", err)
 	}
 
-	authSvc := auth.NewService(db.SQL)
+	authSvc := auth.NewService(db.SQL, cfg.AdminEmails)
 	if cfg.AppEnv == "production" {
 		// Never auto-provision the well-known demo@a-ai.local / demo-demo-demo
 		// credentials in production: they are public (committed in docs/README)
@@ -73,10 +74,21 @@ func main() {
 		log.Warn("demo user", "err", err)
 	}
 
+	// ADMIN_EMAILS is the single source of truth for platform administrators:
+	// applied on every boot, so removing an address revokes the access.
+	if err := db.GrantPlatformAdmins(ctx, cfg.AdminEmails); err != nil {
+		log.Error("grant platform admins", "err", err)
+		os.Exit(1)
+	}
+	if len(cfg.AdminEmails) > 0 {
+		log.Info("platform admins configured", "count", len(cfg.AdminEmails))
+	}
+
 	projects := project.NewService(db.SQL)
 	jobsSvc := jobs.NewService(db.SQL, rdb, cfg.AIBaseURL, cfg.InternalToken, log)
 	billingSvc := billing.NewService(db.SQL, cfg.StripeSecretKey, cfg.StripePricePro, cfg.StripePriceBur)
 	artifacts := artifact.NewService(db.SQL)
+	adminSvc := admin.NewService(db.SQL)
 	storeClient, err := storage.New(cfg)
 	if err != nil {
 		log.Error("storage", "err", err)
@@ -94,7 +106,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	srv := httpapi.New(cfg, log, authSvc, projects, jobsSvc, billingSvc, artifacts, storeClient, rdb, tmpl, staticFS)
+	srv := httpapi.New(cfg, log, authSvc, projects, jobsSvc, billingSvc, artifacts, adminSvc, storeClient, rdb, tmpl, staticFS)
 	httpServer := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           srv.Handler(),

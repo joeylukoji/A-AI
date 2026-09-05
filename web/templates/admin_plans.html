@@ -1,0 +1,79 @@
+{{template "header" .}}
+{{template "dash" .}}
+
+<div class="max-w-6xl mx-auto space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-3 animate-blur-slide">
+    <div>
+      <h2 class="font-extrabold text-xl tracking-tight">Tous les plans générés</h2>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{{.Total}} plan(s) enregistré(s), toutes organisations confondues.</p>
+    </div>
+    <a href="/admin" class="btn-line">← Tableau de bord</a>
+  </div>
+
+  <form method="get" action="/admin/plans" class="card p-4 flex flex-wrap gap-3 items-end animate-blur-slide stagger-1">
+    <div class="flex-1 min-w-[16rem]">
+      <label class="label" for="q">Rechercher</label>
+      <input id="q" name="q" value="{{.Search}}" class="input" placeholder="Projet, organisation ou email de l'auteur"/>
+    </div>
+    <button class="btn-accent">Filtrer</button>
+    {{if .Search}}<a href="/admin/plans" class="btn-line">Réinitialiser</a>{{end}}
+  </form>
+
+  <div class="card p-5 space-y-3 animate-blur-slide stagger-2">
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-left text-zinc-400 border-b border-line dark:border-zinc-850">
+            <th class="py-2 pr-3 font-semibold">Projet</th>
+            <th class="py-2 pr-3 font-semibold">Organisation</th>
+            <th class="py-2 pr-3 font-semibold">Auteur</th>
+            <th class="py-2 pr-3 font-semibold">Version</th>
+            <th class="py-2 pr-3 font-semibold">Pièces</th>
+            <th class="py-2 pr-3 font-semibold">Conformité</th>
+            <th class="py-2 pr-3 font-semibold">Date</th>
+            <th class="py-2 font-semibold"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Plans}}
+          <tr class="border-b border-line/60 dark:border-zinc-850/60">
+            <td class="py-2 pr-3 font-semibold truncate max-w-[13rem]">{{.ProjectName}}</td>
+            <td class="py-2 pr-3 text-zinc-500 dark:text-zinc-400 truncate max-w-[11rem]">{{.OrgName}}</td>
+            <td class="py-2 pr-3 text-zinc-500 dark:text-zinc-400 truncate max-w-[13rem]">{{.AuthorEmail}}</td>
+            <td class="py-2 pr-3">
+              v{{.Version}}
+              {{if .IsCurrent}}<span class="badge bg-teal-500/10 text-teal-600 dark:text-teal-400">actuelle</span>{{end}}
+              <span class="text-zinc-400">{{.Source}}</span>
+            </td>
+            <td class="py-2 pr-3">{{.RoomCount}}</td>
+            <td class="py-2 pr-3">
+              {{if .ComplianceScore}}
+              <span class="badge {{if ge .ComplianceScore 80}}bg-emerald-500/10 text-emerald-500{{else if ge .ComplianceScore 50}}bg-amber-500/10 text-amber-500{{else}}bg-red-500/10 text-red-500{{end}}">{{.ComplianceScore}}/100 {{.ComplianceGrade}}</span>
+              {{else}}<span class="text-zinc-400">—</span>{{end}}
+            </td>
+            <td class="py-2 pr-3 text-zinc-500 dark:text-zinc-400">{{.CreatedAt.Format "02/01/2006 15:04"}}</td>
+            <td class="py-2"><a href="/admin/plans/{{.RevisionID}}" class="text-teal-600 dark:text-teal-400 font-semibold">Ouvrir</a></td>
+          </tr>
+          {{else}}
+          <tr><td colspan="8" class="py-8 text-center text-zinc-400">Aucun plan ne correspond à cette recherche.</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex items-center justify-between gap-3 pt-2">
+      <p class="text-[11px] text-zinc-400">Page {{.Page}} / {{.LastPage}}</p>
+      <div class="flex gap-2">
+        {{if gt .Page 1}}
+        <a href="/admin/plans?q={{.Search}}&page={{.PrevPage}}" class="btn-line text-[11px]">← Précédent</a>
+        {{end}}
+        {{if lt .Page .LastPage}}
+        <a href="/admin/plans?q={{.Search}}&page={{.NextPage}}" class="btn-line text-[11px]">Suivant →</a>
+        {{end}}
+      </div>
+    </div>
+  </div>
+</div>
+
+{{template "dash_end" .}}
+{{template "footer" .}}

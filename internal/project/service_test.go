@@ -211,3 +211,138 @@ func TestEmptyPlanDocumentIsValidJSON(t *testing.T) {
 		t.Fatalf("unexpected bounds: %#v", bounds)
 	}
 }
+
+// TestListRevisionSummariesReturnsFullHistory is the regression test for the
+// bug where generating a new plan appeared to wipe the previous ones: every
+// generation inserts a new plan_revisions row, but nothing ever listed them,
+// so the UI only ever showed the current one. All versions must come back,
+// newest first, with exactly one flagged as current.
+func TestListRevisionSummariesReturnsFullHistory(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	ctx := context.Background()
+
+	orgID, userID := seedOrgProjectUser(t, db)
+	proj, err := svc.Create(ctx, orgID, userID, "Historique", "brief")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var revIDs []uuid.UUID
+	for i := 0; i < 3; i++ {
+		rev, err := svc.SaveRevision(ctx, proj.ID, userID, "ai", EmptyPlanDocument(10, 8), nil, "", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		revIDs = append(revIDs, rev.ID)
+	}
+
+	list, err := svc.ListRevisionSummaries(ctx, proj.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 3 {
+		t.Fatalf("expected all 3 generated plans in the history, got %d", len(list))
+	}
+	// Newest first.
+	if list[0].Version != 3 || list[2].Version != 1 {
+		t.Fatalf("expected versions 3,2,1 newest-first, got %d,%d,%d",
+			list[0].Version, list[1].Version, list[2].Version)
+	}
+	current := 0
+	for _, it := range list {
+		if it.IsCurrent {
+			current++
+			if it.ID != revIDs[len(revIDs)-1] {
+				t.Errorf("current revision should be the last saved one")
+			}
+		}
+	}
+	if current != 1 {
+		t.Fatalf("expected exactly 1 revision flagged current, got %d", current)
+	}
+}
+
+// TestSetCurrentRevisionRestoresAnOlderPlan covers the "Restaurer" button:
+// an older revision can be made current again, and the history still holds
+// every version afterwards (restoring must not delete anything).
+func TestSetCurrentRevisionRestoresAnOlderPlan(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	ctx := context.Background()
+
+	orgID, userID := seedOrgProjectUser(t, db)
+	proj, err := svc.Create(ctx, orgID, userID, "Restore", "brief")
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := svc.SaveRevision(ctx, proj.ID, userID, "ai", EmptyPlanDocument(10, 8), nil, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SaveRevision(ctx, proj.ID, userID, "ai", EmptyPlanDocument(12, 9), nil, "", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.SetCurrentRevision(ctx, orgID, proj.ID, first.ID); err != nil {
+		t.Fatalf("restoring the first revision should succeed: %v", err)
+	}
+	got, err := svc.Get(ctx, orgID, proj.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CurrentRevisionID == nil || *got.CurrentRevisionID != first.ID {
+		t.Fatalf("current revision should be the restored one")
+	}
+	list, err := svc.ListRevisionSummaries(ctx, proj.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("restoring must not drop revisions, got %d", len(list))
+	}
+}
+
+// TestSetCurrentRevisionIsScopedToOrgAndProject makes sure the restore path
+// can't be used as an IDOR: neither another org's request nor a revision id
+// belonging to a different project may be attached to a project.
+func TestSetCurrentRevisionIsScopedToOrgAndProject(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	ctx := context.Background()
+
+	ownerOrg, ownerUser := seedOrgProjectUser(t, db)
+	otherOrg, otherUser := seedOrgProjectUser(t, db)
+
+	victim, err := svc.Create(ctx, ownerOrg, ownerUser, "Victim", "brief")
+	if err != nil {
+		t.Fatal(err)
+	}
+	victimRev, err := svc.SaveRevision(ctx, victim.ID, ownerUser, "ai", EmptyPlanDocument(10, 8), nil, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attacker, err := svc.Create(ctx, otherOrg, otherUser, "Attacker", "brief")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SaveRevision(ctx, attacker.ID, otherUser, "ai", EmptyPlanDocument(10, 8), nil, "", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.SetCurrentRevision(ctx, otherOrg, victim.ID, victimRev.ID); err != ErrNotFound {
+		t.Fatalf("another org must not restore a revision on someone else's project: err=%v", err)
+	}
+	// Cross-project: attacker owns the project, but the revision is the victim's.
+	if err := svc.SetCurrentRevision(ctx, otherOrg, attacker.ID, victimRev.ID); err != ErrNotFound {
+		t.Fatalf("a revision from another project must not be attachable: err=%v", err)
+	}
+	// The victim project is untouched.
+	got, err := svc.Get(ctx, ownerOrg, victim.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CurrentRevisionID == nil || *got.CurrentRevisionID != victimRev.ID {
+		t.Fatal("victim project's current revision must be unchanged")
+	}
+}

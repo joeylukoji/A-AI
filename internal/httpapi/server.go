@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/a-ai/a-ai/internal/admin"
 	"github.com/a-ai/a-ai/internal/artifact"
 	"github.com/a-ai/a-ai/internal/auth"
 	"github.com/a-ai/a-ai/internal/billing"
@@ -27,6 +28,7 @@ type Server struct {
 	jobs      *jobs.Service
 	billing   *billing.Service
 	artifacts *artifact.Service
+	admin     *admin.Service
 	storage   *storage.Client
 	rdb       *redis.Client
 	tmpl      *template.Template
@@ -45,6 +47,7 @@ func New(
 	jobsSvc *jobs.Service,
 	billingSvc *billing.Service,
 	artifacts *artifact.Service,
+	adminSvc *admin.Service,
 	store *storage.Client,
 	rdb *redis.Client,
 	tmpl *template.Template,
@@ -52,7 +55,7 @@ func New(
 ) *Server {
 	s := &Server{
 		cfg: cfg, log: log, auth: authSvc, projects: projects, jobs: jobsSvc,
-		billing: billingSvc, artifacts: artifacts, storage: store, rdb: rdb, tmpl: tmpl, static: static,
+		billing: billingSvc, artifacts: artifacts, admin: adminSvc, storage: store, rdb: rdb, tmpl: tmpl, static: static,
 		mux: http.NewServeMux(),
 		// Generous global ceiling (mainly a DoS/runaway-client backstop): ~10 req/s
 		// sustained, bursts of 40. Tighter limiter below on login/register only.
@@ -99,6 +102,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/projects/{id}/devis", s.requireAuth(s.handleGenerateDevis))
 	s.mux.HandleFunc("PUT /api/v1/projects/{id}/plan", s.requireAuth(s.handleSavePlan))
 	s.mux.HandleFunc("GET /api/v1/projects/{id}/revisions", s.requireAuth(s.handleListRevisions))
+	s.mux.HandleFunc("POST /api/v1/projects/{id}/revisions/{revisionID}/restore", s.requireAuth(s.handleRestoreRevision))
 	s.mux.HandleFunc("GET /api/v1/projects/{id}/preview", s.requireAuth(s.handleProjectPreview))
 	s.mux.HandleFunc("GET /api/v1/projects/{id}/artifacts", s.requireAuth(s.handleListArtifacts))
 	s.mux.HandleFunc("GET /api/v1/events", s.requireAuth(s.handleOrgSSE))
@@ -110,6 +114,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/billing/usage", s.requireAuth(s.handleUsage))
 	s.mux.HandleFunc("POST /api/v1/billing/checkout", s.requireAuth(s.handleCheckout))
 	s.mux.HandleFunc("POST /webhooks/stripe", s.handleStripeWebhook)
+
+	// Platform administration (cross-organisation, read-only). requireAdmin
+	// wraps requireAuth and additionally demands users.is_platform_admin.
+	s.mux.HandleFunc("GET /admin", s.requireAdmin(s.handleAdminDashboard))
+	s.mux.HandleFunc("GET /admin/plans", s.requireAdmin(s.handleAdminPlansPage))
+	s.mux.HandleFunc("GET /admin/plans/{id}", s.requireAdmin(s.handleAdminPlanDetail))
+	s.mux.HandleFunc("GET /admin/plans/{id}/preview", s.requireAdmin(s.handleAdminPlanPreview))
+	s.mux.HandleFunc("GET /api/v1/admin/plans", s.requireAdmin(s.handleAdminPlansAPI))
 
 	s.mux.HandleFunc("POST /internal/jobs/{id}/complete", s.handleInternalComplete)
 	s.mux.HandleFunc("POST /internal/jobs/{id}/running", s.handleInternalRunning)

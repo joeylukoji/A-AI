@@ -65,6 +65,8 @@ services:
     environment:
       DATABASE_URL: postgres://aai:aai@postgres:5432/aai?sslmode=disable
       REDIS_URL: redis://redis:6379/0
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev-internal-token}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       AI_BASE_URL: http://ai:8000
       S3_ENDPOINT: http://minio:9000
       QCAD_URL: http://qcad:9090
@@ -94,9 +96,11 @@ services:
     environment:
       AI_STUB: "1"
       REDIS_URL: redis://redis:6379/0
-      INTERNAL_TOKEN: dev-internal-token
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev-internal-token}
       API_CALLBACK_BASE: http://api:8080
       TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
+      EDENAI_API_KEY: ${EDENAI_API_KEY:-}
+      EDENAI_IMAGE_MODEL: ${EDENAI_IMAGE_MODEL:-image/generation/google/gemini-3-pro-image-preview}
       IMAGE_BACKEND: ${IMAGE_BACKEND:-together}
       TOGETHER_IMAGE_MODEL: ${TOGETHER_IMAGE_MODEL:-black-forest-labs/FLUX.2-max}
       TOGETHER_IMAGE_STYLE: ${TOGETHER_IMAGE_STYLE:-illustration}
@@ -132,7 +136,7 @@ services:
       AI_STUB: "0"
       BLENDER_BIN: /usr/local/bin/blender
       REDIS_URL: redis://redis:6379/0
-      INTERNAL_TOKEN: dev-internal-token
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev-internal-token}
       API_CALLBACK_BASE: http://api:8080
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY: minioadmin

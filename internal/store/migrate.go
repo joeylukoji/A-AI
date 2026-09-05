@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 const schema = `
@@ -128,6 +129,54 @@ func (d *DB) Migrate(ctx context.Context) error {
 		ALTER TABLE plan_revisions ADD COLUMN IF NOT EXISTS compliance JSONB;
 	`); err != nil {
 		return fmt.Errorf("migrate compliance: %w", err)
+	}
+	// Platform administrator flag: distinct from the per-org membership role
+	// (owner/architect/viewer), which only grants rights inside one org. A
+	// platform admin can see every org's plans from /admin.
+	if _, err := d.SQL.ExecContext(ctx, `
+		ALTER TABLE users ADD COLUMN IF NOT EXISTS is_platform_admin BOOLEAN NOT NULL DEFAULT false;
+	`); err != nil {
+		return fmt.Errorf("migrate is_platform_admin: %w", err)
+	}
+	return nil
+}
+
+// GrantPlatformAdmins flags the given emails as platform administrators and
+// revokes the flag from everyone else, so ADMIN_EMAILS stays the single
+// source of truth: removing an address from the env var actually removes the
+// access on the next boot. Called at startup with the parsed ADMIN_EMAILS.
+// With an empty list it revokes every admin (fail closed rather than leaving
+// a forgotten admin behind).
+func (d *DB) GrantPlatformAdmins(ctx context.Context, emails []string) error {
+	if len(emails) == 0 {
+		_, err := d.SQL.ExecContext(ctx,
+			`UPDATE users SET is_platform_admin=false WHERE is_platform_admin`)
+		if err != nil {
+			return fmt.Errorf("revoke platform admins: %w", err)
+		}
+		return nil
+	}
+	// Passed as one comma-separated string and split server-side rather than
+	// bound as a text[]: array binding depends on driver-specific handling of
+	// []string, string_to_array works the same everywhere. Emails are
+	// lowercased on both sides so the match is case-insensitive regardless of
+	// the column type.
+	lowered := make([]string, 0, len(emails))
+	for _, e := range emails {
+		e = strings.ToLower(strings.TrimSpace(e))
+		if e != "" {
+			lowered = append(lowered, e)
+		}
+	}
+	if len(lowered) == 0 {
+		return d.GrantPlatformAdmins(ctx, nil)
+	}
+	if _, err := d.SQL.ExecContext(ctx, `
+		UPDATE users
+		SET is_platform_admin = (lower(email::text) = ANY(string_to_array($1, ',')))
+		WHERE is_platform_admin <> (lower(email::text) = ANY(string_to_array($1, ',')))
+	`, strings.Join(lowered, ",")); err != nil {
+		return fmt.Errorf("grant platform admins: %w", err)
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -25,6 +26,10 @@ type Config struct {
 	StripePriceBur    string
 	AppEnv            string
 	TrustProxyHeaders bool
+	// AdminEmails lists the platform administrators (comma-separated in
+	// ADMIN_EMAILS). They are the only accounts allowed into /admin, which
+	// shows plans across every organisation.
+	AdminEmails []string
 }
 
 // devDefaults maps each secret-bearing field to the placeholder value shipped
@@ -36,7 +41,7 @@ func Load() Config {
 		DatabaseURL:       getenv("DATABASE_URL", "postgres://aai:aai@localhost:5432/aai?sslmode=disable"),
 		RedisURL:          getenv("REDIS_URL", "redis://localhost:6379/0"),
 		SessionSecret:     getenv("SESSION_SECRET", "dev-secret-change-me"),
-		InternalToken:     getenv("INTERNAL_TOKEN", "dev-internal-token"),
+		InternalToken:     strings.TrimSpace(getenv("INTERNAL_TOKEN", "dev-internal-token")),
 		AIBaseURL:         getenv("AI_BASE_URL", "http://localhost:8000"),
 		PublicBaseURL:     getenv("PUBLIC_BASE_URL", "http://localhost:8080"),
 		S3Endpoint:        getenv("S3_ENDPOINT", "http://localhost:9000"),
@@ -50,7 +55,24 @@ func Load() Config {
 		StripePriceBur:    os.Getenv("STRIPE_PRICE_BUREAU"),
 		AppEnv:            getenv("APP_ENV", "development"),
 		TrustProxyHeaders: getenvBool("TRUST_PROXY_HEADERS", false),
+		AdminEmails:       parseEmailList(os.Getenv("ADMIN_EMAILS")),
 	}
+}
+
+// parseEmailList splits a comma-separated ADMIN_EMAILS value, trimming blanks
+// and lowercasing, so " A@b.com , ,c@d.com " yields ["a@b.com" "c@d.com"].
+func parseEmailList(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if e := strings.ToLower(strings.TrimSpace(p)); e != "" {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // Validate rejects configurations that would be unsafe to run in production:

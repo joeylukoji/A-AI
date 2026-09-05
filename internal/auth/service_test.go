@@ -23,3 +23,34 @@ func TestSlugifyUniqueSuffix(t *testing.T) {
 		t.Fatal("expected unique suffixes")
 	}
 }
+
+// TestIsConfiguredAdminNormalisesEmails covers the ADMIN_EMAILS override that
+// makes a platform administrator effective immediately: the boot-time DB sync
+// only flags accounts that already exist, so an admin who registers after the
+// process started would otherwise be locked out of /admin until a restart.
+func TestIsConfiguredAdminNormalisesEmails(t *testing.T) {
+	svc := NewService(nil, []string{" Boss@Example.COM ", "", "second@example.com"})
+
+	for _, email := range []string{"boss@example.com", "BOSS@EXAMPLE.COM", " boss@example.com "} {
+		if !svc.IsConfiguredAdmin(email) {
+			t.Errorf("%q should be recognised as a configured admin", email)
+		}
+	}
+	if !svc.IsConfiguredAdmin("second@example.com") {
+		t.Error("second configured admin should be recognised")
+	}
+	for _, email := range []string{"someone@example.com", "", "boss@example.com.evil.tld"} {
+		if svc.IsConfiguredAdmin(email) {
+			t.Errorf("%q must NOT be treated as an admin", email)
+		}
+	}
+}
+
+// TestNoConfiguredAdminsWhenListEmpty is the fail-closed case: with
+// ADMIN_EMAILS unset, no email may be considered an administrator.
+func TestNoConfiguredAdminsWhenListEmpty(t *testing.T) {
+	svc := NewService(nil, nil)
+	if svc.IsConfiguredAdmin("anyone@example.com") {
+		t.Fatal("no one should be an admin when ADMIN_EMAILS is empty")
+	}
+}

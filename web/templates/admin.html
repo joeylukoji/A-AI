@@ -1,0 +1,110 @@
+{{template "header" .}}
+{{template "dash" .}}
+
+<div class="max-w-6xl mx-auto space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-3 animate-blur-slide">
+    <div>
+      <h2 class="font-extrabold text-xl tracking-tight">Administration</h2>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Vue plateforme — toutes les organisations et tous les plans générés.</p>
+    </div>
+    <a href="/admin/plans" class="btn-dark">Tous les plans</a>
+  </div>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 animate-blur-slide stagger-1">
+    <div class="card p-4">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Plans générés</p>
+      <p class="text-2xl font-black mt-1">{{.Stats.Plans}}</p>
+      <p class="text-[10px] text-teal-600 dark:text-teal-400 mt-1">+{{.Stats.PlansLast24h}} sur 24 h</p>
+    </div>
+    <div class="card p-4">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Projets</p>
+      <p class="text-2xl font-black mt-1">{{.Stats.Projects}}</p>
+    </div>
+    <div class="card p-4">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Organisations</p>
+      <p class="text-2xl font-black mt-1">{{.Stats.Orgs}}</p>
+      <p class="text-[10px] text-zinc-400 mt-1">{{.Stats.Users}} utilisateur(s)</p>
+    </div>
+    <div class="card p-4">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Jobs</p>
+      <p class="text-2xl font-black mt-1">{{.Stats.Jobs}}</p>
+      {{if .Stats.FailedJobs}}
+      <p class="text-[10px] text-red-500 mt-1">{{.Stats.FailedJobs}} en échec</p>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="card p-5 space-y-3 animate-blur-slide stagger-2">
+    <div class="flex items-center justify-between gap-3">
+      <p class="section-title">Derniers plans générés</p>
+      <a href="/admin/plans" class="text-xs font-semibold text-teal-600 dark:text-teal-400">Tout voir →</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-left text-zinc-400 border-b border-line dark:border-zinc-850">
+            <th class="py-2 pr-3 font-semibold">Projet</th>
+            <th class="py-2 pr-3 font-semibold">Organisation</th>
+            <th class="py-2 pr-3 font-semibold">Version</th>
+            <th class="py-2 pr-3 font-semibold">Conformité</th>
+            <th class="py-2 pr-3 font-semibold">Date</th>
+            <th class="py-2 font-semibold"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .RecentPlans}}
+          <tr class="border-b border-line/60 dark:border-zinc-850/60">
+            <td class="py-2 pr-3 font-semibold truncate max-w-[14rem]">{{.ProjectName}}</td>
+            <td class="py-2 pr-3 text-zinc-500 dark:text-zinc-400 truncate max-w-[12rem]">{{.OrgName}}</td>
+            <td class="py-2 pr-3">v{{.Version}} <span class="text-zinc-400">{{.Source}}</span></td>
+            <td class="py-2 pr-3">
+              {{if .ComplianceScore}}
+              <span class="badge {{if ge .ComplianceScore 80}}bg-emerald-500/10 text-emerald-500{{else if ge .ComplianceScore 50}}bg-amber-500/10 text-amber-500{{else}}bg-red-500/10 text-red-500{{end}}">{{.ComplianceScore}}/100</span>
+              {{else}}<span class="text-zinc-400">—</span>{{end}}
+            </td>
+            <td class="py-2 pr-3 text-zinc-500 dark:text-zinc-400">{{.CreatedAt.Format "02/01 15:04"}}</td>
+            <td class="py-2"><a href="/admin/plans/{{.RevisionID}}" class="text-teal-600 dark:text-teal-400 font-semibold">Ouvrir</a></td>
+          </tr>
+          {{else}}
+          <tr><td colspan="6" class="py-6 text-center text-zinc-400">Aucun plan généré pour l'instant.</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card p-5 space-y-3 animate-blur-slide stagger-3">
+    <p class="section-title">Organisations</p>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-left text-zinc-400 border-b border-line dark:border-zinc-850">
+            <th class="py-2 pr-3 font-semibold">Organisation</th>
+            <th class="py-2 pr-3 font-semibold">Offre</th>
+            <th class="py-2 pr-3 font-semibold">Membres</th>
+            <th class="py-2 pr-3 font-semibold">Projets</th>
+            <th class="py-2 pr-3 font-semibold">Plans</th>
+            <th class="py-2 font-semibold">Dernier plan</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Orgs}}
+          <tr class="border-b border-line/60 dark:border-zinc-850/60">
+            <td class="py-2 pr-3 font-semibold truncate max-w-[16rem]">{{.OrgName}}</td>
+            <td class="py-2 pr-3"><span class="badge bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{{.Plan}}</span></td>
+            <td class="py-2 pr-3">{{.Members}}</td>
+            <td class="py-2 pr-3">{{.Projects}}</td>
+            <td class="py-2 pr-3 font-semibold">{{.Plans}}</td>
+            <td class="py-2 text-zinc-500 dark:text-zinc-400">{{if .LastPlanAt}}{{.LastPlanAt.Format "02/01/2006 15:04"}}{{else}}—{{end}}</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="6" class="py-6 text-center text-zinc-400">Aucune organisation.</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{{template "dash_end" .}}
+{{template "footer" .}}

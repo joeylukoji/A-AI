@@ -17,6 +17,24 @@ var ErrNotFound = errors.New("project not found")
 var ErrForbidden = errors.New("forbidden")
 var ErrConflict = errors.New("revision conflict")
 
+// RevisionSummary describes one saved plan without carrying its plan_document
+// payload. The project page lists every revision ever generated, and those
+// documents are large (hundreds of KB each on a big plan) — loading them all
+// just to render "version 3, généré le ..." would be wasteful.
+type RevisionSummary struct {
+	ID              uuid.UUID `json:"id"`
+	ProjectID       uuid.UUID `json:"project_id"`
+	Version         int       `json:"version"`
+	Source          string    `json:"source"`
+	HasPreview      bool      `json:"has_preview"`
+	IsCurrent       bool      `json:"is_current"`
+	ComplianceScore *int      `json:"compliance_score,omitempty"`
+	ComplianceGrade string    `json:"compliance_grade,omitempty"`
+	RoomCount       int       `json:"room_count"`
+	CreatedAt       time.Time `json:"created_at"`
+	CreatedBy       uuid.UUID `json:"created_by"`
+}
+
 type Service struct {
 	db *sql.DB
 }
@@ -142,6 +160,77 @@ func (s *Service) GetRevisionForOrg(ctx context.Context, orgID, revisionID uuid.
 		return nil, ErrNotFound
 	}
 	return r, err
+}
+
+// ListRevisionSummaries returns every plan ever generated for a project,
+// newest first, without the plan_document/building_spec payloads. Callers must
+// have already checked that the project belongs to the caller's org (as
+// Service.Get does) — this takes a project id, not an org id.
+func (s *Service) ListRevisionSummaries(ctx context.Context, projectID uuid.UUID) ([]RevisionSummary, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT r.id, r.project_id, r.version, r.source, COALESCE(r.preview_key,''),
+		       r.compliance, r.created_by, r.created_at,
+		       (p.current_revision_id = r.id) AS is_current,
+		       COALESCE(jsonb_array_length(r.plan_document->'rooms'), 0) AS room_count
+		FROM plan_revisions r
+		JOIN projects p ON p.id = r.project_id
+		WHERE r.project_id=$1
+		ORDER BY r.version DESC
+	`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []RevisionSummary{}
+	for rows.Next() {
+		var it RevisionSummary
+		var previewKey string
+		var comp []byte
+		var isCurrent sql.NullBool
+		if err := rows.Scan(
+			&it.ID, &it.ProjectID, &it.Version, &it.Source, &previewKey,
+			&comp, &it.CreatedBy, &it.CreatedAt, &isCurrent, &it.RoomCount,
+		); err != nil {
+			return nil, err
+		}
+		it.HasPreview = previewKey != ""
+		it.IsCurrent = isCurrent.Valid && isCurrent.Bool
+		if len(comp) > 0 && string(comp) != "null" {
+			var report plancalc.Report
+			if json.Unmarshal(comp, &report) == nil && report.Total > 0 {
+				score := report.Score
+				it.ComplianceScore = &score
+				it.ComplianceGrade = report.Grade
+			}
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+// SetCurrentRevision makes an existing revision the project's current one, so
+// a user can go back to a plan generated earlier. Both ids are checked
+// together against the org in a single statement: the UPDATE only matches when
+// the project belongs to orgID *and* the revision belongs to that project, so
+// a revision id from another org (or another project) can never be attached.
+func (s *Service) SetCurrentRevision(ctx context.Context, orgID, projectID, revisionID uuid.UUID) error {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE projects p
+		SET current_revision_id=$1, status='ready', updated_at=now()
+		WHERE p.id=$2 AND p.org_id=$3
+		  AND EXISTS (SELECT 1 FROM plan_revisions r WHERE r.id=$1 AND r.project_id=$2)
+	`, revisionID, projectID, orgID)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (s *Service) ListRevisions(ctx context.Context, projectID uuid.UUID) ([]domain.PlanRevision, error) {

@@ -38,7 +38,17 @@ func safeScriptJSON(raw string) template.JS {
 	return template.JS(buf.String())
 }
 
-func (s *Server) render(w http.ResponseWriter, name string, data any) {
+// render executes a template, injecting the values every authenticated page
+// needs from the principal so no handler can forget them. In particular
+// IsPlatformAdmin drives the /admin nav entry: computing it here instead of in
+// each handler means a new page can never accidentally show (or hide) it.
+func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, data any) {
+	if m, ok := data.(map[string]any); ok {
+		if _, set := m["IsPlatformAdmin"]; !set {
+			p := principal(r)
+			m["IsPlatformAdmin"] = p != nil && p.IsPlatformAdmin
+		}
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.tmpl.ExecuteTemplate(w, name, data); err != nil {
 		s.log.Error("template", "name", name, "err", err)
@@ -53,15 +63,15 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	s.render(w, "landing.html", map[string]any{"Title": "A-AI"})
+	s.render(w, r, "landing.html", map[string]any{"Title": "A-AI"})
 }
 
 func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
-	s.render(w, "login.html", map[string]any{"Title": "Connexion"})
+	s.render(w, r, "login.html", map[string]any{"Title": "Connexion"})
 }
 
 func (s *Server) handleRegisterPage(w http.ResponseWriter, r *http.Request) {
-	s.render(w, "register.html", map[string]any{"Title": "Inscription"})
+	s.render(w, r, "register.html", map[string]any{"Title": "Inscription"})
 }
 
 // maxFormBodyBytes caps HTML form submissions for the same reason
@@ -74,7 +84,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	token, err := s.auth.Login(r.Context(), r.FormValue("email"), r.FormValue("password"))
 	if err != nil {
-		s.render(w, "login.html", map[string]any{"Title": "Connexion", "Error": "Identifiants invalides"})
+		s.render(w, r, "login.html", map[string]any{"Title": "Connexion", "Error": "Identifiants invalides"})
 		return
 	}
 	s.setSessionCookie(w, token)
@@ -100,7 +110,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		default:
 			s.log.Error("register failed", "err", err)
 		}
-		s.render(w, "register.html", map[string]any{"Title": "Inscription", "Error": msg})
+		s.render(w, r, "register.html", map[string]any{"Title": "Inscription", "Error": msg})
 		return
 	}
 	s.setSessionCookie(w, token)
@@ -123,7 +133,7 @@ func (s *Server) handleProjectsPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	s.render(w, "projects.html", map[string]any{
+	s.render(w, r, "projects.html", map[string]any{
 		"Title": "Projets", "User": p.User, "Org": p.Org, "Projects": list, "Nav": "projects",
 	})
 }
@@ -176,9 +186,17 @@ func (s *Server) handleProjectPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	s.render(w, "project.html", map[string]any{
+	// Every plan ever generated for this project, not just the current one:
+	// without this the page silently looked like older plans had been lost.
+	revisions, err := s.projects.ListRevisionSummaries(r.Context(), proj.ID)
+	if err != nil {
+		s.log.Error("list revisions failed", "project_id", proj.ID, "err", err)
+		revisions = nil // the page still renders with the current plan only
+	}
+	s.render(w, r, "project.html", map[string]any{
 		"Title": proj.Name, "User": p.User, "Org": p.Org, "Project": proj, "Revision": rev, "Role": p.Role,
 		"HasPreview": hasPreview, "PlanJSON": safeScriptJSON(planJSON), "Compliance": compliance, "Nav": "plan2d",
+		"Revisions": revisions,
 	})
 }
 
@@ -201,7 +219,7 @@ func (s *Server) handleProject3DPage(w http.ResponseWriter, r *http.Request) {
 			rev = rrev
 		}
 	}
-	s.render(w, "project3d.html", map[string]any{
+	s.render(w, r, "project3d.html", map[string]any{
 		"Title": proj.Name + " — 3D", "User": p.User, "Org": p.Org, "Project": proj, "Revision": rev,
 		"Nav": "plan3d",
 	})
@@ -228,7 +246,7 @@ func (s *Server) handleEditorPage(w http.ResponseWriter, r *http.Request) {
 			revisionID = rev.ID.String()
 		}
 	}
-	s.render(w, "editor.html", map[string]any{
+	s.render(w, r, "editor.html", map[string]any{
 		"Title": "Éditeur", "User": p.User, "Org": p.Org, "Project": proj,
 		"PlanJSON": safeScriptJSON(planJSON), "RevisionID": revisionID, "CanEdit": p.Role.CanEdit(),
 		"Nav": "editor",
@@ -247,7 +265,7 @@ func (s *Server) handleViewer3DPage(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	s.render(w, "viewer3d.html", map[string]any{
+	s.render(w, r, "viewer3d.html", map[string]any{
 		"Title": "Maquette 3D", "User": p.User, "Org": p.Org, "Project": proj, "Nav": "plan3d",
 	})
 }
@@ -260,7 +278,7 @@ func (s *Server) handleBillingPage(w http.ResponseWriter, r *http.Request) {
 	sub, _ := s.billing.GetSubscription(r.Context(), p.Org.ID)
 	usage, _ := s.billing.Usage(r.Context(), p.Org.ID)
 	limits := domain.LimitsForPlan(sub.Plan)
-	s.render(w, "billing.html", map[string]any{
+	s.render(w, r, "billing.html", map[string]any{
 		"Title": "Abonnement", "User": p.User, "Org": p.Org,
 		"Sub": sub, "Usage": usage, "Limits": limits,
 		"StripeEnabled": s.billing.StripeEnabled(),

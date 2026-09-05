@@ -1,0 +1,72 @@
+{{template "header" .}}
+{{template "dash" .}}
+
+<div class="max-w-5xl mx-auto space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-3 animate-blur-slide">
+    <div class="min-w-0">
+      <h2 class="font-extrabold text-xl tracking-tight truncate">{{.Plan.ProjectName}} — v{{.Plan.Version}}</h2>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+        {{.Plan.OrgName}} · {{.Plan.AuthorEmail}} · {{.Plan.CreatedAt.Format "02/01/2006 15:04"}}
+      </p>
+    </div>
+    <a href="/admin/plans" class="btn-line">← Tous les plans</a>
+  </div>
+
+  <div class="grid lg:grid-cols-5 gap-6">
+    <div class="lg:col-span-3 space-y-6">
+      <div class="card p-5 space-y-4 animate-blur-slide stagger-1">
+        <div class="flex items-center justify-between gap-3">
+          <p class="section-title">Aperçu</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{{.Plan.Source}}</span>
+            {{if .Plan.IsCurrent}}<span class="badge bg-teal-500/10 text-teal-600 dark:text-teal-400">version actuelle</span>{{end}}
+          </div>
+        </div>
+        {{if .Plan.HasPreview}}
+        <img src="/admin/plans/{{.Plan.RevisionID}}/preview" alt="Aperçu du plan" class="w-full rounded-xl border border-line dark:border-zinc-850 bg-white"/>
+        {{else}}
+        <canvas id="plan-thumb" width="512" height="400" class="w-full rounded-xl border border-line dark:border-zinc-850 bg-[#f7f4ef]"></canvas>
+        <p class="text-[10px] text-zinc-400">Pas d'illustration enregistrée — rendu vectoriel du PlanDocument.</p>
+        {{end}}
+        <ul id="room-legend" class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-500 dark:text-zinc-400"></ul>
+        <script type="application/json" id="plan-thumb-data">{{.PlanJSON}}</script>
+        <script src="/static/js/plan-style.js"></script>
+        <script src="/static/js/plan-thumb.js"></script>
+      </div>
+    </div>
+
+    <div class="lg:col-span-2 space-y-6">
+      <div class="card p-5 space-y-3 animate-blur-slide stagger-2">
+        <p class="section-title">Détails</p>
+        <dl class="text-xs space-y-2">
+          <div class="flex justify-between gap-3">
+            <dt class="text-zinc-400">Pièces</dt><dd class="font-semibold">{{.Plan.RoomCount}}</dd>
+          </div>
+          <div class="flex justify-between gap-3">
+            <dt class="text-zinc-400">Conformité</dt>
+            <dd class="font-semibold">
+              {{if .Plan.ComplianceScore}}{{.Plan.ComplianceScore}}/100 {{.Plan.ComplianceGrade}}{{else}}—{{end}}
+            </dd>
+          </div>
+          <div class="flex justify-between gap-3">
+            <dt class="text-zinc-400">Projet</dt><dd class="font-mono text-[10px] truncate">{{.Plan.ProjectID}}</dd>
+          </div>
+          <div class="flex justify-between gap-3">
+            <dt class="text-zinc-400">Révision</dt><dd class="font-mono text-[10px] truncate">{{.Plan.RevisionID}}</dd>
+          </div>
+          <div class="flex justify-between gap-3">
+            <dt class="text-zinc-400">Organisation</dt><dd class="font-mono text-[10px] truncate">{{.Plan.OrgID}}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="card p-5 space-y-3 animate-blur-slide stagger-3">
+        <p class="section-title">PlanDocument</p>
+        <pre class="text-[10px] overflow-auto max-h-96 rounded-xl bg-zinc-100 dark:bg-zinc-950 border border-line dark:border-zinc-850 p-3">{{printf "%s" .Plan.PlanDocument}}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{template "dash_end" .}}
+{{template "footer" .}}
