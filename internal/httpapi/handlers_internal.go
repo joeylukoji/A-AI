@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -12,8 +13,18 @@ import (
 	"github.com/google/uuid"
 )
 
+// checkInternal authenticates worker->API calls. It uses a constant-time
+// comparison so response timing can't leak how many leading bytes of the
+// token an attacker guessed correctly, and it rejects an empty configured
+// token outright so a misconfiguration can never be satisfied by an equally
+// empty (or missing) header.
 func (s *Server) checkInternal(r *http.Request) bool {
-	return r.Header.Get("X-Internal-Token") == s.cfg.InternalToken
+	want := s.cfg.InternalToken
+	if want == "" {
+		return false
+	}
+	got := r.Header.Get("X-Internal-Token")
+	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
 }
 
 func (s *Server) persistPreviewPNG(ctx context.Context, projectID uuid.UUID, b64, existingKey string) string {
@@ -96,8 +107,8 @@ func (s *Server) handleInternalSaveRevision(w http.ResponseWriter, r *http.Reque
 		Source       string          `json:"source"`
 		PlanDocument json.RawMessage `json:"plan_document"`
 		BuildingSpec json.RawMessage `json:"building_spec"`
-		PreviewKey    string          `json:"preview_key"`
-		ImagePNGB64   string          `json:"image_png_b64"`
+		PreviewKey   string          `json:"preview_key"`
+		ImagePNGB64  string          `json:"image_png_b64"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeErr(w, 400, "invalid_json", "invalid body")

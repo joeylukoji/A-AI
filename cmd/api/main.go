@@ -31,6 +31,11 @@ func main() {
 	cfg := config.Load()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
+	if err := cfg.Validate(); err != nil {
+		log.Error("invalid configuration", "err", err)
+		os.Exit(1)
+	}
+
 	ctx := context.Background()
 	db, err := store.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -59,7 +64,12 @@ func main() {
 	}
 
 	authSvc := auth.NewService(db.SQL)
-	if err := authSvc.EnsureDemoUser(ctx); err != nil {
+	if cfg.AppEnv == "production" {
+		// Never auto-provision the well-known demo@a-ai.local / demo-demo-demo
+		// credentials in production: they are public (committed in docs/README)
+		// and would otherwise grant anyone an account on first boot.
+		log.Info("skipping demo user provisioning in production")
+	} else if err := authSvc.EnsureDemoUser(ctx); err != nil {
 		log.Warn("demo user", "err", err)
 	}
 

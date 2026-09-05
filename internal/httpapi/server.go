@@ -32,6 +32,9 @@ type Server struct {
 	tmpl      *template.Template
 	static    fs.FS
 	mux       *http.ServeMux
+
+	globalLimiter *rateLimiter
+	authLimiter   *rateLimiter
 }
 
 func New(
@@ -51,13 +54,17 @@ func New(
 		cfg: cfg, log: log, auth: authSvc, projects: projects, jobs: jobsSvc,
 		billing: billingSvc, artifacts: artifacts, storage: store, rdb: rdb, tmpl: tmpl, static: static,
 		mux: http.NewServeMux(),
+		// Generous global ceiling (mainly a DoS/runaway-client backstop): ~10 req/s
+		// sustained, bursts of 40. Tighter limiter below on login/register only.
+		globalLimiter: newRateLimiter(10, 40),
+		authLimiter:   newRateLimiter(0.1, 5), // ~6/min sustained, burst 5 — brute-force guard
 	}
 	s.routes()
 	return s
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.withLogging(s.mux)
+	return s.withLogging(s.securityHeaders(s.csrfProtect(s.rateLimit(s.globalLimiter, s.mux))))
 }
 
 func (s *Server) routes() {
@@ -68,9 +75,9 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("GET /", s.handleHome)
 	s.mux.HandleFunc("GET /login", s.handleLoginPage)
-	s.mux.HandleFunc("POST /login", s.handleLogin)
+	s.mux.Handle("POST /login", s.rateLimit(s.authLimiter, http.HandlerFunc(s.handleLogin)))
 	s.mux.HandleFunc("GET /register", s.handleRegisterPage)
-	s.mux.HandleFunc("POST /register", s.handleRegister)
+	s.mux.Handle("POST /register", s.rateLimit(s.authLimiter, http.HandlerFunc(s.handleRegister)))
 	s.mux.HandleFunc("POST /logout", s.handleLogout)
 
 	s.mux.HandleFunc("GET /projects", s.requireAuth(s.handleProjectsPage))
