@@ -11,6 +11,13 @@ Liste consolidée (recherche + produit + API) : [ameliorations.md](ameliorations
 - `vendor/` désynchronisé de `go.mod` (`go build` échouait à la racine) — `go mod vendor`
   relancé, vérifié en CI désormais
 - Compte `demo@a-ai.local` / `demo-demo-demo` auto-créé même en prod — désactivé hors dev/test
+- **Liste des projets tronquée** : `{{if ge .ComplianceScore 80}}` comparait un `*int`, ce que
+  `html/template` refuse ; le rendu s'arrêtait en plein HTML dès qu'un projet avait un score,
+  ne laissant visible que le plus récent (accesseurs `Score()`)
+- **Historique des plans invisible** : chaque génération créait bien une révision en base, mais
+  la page projet n'affichait que la révision courante — les précédentes semblaient perdues
+- **Pièces murées** : 12 % des plans générés contenaient une pièce sans aucune porte
+- **Pièces perdues / superposées** dans le pavage (768 plans sur 4 000 en fuzzing)
 - `INTERNAL_TOKEN` comparé avec `==` (timing attack) — `crypto/subtle.ConstantTimeCompare`
 - Démarrage possible en prod avec les secrets par défaut publics du repo (`SESSION_SECRET`,
   `INTERNAL_TOKEN`, `S3_ACCESS_KEY`/`S3_SECRET_KEY`) — `config.Validate()` bloque le boot
