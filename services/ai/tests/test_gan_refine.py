@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -41,7 +40,8 @@ def test_render_and_degrade():
     )
     clean, mask = render_clean_and_mask(plan, size=64)
     assert clean.size == (64, 64)
-    assert mask.getextrema()[1] > 0
+    mask_max = mask.convert("L").getextrema()[1]
+    assert isinstance(mask_max, int) and mask_max > 0
     dirty = degrade(clean)
     assert dirty.size == clean.size
 
@@ -55,7 +55,7 @@ def test_canny_keeps_wall_edges():
     assert edges.size == (64, 64)
     assert edges.convert("L").getextrema()[1] == 255
     ink = ink_paper(img)
-    assert set(ink.convert("L").getdata()) <= {0, 255}
+    assert set(ink.convert("L").getdata()) <= {0, 255}  # pyright: ignore[reportArgumentType]  # ImagingCore est bien itérable à l'exécution
 
 
 def test_controlnet_flag_falls_back_without_weights(monkeypatch):

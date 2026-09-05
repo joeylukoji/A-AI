@@ -7,6 +7,7 @@ import json
 import random
 import sys
 from pathlib import Path
+from typing import cast
 
 from PIL import Image
 
@@ -63,7 +64,16 @@ def main() -> None:
     torch.backends.cudnn.benchmark = True
 
     stems = load_stems(args.src, "train", args.limit)
-    tfm = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+    _tfm = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+
+    def tfm(img: Image.Image) -> torch.Tensor:
+        """Applique la transformation en explicitant le type de retour.
+
+        `transforms.Compose.__call__` est typé de façon générique, si bien que
+        les vérificateurs de types voient `Image` au lieu du `Tensor` réellement
+        renvoyé, et signalent à tort les `torch.cat` en aval.
+        """
+        return cast(torch.Tensor, _tfm(img))
 
     class Pairs(Dataset):
         def __len__(self) -> int:

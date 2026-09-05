@@ -13,8 +13,6 @@ Pipeline :
 from __future__ import annotations
 
 import base64
-import io
-import os
 from datetime import date
 from typing import Any
 
@@ -327,6 +325,16 @@ def _latin(text: Any) -> str:
 _TVA_RATE = 0.16  # TVA RDC
 
 
+def _set_font(pdf: Any, style: str = "", size: float = 10.0) -> None:
+    """`set_font` de la famille courante.
+
+    Passe par un `Any` : fpdf2 documente `size` comme un float mais ne l'annote
+    pas, et pyright en infère `int` depuis le défaut `0` — les tailles 9.5/10.5
+    utilisées ici seraient signalées à tort. Évite aussi de répéter `_FAMILY`.
+    """
+    pdf.set_font(_FAMILY, style, size)
+
+
 def _eur(v: float) -> str:
     s = f"{v:,.2f}".replace(",", " ").replace(".", ",")
     return _latin(s + " $")
@@ -368,13 +376,17 @@ class _DevisPDF:
                 self.cell(0, 8, _latin(f"Page {self.page_no()}/{{nb}}"), align="C")
 
         self.pdf = _Doc(orientation="P", unit="mm", format="A4")
-        if not _CORE_FONTS:
+        if regular is not None:
+            # Seule DejaVuSans.ttf est garantie présente : les variantes grasse
+            # et italique manquent sur certaines installations minimales de
+            # fonts-dejavu-core. On retombe sur la régulière plutôt que de
+            # laisser fpdf2 lever une FileNotFoundError qui ferait échouer tout
+            # le devis PDF.
             self.pdf.add_font("dejavu", "", str(regular))
-            self.pdf.add_font("dejavu", "B", str(bold))
-            if italic.exists():  # fonts-dejavu-core n'a pas toujours l'italique
-                self.pdf.add_font("dejavu", "I", str(italic))
-            else:  # l'italique retombe sur la régulière
-                self.pdf.add_font("dejavu", "I", str(regular))
+            bold_path = bold if bold is not None and bold.exists() else regular
+            italic_path = italic if italic is not None and italic.exists() else regular
+            self.pdf.add_font("dejavu", "B", str(bold_path))
+            self.pdf.add_font("dejavu", "I", str(italic_path))
         self.pdf.set_auto_page_break(auto=True, margin=20)
         self.pdf.set_margins(16, 18, 16)
         self.pdf.alias_nb_pages()
@@ -387,20 +399,20 @@ class _DevisPDF:
         p.set_fill_color(28, 25, 23)
         p.rect(0, 0, 210, 52, "F")
         p.set_xy(16, 16)
-        p.set_font(_FAMILY, "B", 22)
+        _set_font(p, "B", 22)
         p.set_text_color(245, 241, 235)
         short = title if len(title) <= 90 else title[:87].rstrip() + "…"
         p.multi_cell(self.w, 9, _latin(short))
         p.set_xy(16, 40)
-        p.set_font(_FAMILY, "", 10)
+        _set_font(p, "", 10)
         p.set_text_color(214, 202, 188)
         p.cell(self.w, 6, _latin(f"Réf. {ref} · Édité le {date.today():%d/%m/%Y}"), new_x="LMARGIN", new_y="NEXT")
         p.ln(14)
 
         p.set_text_color(28, 25, 23)
-        p.set_font(_FAMILY, "B", 13)
+        _set_font(p, "B", 13)
         p.cell(0, 8, _latin("Programme du projet"), new_x="LMARGIN", new_y="NEXT")
-        p.set_font(_FAMILY, "", 10)
+        _set_font(p, "", 10)
         p.multi_cell(self.w, 5.4, _latin(brief or "Maison individuelle"))
         p.ln(4)
 
@@ -412,33 +424,33 @@ class _DevisPDF:
             ("Menuiseries", f"{m['nb_fenetres']} fenêtres{' + porte de garage' if m['garage'] else ''}"),
             ("Niveaux", str(m["etages"])),
         ]
-        p.set_font(_FAMILY, "", 10)
+        _set_font(p, "", 10)
         for label, value in rows:
             p.set_draw_color(231, 229, 228)
             p.set_line_width(0.2)
             p.cell(62, 7, _latin(label), border="B")
-            p.set_font(_FAMILY, "B", 10)
+            _set_font(p, "B", 10)
             p.cell(self.w - 62, 7, _latin(value), border="B", new_x="LMARGIN", new_y="NEXT")
-            p.set_font(_FAMILY, "", 10)
+            _set_font(p, "", 10)
 
     def section(self, num: str, title: str) -> None:
         p = self.pdf
         p.ln(5)
-        p.set_font(_FAMILY, "B", 13)
+        _set_font(p, "B", 13)
         p.set_text_color(148, 108, 52)
         p.cell(0, 8, _latin(f"{num}. {title}" if num else title), new_x="LMARGIN", new_y="NEXT")
         p.set_text_color(28, 25, 23)
 
     def paragraph(self, text: str) -> None:
         p = self.pdf
-        p.set_font(_FAMILY, "", 10)
+        _set_font(p, "", 10)
         p.set_x(p.l_margin)
         p.multi_cell(self.w, 5.4, _latin(text), new_x="LMARGIN", new_y="NEXT")
         p.ln(2)
 
     def bullets(self, items: list[Any]) -> None:
         p = self.pdf
-        p.set_font(_FAMILY, "", 10)
+        _set_font(p, "", 10)
         glyph = "•" if not _CORE_FONTS else "-"
         for it in items or []:
             p.set_x(p.l_margin)
@@ -453,14 +465,14 @@ class _DevisPDF:
         grand = 0.0
         for lot in budget:
             p.ln(1)
-            p.set_font(_FAMILY, "B", 10.5)
+            _set_font(p, "B", 10.5)
             p.set_fill_color(240, 236, 229)
             p.cell(sum(widths), 7, _latin(lot["lot"]), border=0, fill=True, new_x="LMARGIN", new_y="NEXT")
-            p.set_font(_FAMILY, "B", 9)
-            for wcol, h in zip(widths, header):
+            _set_font(p, "B", 9)
+            for wcol, h in zip(widths, header, strict=True):
                 p.cell(wcol, 6, _latin(h), border="B", align="R" if h in {"Qté", "PU HT", "Total HT"} else "L")
             p.ln(6)
-            p.set_font(_FAMILY, "", 9)
+            _set_font(p, "", 9)
             for ln in lot["lines"]:
                 x0 = p.get_x()
                 y0 = p.get_y()
@@ -473,14 +485,14 @@ class _DevisPDF:
                 p.cell(widths[3], row_h, _eur(ln["pu_ht"]), align="R")
                 p.cell(widths[4], row_h, _eur(ln["total_ht"]), align="R")
                 p.set_xy(x0, y_end)
-            p.set_font(_FAMILY, "B", 9.5)
+            _set_font(p, "B", 9.5)
             p.cell(sum(widths[:4]), 6, _latin(f"Sous-total {lot['lot']}"), align="R")
             p.cell(widths[4], 6, _eur(lot["total_ht"]), border="T", align="R", new_x="LMARGIN", new_y="NEXT")
             grand += float(lot["total_ht"])
 
         tva = round(grand * _TVA_RATE, 2)
         p.ln(3)
-        p.set_font(_FAMILY, "B", 11)
+        _set_font(p, "B", 11)
         tva_pct = f"{_TVA_RATE:.0%}"
         for label, value in (("Total travaux HT", grand), (f"TVA {tva_pct}", tva), ("Total TTC", grand + tva)):
             p.cell(sum(widths[:4]), 7.5, _latin(label), align="R")
@@ -489,7 +501,7 @@ class _DevisPDF:
     def signature(self) -> None:
         p = self.pdf
         p.ln(8)
-        p.set_font(_FAMILY, "", 10)
+        _set_font(p, "", 10)
         p.multi_cell(self.w, 5.4, _latin(
             "Bon pour accord : le client reconnaît avoir pris connaissance du présent "
             "devis descriptif, du cahier des charges et des conditions ci-dessus."
@@ -520,7 +532,7 @@ def render_pdf(devis: dict[str, Any], brief: str, m: dict[str, Any], budget: lis
     for label, key in (("Exigences", "exigences"), ("Cadre réglementaire", "reglementaire"),
                        ("Prestations incluses", "prestations_incluses"), ("Prestations exclues", "prestations_exclues")):
         if cdc.get(key):
-            doc.pdf.set_font(_FAMILY, "B", 10.5)
+            _set_font(doc.pdf, "B", 10.5)
             doc.pdf.cell(0, 6, _latin(label), new_x="LMARGIN", new_y="NEXT")
             doc.bullets(list(cdc[key]))
 
@@ -528,11 +540,11 @@ def render_pdf(devis: dict[str, Any], brief: str, m: dict[str, Any], budget: lis
     for lot in devis.get("cahier_technique") or []:
         if not isinstance(lot, dict):
             continue
-        doc.pdf.set_font(_FAMILY, "B", 10.5)
+        _set_font(doc.pdf, "B", 10.5)
         doc.pdf.cell(0, 6, _latin(lot.get("lot") or ""), new_x="LMARGIN", new_y="NEXT")
         doc.paragraph(str(lot.get("specifications") or ""))
         if lot.get("materiaux"):
-            doc.pdf.set_font(_FAMILY, "I", 9.5)
+            _set_font(doc.pdf, "I", 9.5)
             doc.pdf.set_text_color(87, 83, 78)
             doc.pdf.set_x(doc.pdf.l_margin)
             doc.pdf.multi_cell(doc.w, 5, _latin("Matériaux : " + ", ".join(str(x) for x in lot["materiaux"])), new_x="LMARGIN", new_y="NEXT")

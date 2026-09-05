@@ -45,7 +45,16 @@ def weights_path() -> Path:
 
 
 def available() -> bool:
+    """Vrai seulement si l'inférence HouseDiffusion peut réellement tourner.
+
+    Il ne suffit pas que les poids existent : le paquet vendored
+    `vendor/house_diffusion` est importé par `_load()` et n'est pas versionné.
+    Sans cette vérification, `available()` annonçait un backend utilisable puis
+    `generate()` levait ModuleNotFoundError.
+    """
     if os.getenv("AI_STUB", "1") == "1":
+        return False
+    if not (VENDOR / "house_diffusion" / "script_util.py").is_file():
         return False
     return weights_path().is_file()
 
@@ -151,7 +160,7 @@ _MODEL = None
 _DIFF = None
 
 
-def _load_checkpoint(weights_path: Path, map_location: str) -> Any:
+def _load_checkpoint(weights_path: str | Path, map_location: str) -> Any:
     """Charge le state_dict HouseDiffusion en essayant `weights_only=True` d'abord.
 
     Voir `gan_refine._load_checkpoint` pour le rationnel : ceci mitige la
@@ -168,9 +177,9 @@ def _load_checkpoint(weights_path: Path, map_location: str) -> Any:
         return torch.load(weights_path, map_location=map_location, weights_only=False)
 
 
-def _load(device: Any, steps: int):
+def _load(device: Any, steps: int) -> tuple[Any, Any]:
     global _MODEL, _DIFF
-    if _MODEL is not None:
+    if _MODEL is not None and _DIFF is not None:
         return _MODEL, _DIFF
     if str(VENDOR) not in sys.path:
         sys.path.insert(0, str(VENDOR))
@@ -316,7 +325,7 @@ def generate(spec: dict[str, Any]) -> dict[str, Any]:
 
     layout_rooms = optimize_rooms(raw_rooms, width, depth, spec)
     walls = proc.perimeter_and_internal_walls(layout_rooms, width, depth)
-    openings = proc.default_openings(walls, width, depth)
+    openings = proc.default_openings(walls, width, depth, layout_rooms)
     from .diffusion import ROOM_FILL, _draw_room_contents, _room_font
     from PIL import Image, ImageDraw
     import base64
