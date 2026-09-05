@@ -10,8 +10,10 @@ COPY packages ./packages
 RUN CGO_ENABLED=0 go build -o /out/api ./cmd/api
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates wget
+RUN apk add --no-cache ca-certificates wget \
+    && addgroup -S aai && adduser -S aai -G aai
 WORKDIR /app
 COPY --from=build /out/api /app/api
+USER aai
 EXPOSE 8080
 CMD ["/app/api"]

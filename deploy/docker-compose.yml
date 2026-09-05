@@ -1,3 +1,8 @@
+# Stack de DÉVELOPPEMENT LOCAL uniquement. Ports Postgres/Redis/MinIO exposés
+# sur l'hôte, secrets par défaut publics (voir deploy/.env.example), pas de
+# TLS. Ne PAS déployer tel quel en production : voir docs/production.md pour
+# la checklist (secrets réels, APP_ENV=production, réseau restreint, reverse
+# proxy TLS devant `api`).
 services:
   postgres:
     image: postgres:16-alpine
@@ -26,7 +31,9 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio:latest
+    # Pinned instead of :latest so a re-pull can't silently change behavior;
+    # bump deliberately.
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -38,7 +45,7 @@ services:
       - miniodata:/data
 
   minio-init:
-    image: minio/mc:latest
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
     depends_on:
       - minio
     entrypoint: >

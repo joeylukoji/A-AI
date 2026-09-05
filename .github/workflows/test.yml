@@ -5,6 +5,9 @@ on:
     branches: [main, master]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   go:
     runs-on: ubuntu-latest
@@ -13,7 +16,42 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25.x"
-      - run: go test ./...
+          cache: true
+
+      - name: gofmt check
+        run: |
+          fmt_out="$(gofmt -l $(git ls-files '*.go' | grep -v '^vendor/'))"
+          if [ -n "$fmt_out" ]; then
+            echo "Files need gofmt:"
+            echo "$fmt_out"
+            exit 1
+          fi
+
+      - name: vendor consistency
+        run: |
+          go mod vendor
+          if [ -n "$(git status --porcelain vendor go.mod go.sum)" ]; then
+            echo "vendor/ is out of sync with go.mod/go.sum — run 'go mod vendor' and commit the result."
+            git status --porcelain vendor go.mod go.sum
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test -race -count=1 ./...
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: "1.25.x"
 
   python:
     runs-on: ubuntu-latest
@@ -22,5 +60,28 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r services/ai/requirements-dev.txt pytest
-      - run: pytest services/ai/tests research/metrics services/blender/tests -q
+          cache: "pip"
+          cache-dependency-path: |
+            services/ai/requirements.txt
+            services/ai/requirements-dev.txt
+            services/blender/requirements.txt
+
+      - name: install service deps
+        run: |
+          pip install -r services/ai/requirements.txt -r services/ai/requirements-dev.txt
+          pip install -r services/blender/requirements.txt
+
+      - name: pytest
+        env:
+          AI_STUB: "1"
+        run: pytest services/ai/tests research/metrics research/dataset services/blender/tests services/qcad -q
+
+      - name: pip-audit (services/ai, services/blender)
+        run: |
+          pip install pip-audit
+          pip-audit -r services/ai/requirements.txt || true
+          pip-audit -r services/blender/requirements.txt || true
+        # Non-blocking for now (`|| true`): surfaces known CVEs in the PR log
+        # without failing the build on advisories that may not be reachable
+        # from how these services actually use the library. Tighten to
+        # blocking once the baseline is triaged.

@@ -8,6 +8,12 @@ Liste consolidée (recherche + produit + API) : [ameliorations.md](ameliorations
 
 - Pipeline IA `422` quand `constraints: null` (Go + Pydantic)
 - Spam `Timeout reading from socket` du worker Blender (socket Redis)
+- `vendor/` désynchronisé de `go.mod` (`go build` échouait à la racine) — `go mod vendor`
+  relancé, vérifié en CI désormais
+- Compte `demo@a-ai.local` / `demo-demo-demo` auto-créé même en prod — désactivé hors dev/test
+- `INTERNAL_TOKEN` comparé avec `==` (timing attack) — `crypto/subtle.ConstantTimeCompare`
+- Démarrage possible en prod avec les secrets par défaut publics du repo (`SESSION_SECRET`,
+  `INTERNAL_TOKEN`, `S3_ACCESS_KEY`/`S3_SECRET_KEY`) — `config.Validate()` bloque le boot
 
 ## Manques fonctionnels
 
@@ -24,17 +30,20 @@ Liste consolidée (recherche + produit + API) : [ameliorations.md](ameliorations
 | Multi-étages | Un seul niveau dans éditeur / génération | Moyenne |
 | Preview raster | ~~PNG persisté~~ via `image_png_b64` + `/api/v1/projects/{id}/preview` | — |
 | Observabilité | OpenTelemetry complet (traces exporters) | Basse |
-| CI | Pipeline GitHub Actions (tests Go + pytest) | Haute |
+| CI | ~~Pipeline GitHub Actions (tests Go + pytest)~~ (fait, `.github/workflows/test.yml`) | — |
 | Dataset | FloorPlanCAD Kaggle branché (images+YOLO) ; ResPlan pickle toujours optionnel | Moyenne |
-| Sécu | Rate limiting, CSRF HTMX, scan dépendances automatisé | Moyenne |
+| Sécu | ~~Rate limiting, CSRF HTMX, scan dépendances automatisé~~ (fait : `internal/httpapi/security.go` + `govulncheck`/`pip-audit` en CI — voir [production.md](production.md)) | — |
 
 ## Manques qualité / ops
 
 - Pas de tests d’intégration E2E automatisés (login → generate → export) dans CI
-- Pas de `.env` de prod / secrets manager
+- Pas de `.env` de prod / secrets manager (checklist manuelle : [production.md](production.md))
 - ~~Healthchecks Compose incomplets sur `api` / `ai`~~
 - ~~Favicon manquant~~
 - Encodage labels FR parfois cassé selon locale console (UTF-8 OK en HTTP)
+- `services/blender/Dockerfile` télécharge Blender sans vérifier de somme de contrôle
+  (pas d'accès réseau vers `download.blender.org` au moment du durcissement pour récupérer
+  le SHA256 officiel) — voir [production.md](production.md) §5
 
 ## Couverture de tests actuelle
 
