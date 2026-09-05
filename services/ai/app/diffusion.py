@@ -1138,13 +1138,19 @@ def _furniture(d: ImageDraw.ImageDraw, typ: str, bx: tuple[float, float, float, 
         if h - th > 2.0:                                     # buffet
             rect(x0, y1 - 0.48, x0 + min(1.9, w * 0.45), y1, fill=_FURN_SOFT)
     elif typ in ("bathroom", "wc"):
-        txx = x0 + 0.1                                       # WC : réservoir + cuvette
-        rect(txx, y0 + 0.04, txx + 0.46, y0 + 0.26)
-        d.ellipse([P(txx - 0.02, y0 + 0.24), P(txx + 0.5, y0 + 0.8)], fill=_FURN_FILL, outline=_FURN, width=lw)
-        d.ellipse([P(txx + 0.09, y0 + 0.35), P(txx + 0.39, y0 + 0.69)], outline=_FURN, width=lw)
+        txx = x0 + 0.08                                       # WC : réservoir + cuvette bien lisible
+        tw = min(0.55, max(0.42, w * 0.35))
+        rect(txx, y0 + 0.04, txx + tw, y0 + 0.28, fill=(248, 248, 246))
+        d.ellipse(
+            [P(txx - 0.04, y0 + 0.22), P(txx + tw + 0.04, y0 + 0.95)],
+            fill=_FURN_FILL, outline=_FURN, width=max(lw, 2),
+        )
+        d.ellipse(
+            [P(txx + 0.08, y0 + 0.36), P(txx + tw - 0.08, y0 + 0.82)],
+            outline=_FURN, width=max(lw, 2),
+        )
         if typ == "wc":
-            if w > 1.5:
-                circ(x1 - 0.3, y0 + 0.3, 0.17)               # lave-mains
+            circ(x1 - min(0.32, w * 0.22), y0 + 0.32, min(0.2, w * 0.14))
             return
         bw_ = min(1.75, w - 0.85)
         if bw_ >= 1.2 and h >= 1.9:                          # baignoire
@@ -1718,7 +1724,7 @@ _FURNITURE_SYSTEM = (
     "two armchairs. NO dining table, NO dining chairs, NO bed, NO kitchen appliances, NO bathroom fixtures. "
     "Kitchen: L or U counters on the walls with a small square sink and hob, fridge at the end of the run. "
     "NO dining table, NO chairs around a table, NO sofa, NO bed, NO toilet, NO bathtub, NO tub. "
-    "Bedroom: one bed, headboard against a wall, nightstands, wardrobe. "
+    "Bedroom: exactly one bed (never two twin beds), headboard against a wall, nightstands, wardrobe. "
     "NO toilet, NO bathtub, NO shower, NO washbasin, NO sink, NO bidet, NO kitchen appliances. "
     "Bathroom: tub or shower, toilet, washbasin — only here. Garage: one car aligned with the door. "
     "Use exactly the room types listed in the program, one entry per room (repeat type for "
@@ -1755,12 +1761,14 @@ def _coherence_clause(spec: dict[str, Any] | None = None) -> str:
     ]
     if "bedroom" in types:
         parts.append(
-            "Bedrooms: only a bed, nightstands and a wardrobe. "
+            "Bedrooms: exactly one bed per room, nightstands and a wardrobe. "
+            "Never two beds in the same bedroom. "
             "NO toilet, NO bathtub, NO shower, NO washbasin, NO sink. "
         )
     if "bathroom" in types or "wc" in types:
         parts.append(
-            "Bathroom/WC: only a tub or shower, a toilet and a washbasin. "
+            "Bathroom: tub or shower, a clearly visible toilet and a washbasin. "
+            "WC (separate toilet room): a clearly visible toilet and a small basin — no bathtub. "
             "NO bed, NO sofa, NO kitchen appliances. "
         )
     if "living" in types:
@@ -1938,9 +1946,11 @@ def _default_furniture_block() -> str:
         "TV on the opposite wall (sofa faces the TV), two armchairs. No dining table, no dining chairs. "
         "Kitchen: simple L-shaped or U-shaped counters on the walls, a small square sink and hob in the run, "
         "fridge at the end. Empty floor in the centre. No dining table, no chairs, no bathtub, no tub. "
-        "Bedrooms: one bed, headboard on a wall, nightstands, wardrobe. "
+        "Bedrooms: exactly one bed per room, headboard on a wall, nightstands, wardrobe. "
+        "Never two beds in the same bedroom. "
         "Never a toilet, bathtub, shower or washbasin in a bedroom. "
-        "Bathroom: tub, toilet, basin — simple white symbols, only in this room. "
+        "Bathroom: tub, a clearly visible toilet and basin — only in this room. "
+        "WC: a clearly visible toilet and a small basin, no bathtub. "
         "Garage: one simple car outline aligned with the door. "
     )
 
@@ -1990,6 +2000,8 @@ def _flux_prompt(
             "Kitchen: wall counters and a small square sink only — never a bathtub, tub or large basin. "
             "Living room: sofa, two armchairs, low coffee table and TV — not a dining table. "
             "Do not draw two dining rooms. "
+            "Each bedroom has exactly one bed — never two twin beds. "
+            "If a WC room exists, draw a clearly visible toilet in it. "
             "Redraw it as a simpler amateur Sweet Home 3D 2D screenshot: grey poche walls, "
             "simple floor fills, simple top-down furniture symbols, faint grid. "
             f"This request: {text}. "
@@ -2070,7 +2082,7 @@ _FLUX_FURNITURE = {
     "office": "a desk with an office chair and a bookshelf",
     "kitchen": "an L-shaped kitchen counter with a small square sink, cooktop and fridge",
     "bathroom": "a bathtub, a washbasin and a toilet",
-    "wc": "a toilet and a small washbasin",
+    "wc": "a clearly visible toilet and a small washbasin, no bathtub",
     "laundry": "a washing machine and a laundry sink",
     "hallway": "a slim console table",
     "garage": "a parked car outline",
@@ -2203,7 +2215,7 @@ def _parse_json_obj(raw: str | None) -> dict[str, Any] | None:
 _ZONE_ORDER = {"front": 0, "left": 1, "right": 2, "centre": 3, "back": 4}
 _TYPE_MIN_AREA = {
     "living": 18.0, "bedroom": 9.0, "kitchen": 8.0, "dining": 9.0, "bathroom": 3.5,
-    "wc": 1.6, "office": 7.5, "hallway": 3.0, "garage": 14.0, "storage": 2.0, "laundry": 3.0,
+    "wc": 2.4, "office": 7.5, "hallway": 3.0, "garage": 14.0, "storage": 2.0, "laundry": 3.0,
 }
 
 

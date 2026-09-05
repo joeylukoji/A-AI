@@ -33,7 +33,7 @@ def _box(x0: float, y0: float, x1: float, y1: float) -> list[dict[str, float]]:
 
 def _min_side(typ: str, default: float) -> float:
     return {
-        "wc": min(1.2, default),
+        "wc": min(1.4, default) if default < 1.5 else 1.4,
         "bathroom": min(1.5, default) if default < 1.6 else 1.5,
         "laundry": 1.5,
         "storage": 1.4,

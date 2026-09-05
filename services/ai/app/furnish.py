@@ -24,7 +24,7 @@ CATALOG: dict[str, dict[str, float]] = {
     "desk": {"w": 1.20, "d": 0.60, "h": 0.75},
     "fireplace": {"w": 0.70, "d": 0.55, "h": 1.20},
     "bathtub": {"w": 1.70, "d": 0.75, "h": 0.55},
-    "toilet": {"w": 0.40, "d": 0.65, "h": 0.80},
+    "toilet": {"w": 0.48, "d": 0.78, "h": 0.80},
     "sink.basin": {"w": 0.55, "d": 0.42, "h": 0.85},
     "car.sedan": {"w": 4.20, "d": 1.80, "h": 1.45},
     "rug.rect": {"w": 2.20, "d": 1.60, "h": 0.02},
@@ -42,31 +42,30 @@ def furnish(rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
     types = {str(r.get("type") or "") for r in rooms}
     has_dining = "dining" in types
     has_kitchen = "kitchen" in types
-    beds = [r for r in rooms if str(r.get("type")) == "bedroom"]
-    master_id = beds[-1]["id"] if beds else None
     items: list[dict[str, Any]] = []
     n = 0
     for room in rooms:
         placed, n = _place_room(
-            room, n, has_dining=has_dining, has_kitchen=has_kitchen, master_id=master_id
+            room, n, has_dining=has_dining, has_kitchen=has_kitchen
         )
         items.extend(placed)
     return items
 
 
 def _place_room(
-    room: dict[str, Any], n: int, *, has_dining: bool, has_kitchen: bool, master_id: str | None
+    room: dict[str, Any], n: int, *, has_dining: bool, has_kitchen: bool
 ) -> tuple[list[dict[str, Any]], int]:
     poly = room.get("polygon") or []
     if len(poly) < 3:
         return [], n
+    typ = str(room.get("type") or "")
+    inset = 0.10 if typ in {"wc", "bathroom"} else _MARGIN
     x0, y0, x1, y1 = _bbox(poly)
-    x0, y0, x1, y1 = x0 + _MARGIN, y0 + _MARGIN, x1 - _MARGIN, y1 - _MARGIN
+    x0, y0, x1, y1 = x0 + inset, y0 + inset, x1 - inset, y1 - inset
     w, h = x1 - x0, y1 - y0
-    if w < 0.8 or h < 0.8:
+    if w < 0.55 or h < 0.55:
         return [], n
     _ = (has_dining, has_kitchen)
-    typ = str(room.get("type") or "")
     rid = str(room.get("id") or "")
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     out: list[dict[str, Any]] = []
@@ -77,6 +76,8 @@ def _place_room(
         py: float,
         rot: float = 0.0,
         size: dict[str, float] | None = None,
+        *,
+        required: bool = False,
     ) -> None:
         nonlocal n
         spec = dict(CATALOG[catalog_id])
@@ -84,7 +85,10 @@ def _place_room(
             spec.update(size)
         aw, ad = _world_footprint(spec["w"], spec["d"], rot)
         if not _inside(x0, y0, x1, y1, px, py, aw, ad):
-            return
+            if not required:
+                return
+            px = (x0 + x1) / 2 if x1 - x0 < aw else min(max(px, x0 + aw / 2), x1 - aw / 2)
+            py = (y0 + y1) / 2 if y1 - y0 < ad else min(max(py, y0 + ad / 2), y1 - ad / 2)
         n += 1
         out.append({
             "id": f"f{n}",
@@ -96,33 +100,16 @@ def _place_room(
         })
 
     if typ == "bedroom":
-        is_master = rid == master_id
-        if is_master:
-            bed = CATALOG["bed.double"]
-            add("bed.double", cx, y0 + bed["d"] / 2, 0)
-            ns = CATALOG["nightstand"]
-            add("nightstand", cx - bed["w"] / 2 - ns["w"] / 2 - 0.04, y0 + ns["d"] / 2, 0)
-            add("nightstand", cx + bed["w"] / 2 + ns["w"] / 2 + 0.04, y0 + ns["d"] / 2, 0)
-        else:
-            # deux lits jumeaux contre le mur ouest, comme la capture Sweet Home
-            single = CATALOG["bed.single"]
-            gap = 0.12
-            pair_w = single["w"] * 2 + gap
-            if pair_w + 0.1 <= w and single["d"] + 0.2 <= h:
-                left = x0 + single["w"] / 2 + 0.04
-                add("bed.single", left, y0 + single["d"] / 2, 0)
-                add("bed.single", left + single["w"] + gap, y0 + single["d"] / 2, 0)
-            else:
-                add("bed.single", cx, y0 + single["d"] / 2, 0)
-        desk = CATALOG["desk"]
-        if w > 3.0 and h > 2.8:
-            add("desk", x1 - desk["w"] / 2, y0 + desk["d"] / 2, 0)
-            add("chair.dining", x1 - desk["w"] / 2, y0 + desk["d"] + 0.38, 180)
+        # Un seul lit par chambre (double si ça rentre, sinon simple).
+        bed_id = "bed.double" if w >= 2.2 and h >= 2.3 else "bed.single"
+        bed = CATALOG[bed_id]
+        add(bed_id, cx, y0 + bed["d"] / 2, 0, required=True)
+        ns = CATALOG["nightstand"]
+        add("nightstand", cx - bed["w"] / 2 - ns["w"] / 2 - 0.04, y0 + ns["d"] / 2, 0)
+        add("nightstand", cx + bed["w"] / 2 + ns["w"] / 2 + 0.04, y0 + ns["d"] / 2, 0)
         if h > 3.4:
             wd = CATALOG["wardrobe"]
             add("wardrobe", x0 + wd["w"] / 2, y1 - wd["d"] / 2, 0)
-        if w > 3.2 and h > 3.2:
-            add("plant.pot", x1 - 0.28, y1 - 0.28, 0)
     elif typ == "dining":
         _dining_set(add, cx, cy, w, n_chairs=6 if w >= 3.4 else 4)
     elif typ == "living":
@@ -167,8 +154,9 @@ def _place_room(
         add("desk", x0 + 0.85, y0 + 0.4, 0)
         add("chair.dining", x0 + 0.85, y0 + 1.05, 180)
     elif typ in {"bathroom", "wc"}:
-        add("toilet", x0 + 0.28, y0 + 0.40, 0)
-        add("sink.basin", x1 - 0.32, y0 + 0.32, 0)
+        tw, td = CATALOG["toilet"]["w"], CATALOG["toilet"]["d"]
+        add("toilet", x0 + tw / 2 + 0.02, y0 + td / 2 + 0.02, 0, required=True)
+        add("sink.basin", x1 - 0.32, y0 + 0.32, 0, required=typ == "wc")
         if typ == "bathroom":
             bath = CATALOG["bathtub"]
             before = len(out)

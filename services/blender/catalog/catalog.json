@@ -93,7 +93,7 @@
     "label": "WC",
     "category": "bath",
     "source": "procedural",
-    "footprint_m": [0.40, 0.65, 0.80]
+    "footprint_m": [0.48, 0.78, 0.80]
   },
   "sink.basin": {
     "label": "Lavabo",

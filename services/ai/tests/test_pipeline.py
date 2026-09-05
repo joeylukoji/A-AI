@@ -100,6 +100,14 @@ def test_nlu_wc_is_separate_from_bathroom():
     assert types.count("bathroom") >= 1
 
 
+def test_nlu_toilettes_adds_wc_room():
+    spec = parse_brief("Maison 2 chambres avec toilettes", {})
+    types = [r["type"] for r in spec["rooms"]]
+    assert "wc" in types
+    wc = next(r for r in spec["rooms"] if r["type"] == "wc")
+    assert float(wc.get("area_m2") or 0) >= 3.0
+
+
 def test_generated_rooms_are_named():
     spec = parse_brief("Maison contemporaine", {})
     rooms = generate(spec)["layout"]["rooms"]

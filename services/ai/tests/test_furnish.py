@@ -25,6 +25,17 @@ def test_bedroom_gets_a_bed():
     bed = next(it for it in items if it["catalog_id"].startswith("bed."))
     assert 0 < bed["position"]["x"] < 4
     assert 0 < bed["position"]["y"] < 4
+    assert sum(1 for it in items if it["catalog_id"].startswith("bed.")) == 1
+
+
+def test_each_bedroom_has_exactly_one_bed():
+    items = furnish([
+        {"id": "r1", "type": "bedroom", "polygon": _rect(0, 0, 4, 4)},
+        {"id": "r2", "type": "bedroom", "polygon": _rect(4, 0, 3.5, 3.8)},
+    ])
+    for rid in ("r1", "r2"):
+        beds = [it for it in items if it["room_id"] == rid and str(it["catalog_id"]).startswith("bed.")]
+        assert len(beds) == 1
 
 
 def test_dining_gets_table_and_chairs():
@@ -102,6 +113,15 @@ def test_bathroom_and_garage_get_fixtures():
     assert "toilet" in ids
     assert "bathtub" in ids
     assert "car.sedan" in ids
+
+
+def test_small_wc_still_gets_a_toilet():
+    items = furnish([
+        {"id": "r1", "type": "wc", "polygon": _rect(0, 0, 1.5, 1.8)},
+    ])
+    ids = [it["catalog_id"] for it in items]
+    assert "toilet" in ids
+    assert "bathtub" not in ids
 
 
 def test_tiny_room_gets_no_furniture():
