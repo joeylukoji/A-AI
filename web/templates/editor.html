@@ -1,0 +1,59 @@
+{{template "header" .}}
+{{template "dash" .}}
+
+<div class="max-w-6xl mx-auto space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3 animate-blur-slide">
+    <div class="min-w-0">
+      <h2 class="font-extrabold text-xl tracking-tight truncate">Éditeur · {{.Project.Name}}</h2>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+        <a href="/projects/{{.Project.ID}}" class="hover:text-teal-500 transition">← Plan 2D</a>
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="topo-status" class="text-xs text-zinc-400"></span>
+      <span id="save-status" class="text-xs text-zinc-400">Prêt</span>
+      {{if .CanEdit}}
+      <button id="btn-save" class="btn-accent">Enregistrer</button>
+      {{end}}
+    </div>
+  </div>
+
+  {{if .CanEdit}}
+  <div id="editor-tools" class="flex flex-wrap gap-2 animate-blur-slide stagger-1">
+    <button type="button" data-tool="select" class="tool-btn btn-dark">Déplacer</button>
+    <button type="button" data-tool="room" class="tool-btn btn-line">Pièce</button>
+    <button type="button" data-tool="door" class="tool-btn btn-line">Porte</button>
+    <button type="button" data-tool="window" class="tool-btn btn-line">Fenêtre</button>
+    <button type="button" data-tool="delete" class="tool-btn btn-danger">Supprimer</button>
+  </div>
+  {{end}}
+
+  <div class="card overflow-hidden animate-blur-slide stagger-2">
+    <canvas
+      id="plan-canvas"
+      width="960"
+      height="640"
+      class="w-full max-h-[70vh] cursor-crosshair bg-[#f7f4ef]"
+      data-project-id="{{.Project.ID}}"
+      data-revision-id="{{.RevisionID}}"
+      data-can-edit="{{if .CanEdit}}true{{else}}false{{end}}"
+    ></canvas>
+  </div>
+
+  <div class="card p-5 space-y-3 animate-blur-slide stagger-3">
+    <ul id="room-legend" class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-500 dark:text-zinc-400"></ul>
+    <div id="compliance-score"></div>
+    <div id="plan-dimensions"></div>
+    <p class="text-[10px] text-zinc-400">
+      Déplacer : poignées teal pour tirer un mur (murs et pièces restent synchronisés), ou glisser une pièce pour la déplacer entière.
+      Pièce : clic dans le plan. Porte / fenêtre : clic sur un mur. Suppr : clic sur une ouverture, une pièce ou un mur.
+    </p>
+  </div>
+</div>
+
+<script type="application/json" id="plan-document-data">{{.PlanJSON}}</script>
+<script src="/static/js/plan-style.js"></script>
+<script src="/static/js/plan-compliance.js"></script>
+<script src="/static/js/editor.js"></script>
+{{template "dash_end" .}}
+{{template "footer" .}}

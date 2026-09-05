@@ -1,0 +1,14 @@
+.bin/
+bin/
+.git/
+.venv/
+__pycache__/
+*.exe
+research/
+resplan/
+*.log
+node_modules/
+.cursor/
+*.pt
+*.png
+*.pkl

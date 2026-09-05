@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://a-ai.local/schemas/plan-document.schema.json",
+  "title": "PlanDocument",
+  "type": "object",
+  "required": ["version", "units", "floor", "walls", "rooms"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "string", "const": "1.0" },
+    "units": { "type": "string", "const": "m" },
+    "floor": {
+      "type": "object",
+      "required": ["level", "height_m", "bounds"],
+      "additionalProperties": false,
+      "properties": {
+        "level": { "type": "integer" },
+        "height_m": { "type": "number", "exclusiveMinimum": 0 },
+        "bounds": {
+          "type": "object",
+          "required": ["width", "depth"],
+          "additionalProperties": false,
+          "properties": {
+            "width": { "type": "number", "exclusiveMinimum": 0 },
+            "depth": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+    "walls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "a", "b", "thickness_m"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "a": { "$ref": "#/$defs/point" },
+          "b": { "$ref": "#/$defs/point" },
+          "thickness_m": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    },
+    "rooms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "polygon"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "polygon": {
+            "type": "array",
+            "minItems": 3,
+            "items": { "$ref": "#/$defs/point" }
+          }
+        }
+      }
+    },
+    "openings": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "required": ["id", "wall_id", "type", "offset_m", "width_m"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "wall_id": { "type": "string" },
+          "type": { "type": "string", "enum": ["door", "window"] },
+          "offset_m": { "type": "number", "minimum": 0 },
+          "width_m": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    },
+    "furniture": {
+      "type": "array",
+      "default": [],
+      "description": "Instances du catalogue 3D (chaises, lits, tables…). Blender les pose sans modèle génératif.",
+      "items": { "$ref": "#/$defs/furniture_instance" }
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "object",
+      "required": ["x", "y"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      }
+    },
+    "furniture_instance": {
+      "type": "object",
+      "required": ["id", "catalog_id", "position"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "catalog_id": {
+          "type": "string",
+          "enum": [
+            "chair.dining",
+            "bed.single",
+            "bed.double",
+            "table.dining",
+            "table.coffee",
+            "sofa.2seat",
+            "nightstand",
+            "wardrobe",
+            "counter.kitchen"
+          ]
+        },
+        "room_id": { "type": "string" },
+        "position": { "$ref": "#/$defs/point" },
+        "rotation_deg": { "type": "number", "default": 0 },
+        "size_m": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "w": { "type": "number", "exclusiveMinimum": 0 },
+            "d": { "type": "number", "exclusiveMinimum": 0 },
+            "h": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,162 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aai
+      POSTGRES_PASSWORD: aai
+      POSTGRES_DB: aai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aai -d aai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb -p local/aai-artifacts || true;
+      exit 0;
+      "
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    env_file:
+      - .env.example
+    environment:
+      DATABASE_URL: postgres://aai:aai@postgres:5432/aai?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      AI_BASE_URL: http://ai:8000
+      S3_ENDPOINT: http://minio:9000
+      QCAD_URL: http://qcad:9090
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 8
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      ai:
+        condition: service_started
+      qcad:
+        condition: service_started
+
+  ai:
+    build:
+      context: ../services/ai
+      dockerfile: Dockerfile
+    environment:
+      AI_STUB: "1"
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_TOKEN: dev-internal-token
+      API_CALLBACK_BASE: http://api:8080
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
+      IMAGE_BACKEND: ${IMAGE_BACKEND:-together}
+      TOGETHER_IMAGE_MODEL: ${TOGETHER_IMAGE_MODEL:-black-forest-labs/FLUX.2-max}
+      TOGETHER_IMAGE_STYLE: ${TOGETHER_IMAGE_STYLE:-illustration}
+      TOGETHER_IMAGE_LABELS: ${TOGETHER_IMAGE_LABELS:-none}
+      TOGETHER_NLU: ${TOGETHER_NLU:-1}
+      IMAGE_RENDERER: ${IMAGE_RENDERER:-flux}
+      TOGETHER_PLANNER: ${TOGETHER_PLANNER:-1}
+      TOGETHER_PLANNER_MODEL: ${TOGETHER_PLANNER_MODEL:-openai/gpt-oss-120b}
+      TOGETHER_PLANNER_EFFORT: ${TOGETHER_PLANNER_EFFORT:-low}
+      TOGETHER_IMAGE_STEPS: ${TOGETHER_IMAGE_STEPS:-}
+      TOGETHER_IMAGE_MAX_PX: ${TOGETHER_IMAGE_MAX_PX:-}
+      TOGETHER_IMAGE_TIMEOUT: ${TOGETHER_IMAGE_TIMEOUT:-240}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: aai-artifacts
+    ports:
+      - "8100:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 10s
+      timeout: 3s
+      retries: 8
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  blender-worker:
+    build:
+      context: ../services/blender
+      dockerfile: Dockerfile
+    environment:
+      AI_STUB: "0"
+      BLENDER_BIN: /usr/local/bin/blender
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_TOKEN: dev-internal-token
+      API_CALLBACK_BASE: http://api:8080
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: aai-artifacts
+      S3_REGION: us-east-1
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
+
+  # LibreCAD (GPLv2) — DXF éditable aussi dans QCAD Community.
+  qcad:
+    build:
+      context: ..
+      dockerfile: services/qcad/Dockerfile
+    environment:
+      QCAD_BIN: /usr/bin/librecad
+      QCAD_SCRIPT: /app/normalize_dxf.js
+      QT_QPA_PLATFORM: offscreen
+    ports:
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9090/healthz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  miniodata:

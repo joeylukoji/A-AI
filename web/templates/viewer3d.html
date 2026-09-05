@@ -1,0 +1,48 @@
+{{template "header" .}}
+{{template "dash" .}}
+
+<div class="max-w-6xl mx-auto space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3 animate-blur-slide">
+    <div class="min-w-0">
+      <h2 class="font-extrabold text-xl tracking-tight truncate">Maquette 3D · {{.Project.Name}}</h2>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+        <a href="/projects/{{.Project.ID}}/3d" class="hover:text-teal-500 transition">← Plan 3D</a>
+      </p>
+    </div>
+    <p id="viewer-status" class="text-xs text-zinc-400">Chargement du modèle…</p>
+  </div>
+
+  <div class="card overflow-hidden animate-blur-slide stagger-1">
+    <div id="viewer" class="bg-[#101012] h-[68vh] relative">
+      <model-viewer
+        id="model-viewer"
+        camera-controls
+        auto-rotate
+        shadow-intensity="0.6"
+        exposure="1"
+        style="width:100%;height:100%;display:none;background:#101012"
+      ></model-viewer>
+      <canvas id="view3d" class="w-full h-full"></canvas>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap gap-2 animate-blur-slide stagger-2">
+    <a id="dl-glb" class="btn-dark hidden" href="#">Télécharger GLB</a>
+    <a id="dl-obj" class="btn-line hidden" href="#">Télécharger OBJ</a>
+  </div>
+</div>
+
+<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+<script>
+  window.AAI_PROJECT_ID = "{{.Project.ID}}";
+</script>
+<script src="/static/js/viewer3d.js"></script>
+<script>
+  window.addEventListener('caia:model.ready', (e) => {
+    const d = e.detail || {};
+    if (d.project_id && d.project_id !== window.AAI_PROJECT_ID) return;
+    location.reload();
+  });
+</script>
+{{template "dash_end" .}}
+{{template "footer" .}}

@@ -1,0 +1,6 @@
+{
+  "include": ["services/ai", "research"],
+  "extraPaths": ["services/ai", "research/metrics"],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic"
+}

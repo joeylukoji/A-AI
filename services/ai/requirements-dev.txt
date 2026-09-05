@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest==8.3.4
+httpx==0.28.1
+# SDK Together AI (backend image FLUX.2-dev). Optionnel : le service tombe
+# sur l'appel REST via httpx si le paquet n'est pas installe.
+together>=1.3.5

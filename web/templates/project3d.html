@@ -1,0 +1,147 @@
+{{template "header" .}}
+{{template "dash" .}}
+
+<div class="max-w-6xl mx-auto space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-3 animate-blur-slide">
+    <div class="min-w-0">
+      <h2 class="font-extrabold text-xl tracking-tight truncate">{{.Project.Name}} — Maquette 3D</h2>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">{{.Project.Brief}}</p>
+    </div>
+    {{if .Revision}}
+    <span class="badge bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">Révision v{{.Revision.Version}}</span>
+    {{end}}
+  </div>
+
+  <div class="grid lg:grid-cols-5 gap-6">
+    <!-- Colonne gauche : génération + critères + devis -->
+    <div class="lg:col-span-2 space-y-6">
+      <div class="card p-5 space-y-4 animate-blur-slide stagger-1">
+        <div class="flex items-center justify-between">
+          <p class="section-title">Génération 3D</p>
+          <span class="badge bg-amber-500/10 text-amber-500">Blender</span>
+        </div>
+        <p class="text-[10px] leading-relaxed text-zinc-400">La maquette est extrudée depuis le plan 2D courant (murs, ouvertures, mobilier), puis rendue en GLB par le worker Blender.</p>
+        <div class="flex flex-wrap gap-2">
+          <button id="btn-3d" class="btn-accent">{{template "icon-cube"}} Générer la maquette 3D</button>
+          <a class="btn-line" href="/projects/{{.Project.ID}}">{{template "icon-plan"}} Plan 2D</a>
+        </div>
+        <p id="job-status" class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">En attente</p>
+      </div>
+
+      <div class="card p-5 space-y-3 animate-blur-slide stagger-2">
+        <p class="section-title">Exports</p>
+        <div class="flex flex-wrap gap-2">
+          <a id="dl-glb" class="btn-dark hidden" href="#">Télécharger GLB</a>
+          <a id="dl-obj" class="btn-line hidden" href="#">Télécharger OBJ</a>
+          <button data-export="gltf" class="export-btn btn-line">glTF</button>
+          <button data-export="obj" class="export-btn btn-line">OBJ</button>
+          <button data-export="dxf" class="export-btn btn-line">DXF</button>
+        </div>
+        <p class="text-[10px] text-zinc-400">GLB/OBJ pour viewers et moteurs 3D ; DXF du plan pour QCAD / LibreCAD.</p>
+      </div>
+
+      <div class="animate-blur-slide stagger-3">{{template "criteres_card" .}}</div>
+      <div class="animate-blur-slide stagger-4">{{template "devis_card" .}}</div>
+    </div>
+
+    <!-- Colonne droite : viewer -->
+    <div class="lg:col-span-3">
+      <div class="card p-5 space-y-4 animate-blur-slide stagger-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="section-title">Viewer 3D</p>
+          <p id="viewer-status" class="text-xs text-zinc-500 dark:text-zinc-400">Chargement du modèle…</p>
+        </div>
+        <div id="viewer" class="rounded-xl border border-line dark:border-zinc-850 bg-[#101012] h-[60vh] relative overflow-hidden">
+          <model-viewer
+            id="model-viewer"
+            camera-controls
+            auto-rotate
+            shadow-intensity="0.6"
+            exposure="1"
+            style="width:100%;height:100%;display:none;background:#101012"
+          ></model-viewer>
+          <canvas id="view3d" class="w-full h-full"></canvas>
+        </div>
+        <p class="text-[10px] text-zinc-400">Glisser pour orbiter · molette pour zoomer. Sans GLB généré, une extrusion locale du plan 2D s'affiche.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+<script>
+  window.AAI_PROJECT_ID = "{{.Project.ID}}";
+</script>
+<script src="/static/js/viewer3d.js"></script>
+<script>
+  const projectId = "{{.Project.ID}}";
+  const revisionId = "{{if .Revision}}{{.Revision.ID}}{{end}}";
+  const statusEl = document.getElementById('job-status');
+
+  function applyJobStatus(data) {
+    if (!data || (data.project_id && data.project_id !== projectId)) return;
+    if (data.error) {
+      statusEl.textContent = `${data.type}: ${data.status} — ${data.error}`;
+      return;
+    }
+    if (data.status === 'running' && data.step === 'regenerate') {
+      statusEl.textContent = 'On régénère le plan…';
+      return;
+    }
+    const step = (window.CAIA && window.CAIA.jobStep) ? window.CAIA.jobStep(data.step) : (data.step || '');
+    statusEl.textContent = `${data.type}: ${data.status}${step ? ' · ' + step : ''}`;
+  }
+  window.addEventListener('caia:job', (e) => applyJobStatus(e.detail));
+  window.addEventListener('caia:model.ready', (e) => {
+    const d = e.detail || {};
+    if (d.project_id && d.project_id !== projectId) return;
+    location.reload();
+  });
+  window.addEventListener('caia:plan.ready', (e) => {
+    const d = e.detail || {};
+    if (d.project_id && d.project_id !== projectId) return;
+    location.reload();
+  });
+
+  function pollJob(jobId) {
+    const poll = setInterval(async () => {
+      const j = await fetch(`/api/v1/jobs/${jobId}`, {headers:{'Accept':'application/json'}}).then(r=>r.json());
+      if (j.status !== 'succeeded' && j.status !== 'failed') return;
+      statusEl.textContent = j.error ? `${j.type}: ${j.status} — ${j.error}` : `${j.type}: ${j.status}`;
+      clearInterval(poll);
+      if (j.status === 'succeeded') location.reload();
+    }, 1000);
+  }
+
+  document.getElementById('btn-3d').onclick = async () => {
+    statusEl.textContent = 'Enfilement…';
+    const res = await fetch(`/api/v1/projects/${projectId}/generate-3d`, { method:'POST', headers:{'Accept':'application/json'} });
+    const data = await res.json();
+    if (!res.ok) { statusEl.textContent = data.error?.message || 'Erreur 3D'; return; }
+    statusEl.textContent = `3D job ${data.job_id}`;
+    pollJob(data.job_id);
+  };
+
+  document.querySelectorAll('.export-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!revisionId) { alert('Générez un plan d’abord'); return; }
+      const res = await fetch(`/api/v1/revisions/${revisionId}/export`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ format: btn.dataset.export })
+      });
+      if (!res.ok) { alert('Export échoué'); return; }
+      const raw = await res.arrayBuffer();
+      const type = res.headers.get('Content-Type') || 'application/octet-stream';
+      const blob = new Blob([raw], { type });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `plan.${btn.dataset.export}`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+  });
+</script>
+{{template "devis_script" .}}
+
+{{template "dash_end" .}}
+{{template "footer" .}}

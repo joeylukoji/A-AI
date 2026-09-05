@@ -1,0 +1,176 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from app.main import PipelineRequest, app, api_pipeline  # noqa: E402
+from app.nlu import parse_brief  # noqa: E402
+from app.diffusion import generate  # noqa: E402
+from app.vectorize import vectorize  # noqa: E402
+
+
+client = TestClient(app)
+
+
+def test_healthz():
+    res = client.get("/healthz")
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+
+
+def test_pipeline_accepts_null_constraints():
+    res = client.post("/v1/pipeline", json={"brief": "Maison 3 chambres avec garage", "constraints": None})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert "plan_document" in body
+    assert body["plan_document"]["version"] == "1.0"
+    assert len(body["plan_document"]["rooms"]) >= 1
+    assert len(body["plan_document"]["walls"]) >= 4
+
+
+def test_pipeline_without_constraints_key():
+    res = client.post("/v1/pipeline", json={"brief": "Appartement 2 chambres cuisine ouverte"})
+    assert res.status_code == 200, res.text
+
+
+def test_nlu_filters_invented_rooms():
+    from app.nlu import _filter_invented_rooms
+
+    rooms = [
+        {"type": "living", "count": 1},
+        {"type": "kitchen", "count": 1},
+        {"type": "garage", "count": 1},
+        {"type": "office", "count": 1},
+    ]
+    out = _filter_invented_rooms("Maison 3 chambres", rooms)
+    types = {r["type"] for r in out}
+    assert "garage" not in types and "office" not in types
+    assert {"living", "kitchen"} <= types
+
+
+def test_nlu_extracts_bedrooms():
+    spec = parse_brief("Maison 4 chambres avec garage et cuisine ouverte", {})
+    types = {r["type"] for r in spec["rooms"]}
+    assert "bedroom" in types
+    assert "garage" in types
+    assert "kitchen" in types
+    bedroom = next(r for r in spec["rooms"] if r["type"] == "bedroom")
+    assert bedroom.get("count") == 4
+
+
+def test_housediff_room_program():
+    from app.housediff import rooms_from_spec
+
+    spec = parse_brief("Maison 2 chambres", {})
+    types = rooms_from_spec(spec)
+    assert types[0] == "living"
+    assert "kitchen" in types
+    assert types.count("bedroom") == 2
+
+
+def test_nlu_default_house_has_core_rooms():
+    spec = parse_brief("Maison contemporaine", {})
+    types = {r["type"] for r in spec["rooms"]}
+    assert {"living", "kitchen", "bedroom", "bathroom", "hallway"} <= types
+    bedroom = next(r for r in spec["rooms"] if r["type"] == "bedroom")
+    assert bedroom.get("count") == 2
+
+
+def test_nlu_t3_is_two_bedrooms():
+    spec = parse_brief("Appartement T3", {})
+    bedroom = next(r for r in spec["rooms"] if r["type"] == "bedroom")
+    assert bedroom.get("count") == 2
+
+
+def test_nlu_does_not_invent_garage():
+    spec = parse_brief("Maison 2 chambres", {})
+    assert all(r["type"] != "garage" for r in spec["rooms"])
+
+
+def test_nlu_wc_is_separate_from_bathroom():
+    spec = parse_brief("Maison 2 chambres avec wc", {})
+    types = [r["type"] for r in spec["rooms"]]
+    assert "wc" in types
+    assert types.count("bathroom") >= 1
+
+
+def test_generated_rooms_are_named():
+    spec = parse_brief("Maison contemporaine", {})
+    rooms = generate(spec)["layout"]["rooms"]
+    names = {r["name"] for r in rooms}
+    types = {r["type"] for r in rooms}
+    assert "Cuisine" in names
+    assert "Séjour" in names
+    assert {"kitchen", "living", "bedroom", "bathroom"} <= types
+
+
+def test_diffusion_and_vectorize_orthogonal():
+    spec = parse_brief("Maison 2 chambres", {"total_area_m2": 100})
+    gen = generate(spec)
+    plan = vectorize({"layout": gen["layout"], "building_spec": spec})["plan_document"]
+    for wall in plan["walls"]:
+        ax, ay = wall["a"]["x"], wall["a"]["y"]
+        bx, by = wall["b"]["x"], wall["b"]["y"]
+        assert abs(ax - bx) < 1e-6 or abs(ay - by) < 1e-6
+    assert plan["openings"]
+    wall_ids = {w["id"] for w in plan["walls"]}
+    for op in plan["openings"]:
+        assert op["wall_id"] in wall_ids
+        assert op["type"] in {"door", "window"}
+        assert op["width_m"] > 0
+    w = plan["floor"]["bounds"]["width"]
+    d = plan["floor"]["bounds"]["depth"]
+    assert len(plan["rooms"]) >= 5
+    furniture = plan["furniture"]
+    assert furniture
+    assert any(it["catalog_id"].startswith("bed.") for it in furniture)
+    for room in plan["rooms"]:
+        assert len(room["polygon"]) >= 4
+        for p in room["polygon"]:
+            assert 0 <= p["x"] <= w + 1e-6
+            assert 0 <= p["y"] <= d + 1e-6
+
+
+def test_api_pipeline_helper():
+    out = api_pipeline(PipelineRequest(brief="Villa 5 chambres avec bureau", constraints={}))
+    assert "building_spec" in out
+    assert out["plan_document"]["floor"]["height_m"] > 0
+    assert 0 <= out["compliance"]["score"] <= 100
+
+
+@pytest.mark.parametrize(
+    "brief",
+    [
+        "Maison 4 chambres avec garage",
+        "studio",
+        "Bureau avec salle de bain",
+    ],
+)
+def test_pipeline_briefs(brief: str):
+    res = client.post("/v1/pipeline", json={"brief": brief})
+    assert res.status_code == 200
+
+
+def test_edit_requires_instruction():
+    res = client.post("/v1/edit", json={"instruction": "  ", "brief": "Maison"})
+    assert res.status_code == 400
+
+
+def test_edit_keeps_plan_without_together_key(monkeypatch):
+    monkeypatch.delenv("TOGETHER_API_KEY", raising=False)
+    res = client.post("/v1/edit", json={
+        "instruction": "ajoute un îlot",
+        "brief": "Maison 2 chambres",
+        "image_png_b64": "ZmFrZQ==",
+        "plan_document": {"rooms": []},
+    })
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["image_png_b64"] == "ZmFrZQ=="
+    assert body["reply_fr"]

@@ -1,0 +1,146 @@
+{
+  "chair.dining": {
+    "label": "Chaise de salle à manger",
+    "category": "seating",
+    "source": "procedural",
+    "footprint_m": [0.45, 0.50, 0.90]
+  },
+  "bed.single": {
+    "label": "Lit une place",
+    "category": "sleep",
+    "source": "procedural",
+    "footprint_m": [0.90, 2.00, 0.55]
+  },
+  "bed.double": {
+    "label": "Lit deux places",
+    "category": "sleep",
+    "source": "procedural",
+    "footprint_m": [1.60, 2.00, 0.55]
+  },
+  "table.dining": {
+    "label": "Table à manger",
+    "category": "table",
+    "source": "procedural",
+    "footprint_m": [1.60, 0.90, 0.75]
+  },
+  "table.coffee": {
+    "label": "Table basse",
+    "category": "table",
+    "source": "procedural",
+    "footprint_m": [1.10, 0.55, 0.40]
+  },
+  "sofa.2seat": {
+    "label": "Canapé 2 places",
+    "category": "seating",
+    "source": "procedural",
+    "footprint_m": [1.80, 0.85, 0.80]
+  },
+  "nightstand": {
+    "label": "Table de chevet",
+    "category": "storage",
+    "source": "procedural",
+    "footprint_m": [0.45, 0.40, 0.50]
+  },
+  "wardrobe": {
+    "label": "Armoire",
+    "category": "storage",
+    "source": "procedural",
+    "footprint_m": [1.20, 0.60, 2.00]
+  },
+  "counter.kitchen": {
+    "label": "Plan de travail",
+    "category": "kitchen",
+    "source": "procedural",
+    "footprint_m": [2.40, 0.62, 0.90]
+  },
+  "sofa.lshape": {
+    "label": "Canapé d'angle",
+    "category": "seating",
+    "source": "procedural",
+    "footprint_m": [2.40, 1.60, 0.80]
+  },
+  "armchair": {
+    "label": "Fauteuil",
+    "category": "seating",
+    "source": "procedural",
+    "footprint_m": [0.80, 0.80, 0.78]
+  },
+  "stove": {
+    "label": "Plaques de cuisson",
+    "category": "kitchen",
+    "source": "procedural",
+    "footprint_m": [0.60, 0.55, 0.90]
+  },
+  "desk": {
+    "label": "Bureau",
+    "category": "table",
+    "source": "procedural",
+    "footprint_m": [1.20, 0.60, 0.75]
+  },
+  "fireplace": {
+    "label": "Cheminée",
+    "category": "living",
+    "source": "procedural",
+    "footprint_m": [0.70, 0.55, 1.20]
+  },
+  "bathtub": {
+    "label": "Baignoire",
+    "category": "bath",
+    "source": "procedural",
+    "footprint_m": [1.70, 0.75, 0.55]
+  },
+  "toilet": {
+    "label": "WC",
+    "category": "bath",
+    "source": "procedural",
+    "footprint_m": [0.40, 0.65, 0.80]
+  },
+  "sink.basin": {
+    "label": "Lavabo",
+    "category": "bath",
+    "source": "procedural",
+    "footprint_m": [0.55, 0.42, 0.85]
+  },
+  "car.sedan": {
+    "label": "Voiture",
+    "category": "garage",
+    "source": "procedural",
+    "footprint_m": [4.20, 1.80, 1.45]
+  },
+  "rug.rect": {
+    "label": "Tapis",
+    "category": "living",
+    "source": "procedural",
+    "footprint_m": [2.20, 1.60, 0.02]
+  },
+  "plant.pot": {
+    "label": "Plante",
+    "category": "decor",
+    "source": "procedural",
+    "footprint_m": [0.45, 0.45, 0.90]
+  },
+  "fridge": {
+    "label": "Réfrigérateur",
+    "category": "kitchen",
+    "source": "procedural",
+    "footprint_m": [0.65, 0.65, 1.80]
+  },
+  "tv.console": {
+    "label": "Meuble TV",
+    "category": "living",
+    "source": "procedural",
+    "footprint_m": [1.60, 0.40, 0.45]
+  },
+  "wall.exterior": {
+    "label": "Mur extérieur",
+    "category": "structure",
+    "source": "procedural",
+    "footprint_m": [1.00, 0.20, 2.70]
+  },
+  "wall.interior": {
+    "label": "Cloison",
+    "category": "structure",
+    "source": "procedural",
+    "footprint_m": [1.00, 0.12, 2.70]
+  }
+}

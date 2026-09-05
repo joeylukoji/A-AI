@@ -1,0 +1,8 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+redis==5.2.1
+httpx==0.28.1
+Pillow==11.0.0
+fpdf2==2.8.2
+boto3==1.35.76

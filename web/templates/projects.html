@@ -1,0 +1,87 @@
+{{template "header" .}}
+{{template "dash" .}}
+
+<div class="max-w-5xl mx-auto space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-3 animate-blur-slide">
+    <div>
+      <h2 class="font-extrabold text-xl tracking-tight">Vos projets</h2>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{{.Org.Name}} — plans 2D, maquettes 3D et devis professionnels.</p>
+    </div>
+    <span class="badge bg-teal-500/10 text-teal-600 dark:text-teal-400">{{len .Projects}} projet(s)</span>
+  </div>
+
+  <form method="post" action="/projects" class="card p-5 space-y-4 animate-blur-slide stagger-1">
+    <p class="section-title">Nouveau projet</p>
+    <div class="grid md:grid-cols-3 gap-3">
+      <div>
+        <label class="label" for="p-name">Nom</label>
+        <input id="p-name" name="name" class="input" placeholder="Maison famille" required/>
+      </div>
+      <div class="md:col-span-2">
+        <label class="label" for="p-brief">Brief</label>
+        <input id="p-brief" name="brief" class="input" placeholder="Maison 4 chambres avec garage et cuisine ouverte"/>
+      </div>
+    </div>
+    <div>
+      <button class="btn-accent">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+        Créer le projet
+      </button>
+    </div>
+  </form>
+
+  <ul class="grid sm:grid-cols-2 gap-4">
+    {{range $i, $p := .Projects}}
+    <li class="animate-blur-slide stagger-{{if lt $i 5}}{{$i}}{{else}}5{{end}}">
+      <a href="/projects/{{.ID}}" data-project="{{.ID}}" class="card block p-5 hover:border-teal-500/60 dark:hover:border-teal-500/40 transition group">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="font-bold text-sm truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition">{{.Name}}</p>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-1">{{.Brief}}</p>
+          </div>
+          <span class="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-400 group-hover:text-teal-500 transition">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17 17 7M7 7h10v10"/></svg>
+          </span>
+        </div>
+        <div class="mt-4 flex items-center gap-2">
+          <span class="badge bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{{.Status}}</span>
+          {{if .ComplianceScore}}
+          <span class="badge {{if ge .ComplianceScore 80}}bg-emerald-500/10 text-emerald-500{{else if ge .ComplianceScore 50}}bg-amber-500/10 text-amber-500{{else}}bg-red-500/10 text-red-500{{end}}">
+            Conformité {{.ComplianceScore}}/100 {{.ComplianceGrade}}
+          </span>
+          {{end}}
+        </div>
+      </a>
+    </li>
+    {{else}}
+    <li class="card p-8 text-center sm:col-span-2 animate-blur-slide stagger-2">
+      <p class="text-sm font-bold">Aucun projet pour l'instant</p>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Créez votre premier projet ci-dessus pour générer un plan.</p>
+    </li>
+    {{end}}
+  </ul>
+</div>
+<script>
+  window.addEventListener('caia:plan.ready', (e) => {
+    const id = e.detail && e.detail.project_id;
+    const card = id && document.querySelector('[data-project="' + id + '"]');
+    if (card) card.classList.add('ring-2', 'ring-teal-500');
+  });
+  window.addEventListener('caia:job', (e) => {
+    const d = e.detail || {};
+    const card = d.project_id && document.querySelector('[data-project="' + d.project_id + '"]');
+    if (!card) return;
+    let badge = card.querySelector('[data-live-status]');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.setAttribute('data-live-status', '');
+      badge.className = 'badge bg-teal-500/10 text-teal-600 dark:text-teal-400';
+      card.querySelector('.mt-4')?.appendChild(badge);
+    }
+    const map = { queued: 'en file', running: 'en cours', succeeded: 'prêt', failed: 'échec' };
+    badge.textContent = (d.type || 'job') + ' · ' + (map[d.status] || d.status || '');
+  });
+</script>
+
+{{template "dash_end" .}}
+{{template "footer" .}}

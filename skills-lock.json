@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "skills": {
+    "code-review": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/code-review/SKILL.md",
+      "computedHash": "b4f17857c85ca60af1df7d0b623dd03c2a48419f6123e714f3d9748ca744a1bf"
+    },
+    "fastapi": {
+      "source": "fastapi/fastapi",
+      "sourceType": "github",
+      "skillPath": "fastapi/.agents/skills/fastapi/SKILL.md",
+      "computedHash": "187b2e06c41cdb6c6beeab15e6db4aeb1bf62f57735974646ad5646af8aacc66"
+    },
+    "frontend-refactor-planner": {
+      "source": "patricio0312rev/skills",
+      "sourceType": "github",
+      "skillPath": "frontend/frontend-refactor-planner/SKILL.md",
+      "computedHash": "bd5390955b50bf9d369aca332ad8e02eb37281a2f5411802a5a333bfd710b34e"
+    },
+    "golang-code-style": {
+      "source": "samber/cc-skills-golang",
+      "sourceType": "github",
+      "skillPath": "skills/golang-code-style/SKILL.md",
+      "computedHash": "22a3619eac6483791d5712d66fb7c5a58c72885d08d35a0ff387203eb925626b"
+    },
+    "golang-design-patterns": {
+      "source": "samber/cc-skills-golang",
+      "sourceType": "github",
+      "skillPath": "skills/golang-design-patterns/SKILL.md",
+      "computedHash": "5cb9797b1060924aa4c7363c24ffba4f23ad2c8e8aee5fb2724ce88ddb3f434e"
+    },
+    "golang-performance": {
+      "source": "samber/cc-skills-golang",
+      "sourceType": "github",
+      "skillPath": "skills/golang-performance/SKILL.md",
+      "computedHash": "548c7e02341f3fdbcc6ceb35182607d00063961c4e29e15ce78b3548b39f6ebe"
+    },
+    "golang-security": {
+      "source": "samber/cc-skills-golang",
+      "sourceType": "github",
+      "skillPath": "skills/golang-security/SKILL.md",
+      "computedHash": "29b81afb21c8c63d4d2f8e1673d6bac9a423a283158e816c58b67240a0137ef6"
+    },
+    "python-appservice-deploy": {
+      "source": "microsoft/azure-skills",
+      "sourceType": "github",
+      "skillPath": "skills/python-appservice-deploy/SKILL.md",
+      "computedHash": "4a3c022ddb775e07c6dcc763c1b2232c8a45f1e76180f13e78410b85aaccaae1"
+    },
+    "python-code-style": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-code-style/SKILL.md",
+      "computedHash": "c375dffa8d94962e10193079af1527b149f43b68d60043830d89cbce1228cec7"
+    },
+    "review-and-refactor": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/review-and-refactor/SKILL.md",
+      "computedHash": "9236d06a1500089ddb46975b866e9a63478e502afe7095b1980c618678a7c7fe"
+    },
+    "trigger-realtime": {
+      "source": "triggerdotdev/skills",
+      "sourceType": "github",
+      "skillPath": "trigger-realtime/SKILL.md",
+      "computedHash": "471bdef9043b6208045c4a73eb99b78d50ab8019c06c781f5cc5835056d087aa"
+    }
+  }
+}

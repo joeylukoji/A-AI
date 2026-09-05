@@ -1,0 +1,90 @@
+{
+  "diffusion_only": [
+    {
+      "brief": "Maison 4 chambres avec garage et cuisine ouverte",
+      "latency_s": 0.07743810000010853,
+      "topology": {
+        "closed_perimeter": true,
+        "room_polygon_ratio": 1.0,
+        "orthogonality": 1.0
+      },
+      "constraints": {
+        "room_count_score": 1.0,
+        "has_bounds": true
+      },
+      "use_gan": false
+    },
+    {
+      "brief": "Appartement 2 chambres cuisine ouverte",
+      "latency_s": 0.00861559999975725,
+      "topology": {
+        "closed_perimeter": true,
+        "room_polygon_ratio": 1.0,
+        "orthogonality": 1.0
+      },
+      "constraints": {
+        "room_count_score": 1.0,
+        "has_bounds": true
+      },
+      "use_gan": false
+    },
+    {
+      "brief": "Villa 5 chambres avec bureau",
+      "latency_s": 0.008737000000110129,
+      "topology": {
+        "closed_perimeter": true,
+        "room_polygon_ratio": 1.0,
+        "orthogonality": 1.0
+      },
+      "constraints": {
+        "room_count_score": 1.0,
+        "has_bounds": true
+      },
+      "use_gan": false
+    }
+  ],
+  "diffusion_gan": [
+    {
+      "brief": "Maison 4 chambres avec garage et cuisine ouverte",
+      "latency_s": 0.029101600000103645,
+      "topology": {
+        "closed_perimeter": true,
+        "room_polygon_ratio": 1.0,
+        "orthogonality": 1.0
+      },
+      "constraints": {
+        "room_count_score": 1.0,
+        "has_bounds": true
+      },
+      "use_gan": true
+    },
+    {
+      "brief": "Appartement 2 chambres cuisine ouverte",
+      "latency_s": 0.03163089999998192,
+      "topology": {
+        "closed_perimeter": true,
+        "room_polygon_ratio": 1.0,
+        "orthogonality": 1.0
+      },
+      "constraints": {
+        "room_count_score": 1.0,
+        "has_bounds": true
+      },
+      "use_gan": true
+    },
+    {
+      "brief": "Villa 5 chambres avec bureau",
+      "latency_s": 0.02875339999991411,
+      "topology": {
+        "closed_perimeter": true,
+        "room_polygon_ratio": 1.0,
+        "orthogonality": 1.0
+      },
+      "constraints": {
+        "room_count_score": 1.0,
+        "has_bounds": true
+      },
+      "use_gan": true
+    }
+  ]
+}

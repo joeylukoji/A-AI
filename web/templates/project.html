@@ -1,0 +1,266 @@
+{{template "header" .}}
+{{template "dash" .}}
+
+<div class="max-w-6xl mx-auto space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-3 animate-blur-slide">
+    <div class="min-w-0">
+      <h2 class="font-extrabold text-xl tracking-tight truncate">{{.Project.Name}}</h2>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">{{.Project.Brief}}</p>
+    </div>
+    <div class="flex items-center gap-2">
+      {{if .Compliance}}
+      <span class="badge {{if ge .Compliance.Score 80}}bg-emerald-500/10 text-emerald-500{{else if ge .Compliance.Score 50}}bg-amber-500/10 text-amber-500{{else}}bg-red-500/10 text-red-500{{end}}">
+        Conformité {{.Compliance.Score}}/100 · {{.Compliance.Grade}}
+      </span>
+      {{end}}
+      {{if .Revision}}
+      <span class="badge bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">Révision v{{.Revision.Version}} · {{.Revision.Source}}</span>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="grid lg:grid-cols-5 gap-6">
+    <!-- Colonne gauche : génération + critères + devis -->
+    <div class="lg:col-span-2 space-y-6">
+      <div class="card p-5 space-y-4 animate-blur-slide stagger-1">
+        <div class="flex items-center justify-between">
+          <p class="section-title">Génération 2D</p>
+          <span class="badge bg-blue-500/10 text-blue-500">Together AI</span>
+        </div>
+        <div>
+          <label class="label" for="brief">Brief</label>
+          <textarea id="brief" rows="4" class="input resize-y">{{.Project.Brief}}</textarea>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="btn-generate" class="btn-accent">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z"/></svg>
+            Générer le plan
+          </button>
+          {{if .Revision}}
+          <button type="button" id="btn-redo" class="btn-line px-3 py-1.5 text-[11px]" title="Relancer un dessin plus strict si le plan a trop d’erreurs">Refaire le plan</button>
+          <button id="btn-adapt" class="btn-line">Adapter à la parcelle</button>
+          {{end}}
+        </div>
+        <p class="text-[10px] leading-relaxed text-zinc-400">Pipeline : le LLM (<code class="font-mono">gpt-oss-120b</code>) dispose les pièces, puis <code class="font-mono">FLUX.2-max</code> rend l'illustration (sans texte). Sans clé Together, repli vectoriel local.</p>
+        <p id="job-status" class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">En attente</p>
+      </div>
+
+      <div class="animate-blur-slide stagger-2">{{template "criteres_card" .}}</div>
+      <div class="animate-blur-slide stagger-3">{{template "devis_card" .}}</div>
+    </div>
+
+    <!-- Colonne droite : aperçu du plan -->
+    <div class="lg:col-span-3 space-y-6">
+      <div class="card p-5 space-y-4 animate-blur-slide stagger-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="section-title">Plan 2D</p>
+          <div class="flex flex-wrap gap-2">
+            <a class="btn-dark" href="/projects/{{.Project.ID}}/editor">{{template "icon-pencil"}} Ouvrir l'éditeur</a>
+            <a class="btn-line" href="/projects/{{.Project.ID}}/3d">{{template "icon-cube"}} Plan 3D</a>
+          </div>
+        </div>
+
+        {{if .HasPreview}}
+        <img src="/api/v1/projects/{{.Project.ID}}/preview?v={{.Revision.Version}}" alt="Aperçu du plan" class="w-full rounded-xl border border-line dark:border-zinc-850 bg-white"/>
+        {{else if .Revision}}
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">Plan vectoriel (pas encore d'illustration). Ouvrez l'éditeur pour le modifier.</p>
+        <canvas id="plan-thumb" width="512" height="400" class="w-full rounded-xl border border-line dark:border-zinc-850 bg-[#f7f4ef]"></canvas>
+        {{else}}
+        <div class="rounded-xl border border-dashed border-line dark:border-zinc-700 py-16 text-center">
+          <p class="text-sm font-bold text-zinc-400">Aucun plan généré</p>
+          <p class="text-xs text-zinc-400 mt-1">Décrivez la maison dans le brief puis lancez la génération.</p>
+        </div>
+        {{end}}
+
+        {{if .Revision}}
+        <ul id="room-legend" class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-500 dark:text-zinc-400"></ul>
+        <div id="compliance-score"></div>
+        <div id="plan-dimensions"></div>
+        <script type="application/json" id="plan-thumb-data">{{.PlanJSON}}</script>
+        <script src="/static/js/plan-style.js"></script>
+        <script src="/static/js/plan-compliance.js"></script>
+        <script>
+          (function () {
+            const el = document.getElementById('plan-thumb-data');
+            const style = window.PlanStyle;
+            if (!el) return;
+            let plan;
+            try { plan = JSON.parse(el.textContent || '{}'); } catch { return; }
+            if (window.PlanCompliance) {
+              window.PlanCompliance.render(plan, document.getElementById('compliance-score'));
+              window.PlanCompliance.renderDimensions(plan, document.getElementById('plan-dimensions'));
+            }
+            const legend = document.getElementById('room-legend');
+            if (legend && style) {
+              legend.innerHTML = (plan.rooms || []).map((room) => (
+                `<li class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-sm border border-zinc-400" style="background:${style.fill(room)}"></span>${style.label(room)}</li>`
+              )).join('');
+            }
+            const c = document.getElementById('plan-thumb');
+            if (!c) return;
+            const ctx = c.getContext('2d');
+            const scale = 24, pad = 28;
+            const bw = (plan.floor && plan.floor.bounds && plan.floor.bounds.width) || 12;
+            const bd = (plan.floor && plan.floor.bounds && plan.floor.bounds.depth) || 10;
+            const toScreen = (p) => ({ x: pad + p.x * scale, y: pad + p.y * scale });
+            if (style && style.drawSite) style.drawSite(ctx, bw, bd, toScreen, c.width, c.height);
+            else { ctx.fillStyle = '#f7f4ef'; ctx.fillRect(0, 0, c.width, c.height); }
+            (plan.rooms || []).forEach((room) => {
+              if (!room.polygon || room.polygon.length < 3) return;
+              if (style && style.drawFloor) style.drawFloor(ctx, room, toScreen);
+              if (style && !(plan.furniture || []).length) style.drawFixtures(ctx, room, toScreen);
+            });
+            if (style && (plan.furniture || []).length) style.drawFurniture(ctx, plan.furniture, toScreen);
+            if (style && style.drawPorch) style.drawPorch(ctx, plan.openings, plan.walls, bd, toScreen);
+            if (style && style.drawWalls) style.drawWalls(ctx, plan.walls, toScreen, scale);
+            else {
+              (plan.walls || []).forEach((w) => {
+                ctx.beginPath();
+                ctx.moveTo(pad + w.a.x * scale, pad + w.a.y * scale);
+                ctx.lineTo(pad + w.b.x * scale, pad + w.b.y * scale);
+                ctx.strokeStyle = '#585856';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+              });
+            }
+            if (style && style.drawOpenings) style.drawOpenings(ctx, plan.openings, plan.walls, toScreen, scale);
+            (plan.rooms || []).forEach((room) => {
+              if (!room.polygon || room.polygon.length < 3) return;
+              const c0 = room.polygon.reduce((a, p) => ({ x: a.x + p.x, y: a.y + p.y }), { x: 0, y: 0 });
+              c0.x /= room.polygon.length;
+              c0.y /= room.polygon.length;
+              const text = style ? style.label(room) : (room.name || room.type || '');
+              ctx.fillStyle = '#1c1917';
+              ctx.font = 'bold 11px sans-serif';
+              ctx.fillText(text, pad + c0.x * scale - ctx.measureText(text).width / 2, pad + c0.y * scale);
+            });
+          })();
+        </script>
+        {{end}}
+      </div>
+
+      <div class="card p-5 space-y-3 animate-blur-slide stagger-3">
+        <p class="section-title">Exports CAO</p>
+        <div class="flex flex-wrap gap-2">
+          <button data-export="dxf" id="btn-dxf" class="export-btn btn-dark">DXF (QCAD / LibreCAD)</button>
+          <button data-export="pdf" class="export-btn btn-line">PDF</button>
+          <button data-export="svg" class="export-btn btn-line">SVG</button>
+          <button data-export="obj" class="export-btn btn-line">OBJ</button>
+          <button data-export="gltf" class="export-btn btn-line">glTF</button>
+        </div>
+        <p class="text-[10px] text-zinc-400">DXF avec calques WALLS, ROOMS, OPENINGS, LABELS — éditable dans QCAD Community (gratuit) ou LibreCAD.</p>
+        <details class="text-xs">
+          <summary class="cursor-pointer text-zinc-400 font-semibold">PlanDocument JSON</summary>
+          <pre id="plan-preview" class="mt-2 text-[10px] overflow-auto max-h-72 rounded-xl bg-zinc-100 dark:bg-zinc-950 border border-line dark:border-zinc-850 p-3">{{if .Revision}}{{printf "%s" .Revision.PlanDocument}}{{else}}Aucun plan généré.{{end}}</pre>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const projectId = "{{.Project.ID}}";
+  const revisionId = "{{if .Revision}}{{.Revision.ID}}{{end}}";
+  const statusEl = document.getElementById('job-status');
+
+  function applyJobStatus(data) {
+    if (!data || (data.project_id && data.project_id !== projectId)) return;
+    if (data.error) {
+      statusEl.textContent = `${data.type}: ${data.status} — ${data.error}`;
+      return;
+    }
+    if (data.status === 'running' && data.step === 'regenerate') {
+      statusEl.textContent = 'On régénère le plan…';
+      return;
+    }
+    const step = (window.CAIA && window.CAIA.jobStep) ? window.CAIA.jobStep(data.step) : (data.step || '');
+    statusEl.textContent = `${data.type}: ${data.status}${step ? ' · ' + step : ''}`;
+  }
+  window.addEventListener('caia:job', (e) => applyJobStatus(e.detail));
+  window.addEventListener('caia:plan.ready', (e) => {
+    const d = e.detail || {};
+    if (d.project_id && d.project_id !== projectId) return;
+    location.reload();
+  });
+  window.addEventListener('caia:model.ready', (e) => {
+    const d = e.detail || {};
+    if (d.project_id && d.project_id !== projectId) return;
+    statusEl.textContent = `3D prêt · GLB ${d.glb_artifact_id || ''}`;
+  });
+
+  function parcelBody() {
+    return {
+      parcel_width_m: parseFloat(document.getElementById('parcel-w').value) || 12,
+      parcel_depth_m: parseFloat(document.getElementById('parcel-d').value) || 10,
+      setback_m: parseFloat(document.getElementById('parcel-setback').value) || 0,
+    };
+  }
+  function pollJob(jobId) {
+    const poll = setInterval(async () => {
+      const j = await fetch(`/api/v1/jobs/${jobId}`, {headers:{'Accept':'application/json'}}).then(r=>r.json());
+      if (j.status !== 'succeeded' && j.status !== 'failed') return;
+      statusEl.textContent = j.error ? `${j.type}: ${j.status} — ${j.error}` : `${j.type}: ${j.status}`;
+      clearInterval(poll);
+      if (j.status === 'succeeded') location.reload();
+    }, 1000);
+  }
+
+  async function startGenerate({ careful } = {}) {
+    statusEl.textContent = careful ? 'On refait le plan, plus attentivement…' : 'Enfilement…';
+    const res = await fetch(`/api/v1/projects/${projectId}/generate`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({
+        brief: document.getElementById('brief').value,
+        careful: Boolean(careful),
+        ...parcelBody()
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { statusEl.textContent = data.error?.message || 'Erreur'; return; }
+    statusEl.textContent = careful ? 'Refaire le plan…' : `Job ${data.job_id} queued`;
+    pollJob(data.job_id);
+  }
+  document.getElementById('btn-generate').onclick = () => startGenerate();
+  document.getElementById('btn-redo')?.addEventListener('click', () => startGenerate({ careful: true }));
+
+  document.getElementById('btn-adapt')?.addEventListener('click', async () => {
+    statusEl.textContent = 'Adaptation…';
+    const res = await fetch(`/api/v1/projects/${projectId}/adapt`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify(parcelBody())
+    });
+    const data = await res.json();
+    if (!res.ok) { statusEl.textContent = data.error?.message || 'Erreur'; return; }
+    pollJob(data.job_id);
+  });
+
+  document.querySelectorAll('.export-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!revisionId) { alert('Générez un plan d’abord'); return; }
+      const res = await fetch(`/api/v1/revisions/${revisionId}/export`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ format: btn.dataset.export })
+      });
+      if (!res.ok) { alert('Export échoué'); return; }
+      const raw = await res.arrayBuffer();
+      const type = res.headers.get('Content-Type') || 'application/octet-stream';
+      const blob = new Blob([raw], { type });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const ext = btn.dataset.export === 'gltf' ? 'gltf' : btn.dataset.export;
+      a.download = `plan.${ext}`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      if (btn.dataset.export === 'dxf') {
+        statusEl.textContent = 'DXF téléchargé — ouvre-le dans QCAD Community ou LibreCAD pour modifier le plan.';
+      }
+    };
+  });
+
+</script>
+{{template "devis_script" .}}
+
+{{template "dash_end" .}}
+{{template "footer" .}}

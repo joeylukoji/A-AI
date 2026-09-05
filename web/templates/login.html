@@ -1,0 +1,48 @@
+{{template "header" .}}
+<main class="min-h-screen bg-cream text-[#090b0c] font-maison flex items-center justify-center px-[5.5vw] py-16 relative overflow-hidden">
+  <div class="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-white/70 blur-3xl"></div>
+  <div class="pointer-events-none absolute -bottom-40 -right-24 h-[28rem] w-[28rem] rounded-full bg-skyx/50 blur-3xl"></div>
+
+  <div class="relative w-full max-w-md">
+    <a href="/" class="mb-8 flex items-center justify-center gap-3">
+      <span class="relative flex h-9 w-9 items-center justify-center rounded-full border border-black/70">
+        <span class="h-3 w-3 rounded-full bg-[#090b0c]"></span>
+        <span class="absolute -right-0.5 top-1/2 h-px w-3.5 -translate-y-1/2 bg-[#090b0c]"></span>
+      </span>
+      <span class="text-base font-semibold tracking-tight">Congo Architecture <span class="font-display-italic text-lg">IA</span></span>
+    </a>
+
+    <form method="post" action="/login" class="rounded-3xl border border-black/15 bg-creamcard/60 p-7 md:p-9 backdrop-blur-md">
+      <p class="text-[11px] uppercase tracking-[0.16rem] text-black/50 mb-4">Connexion</p>
+      <h1 class="text-4xl font-medium tracking-[-0.05em] mb-1">Bon retour<span class="font-display-italic">.</span></h1>
+      <p class="text-xs text-black/50 mb-2">Démo : demo@a-ai.local / demo-demo-demo</p>
+
+      {{if .Error}}
+      <p class="mt-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-2.5 text-xs font-medium text-red-700">{{.Error}}</p>
+      {{end}}
+
+      <label class="block mt-6">
+        <span class="text-[10px] font-medium uppercase tracking-[0.14rem] text-black/50">Email</span>
+        <input name="email" type="email" required autocomplete="email"
+          class="mt-2 w-full rounded-full border border-black/15 bg-cream px-5 py-3 text-sm outline-none transition focus:border-black/40"/>
+      </label>
+      <label class="block mt-4">
+        <span class="text-[10px] font-medium uppercase tracking-[0.14rem] text-black/50">Mot de passe</span>
+        <input name="password" type="password" required autocomplete="current-password"
+          class="mt-2 w-full rounded-full border border-black/15 bg-cream px-5 py-3 text-sm outline-none transition focus:border-black/40"/>
+      </label>
+
+      <button type="submit" class="group mt-7 w-full flex items-center justify-between rounded-full bg-[#090b0c] py-2.5 pl-7 pr-2.5 text-xs font-medium uppercase tracking-wider text-white transition-transform duration-300 hover:-translate-y-0.5">
+        Entrer dans l'atelier
+        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black transition-transform duration-300 group-hover:rotate-45">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17 17 7M7 7h10v10"/></svg>
+        </span>
+      </button>
+
+      <p class="mt-6 text-center text-xs text-black/55">Pas de compte ? <a class="font-semibold text-black underline underline-offset-4" href="/register">S'inscrire</a></p>
+    </form>
+
+    <p class="mt-6 text-center text-[10px] uppercase tracking-[0.18rem] text-black/40">Plans 2D → 3D → devis · RDC</p>
+  </div>
+</main>
+{{template "footer" .}}

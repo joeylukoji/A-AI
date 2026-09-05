@@ -1,0 +1,84 @@
+/* Congo Architecture IA — thème dashboard (draftng) + landing (MaisonFav) */
+
+/* ---- dashboard : micro-interactions ---- */
+.clickable-scale { transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1) !important; }
+.clickable-scale:active { transform: scale(0.96) !important; }
+
+@keyframes blur-slide-in {
+  0% { opacity: 0; transform: translateY(16px); filter: blur(12px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+.animate-blur-slide { animation: blur-slide-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
+.stagger-6 { animation-delay: 300ms; }
+
+@keyframes fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-fade { animation: fade 0.7s ease-out both; }
+
+/* Avatars dégradés (style draftng) */
+.avatar-grad-1 { background: linear-gradient(135deg, #0d9488 0%, #4f46e5 100%); }
+.avatar-grad-2 { background: linear-gradient(135deg, #db2777 0%, #e11d48 100%); }
+.avatar-grad-3 { background: linear-gradient(135deg, #d97706 0%, #ca8a04 100%); }
+.avatar-grad-4 { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); }
+.avatar-grad-5 { background: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%); }
+
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.55); }
+  50% { box-shadow: 0 0 0 5px rgba(20, 184, 166, 0); }
+}
+.live-pulse { animation: live-pulse 1.8s ease-out infinite; }
+*::-webkit-scrollbar { width: 5px; height: 5px; }
+*::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.25); border-radius: 99px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- landing : style MaisonFav ---- */
+.font-display-italic {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(2.8rem);
+  transition:
+    opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .animate-blur-slide, .animate-fade { animation: none; }
+}
+
+/* Curseur custom (landing uniquement, desktop) */
+#cursor {
+  position: fixed;
+  z-index: 90;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: #fff;
+  mix-blend-mode: difference;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: width 200ms ease, height 200ms ease;
+  display: none;
+}
+@media (pointer: fine) {
+  #cursor { display: block; }
+}
+
+/* Tilt cartes galerie */
+.tilt { transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1); transform-style: preserve-3d; }

@@ -1,0 +1,111 @@
+{{define "criteres_card"}}
+<div class="card p-5 space-y-4">
+  <div class="flex items-center justify-between">
+    <p class="section-title">Critères & parcelle</p>
+    <span class="badge bg-teal-500/10 text-teal-600 dark:text-teal-400">Règles d'habitabilité</span>
+  </div>
+  <div class="grid grid-cols-3 gap-2">
+    <div>
+      <label class="label" for="parcel-w">Longueur (m)</label>
+      <input id="parcel-w" type="number" min="6" step="0.1" value="12" class="input"/>
+    </div>
+    <div>
+      <label class="label" for="parcel-d">Profondeur (m)</label>
+      <input id="parcel-d" type="number" min="6" step="0.1" value="10" class="input"/>
+    </div>
+    <div>
+      <label class="label" for="parcel-setback">Recul (m)</label>
+      <input id="parcel-setback" type="number" min="0" step="0.1" value="0" class="input"/>
+    </div>
+  </div>
+  <p class="text-[10px] leading-relaxed text-zinc-400">Le solveur applique les règles d'habitabilité (surfaces minimales, portes, hauteur 2,70 m) et cale les cotes sur une grille de 10 cm.</p>
+</div>
+{{end}}
+
+{{define "devis_card"}}
+<div class="card p-5 space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <p class="section-title">Devis & cahier des charges</p>
+    <span class="badge bg-teal-500/10 text-teal-600 dark:text-teal-400">USD · TVA 16 %</span>
+  </div>
+  <p class="text-[10px] leading-relaxed text-zinc-400">
+    Document professionnel rédigé par l'IA (gpt-oss-120b) : résumé du projet, cahier des charges
+    (normes ACNOR, DTU à titre technique, raccordements REGIDESO/SNEL), cahier technique par lot
+    et budgétisation détaillée en USD adaptée au marché de la RDC.
+  </p>
+  <div class="flex flex-wrap items-center gap-2">
+    <button id="btn-devis" class="btn-accent">{{template "icon-doc"}} Générer le devis (PDF)</button>
+    <a id="devis-download" href="#" class="btn-line hidden" target="_blank" rel="noopener">Télécharger le dernier devis</a>
+  </div>
+  <p id="devis-status" class="text-xs text-zinc-500 dark:text-zinc-400"></p>
+</div>
+{{end}}
+
+{{define "devis_script"}}
+<script>
+  (function () {
+    const projectId = "{{.Project.ID}}";
+    const devisBtn = document.getElementById('btn-devis');
+    const devisStatus = document.getElementById('devis-status');
+    const devisLink = document.getElementById('devis-download');
+
+    async function refreshDevisLink() {
+      try {
+        const arts = await fetch(`/api/v1/projects/${projectId}/artifacts?kind=devis`, { headers: { Accept: 'application/json' } }).then(r => r.json());
+        const list = arts.artifacts || arts || [];
+        if (list.length > 0) {
+          devisLink.href = `/api/v1/artifacts/${list[0].id}/content`;
+          devisLink.classList.remove('hidden');
+        }
+      } catch { /* silencieux */ }
+    }
+    refreshDevisLink();
+
+    window.addEventListener('caia:job', (e) => {
+      const j = e.detail || {};
+      if (j.project_id && j.project_id !== projectId) return;
+      if (j.type !== 'generate_devis') return;
+      devisStatus.textContent = j.error ? `${j.status} — ${j.error}` : j.status;
+      if (j.status === 'succeeded') {
+        const dl = j.output && j.output.download;
+        const tot = j.output && j.output.devis && j.output.devis.total_ttc;
+        if (dl) { devisLink.href = dl; devisLink.classList.remove('hidden'); }
+        devisStatus.textContent = tot ? `Devis prêt — total ${Number(tot).toLocaleString('fr-FR')} $ TTC` : 'Devis prêt';
+        refreshDevisLink();
+      }
+    });
+
+    function pollDevisJob(jobId) {
+      const poll = setInterval(async () => {
+        const j = await fetch(`/api/v1/jobs/${jobId}`, { headers: { Accept: 'application/json' } }).then(r => r.json());
+        devisStatus.textContent = j.error ? `${j.status} — ${j.error}` : j.status;
+        if (j.status === 'succeeded') {
+          clearInterval(poll);
+          const dl = j.output && j.output.download;
+          const tot = j.output && j.output.devis && j.output.devis.total_ttc;
+          if (dl) { devisLink.href = dl; devisLink.classList.remove('hidden'); }
+          devisStatus.textContent = tot ? `Devis prêt — total ${Number(tot).toLocaleString('fr-FR')} $ TTC` : 'Devis prêt';
+        } else if (j.status === 'failed') {
+          clearInterval(poll);
+        }
+      }, 1500);
+    }
+
+    devisBtn.onclick = async () => {
+      devisStatus.textContent = 'Rédaction du devis…';
+      devisBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/v1/projects/${projectId}/devis`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        if (!res.ok) { devisStatus.textContent = data.error?.message || 'Erreur'; return; }
+        pollDevisJob(data.job_id);
+      } finally {
+        devisBtn.disabled = false;
+      }
+    };
+  })();
+</script>
+{{end}}

@@ -1,0 +1,76 @@
+{{template "header" .}}
+{{template "dash" .}}
+
+<div class="max-w-5xl mx-auto space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-3 animate-blur-slide">
+    <div>
+      <h2 class="font-extrabold text-xl tracking-tight">Abonnement</h2>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+        Plan actuel : <strong class="text-teal-600 dark:text-teal-400">{{.Sub.Plan}}</strong>
+        {{if not .StripeEnabled}} · mode stub (sans Stripe){{end}}
+      </p>
+    </div>
+  </div>
+
+  <div class="grid md:grid-cols-3 gap-4">
+    <div class="card p-5 space-y-3 animate-blur-slide stagger-1">
+      <div class="flex items-center justify-between">
+        <p class="font-extrabold text-lg tracking-tight">Free</p>
+        <span class="badge bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">Découverte</span>
+      </div>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400">5 générations · 5 exports · 2 maquettes 3D</p>
+      {{if .CanBilling}}
+      <form method="get" action="/billing"><input type="hidden" name="stub_checkout" value="free"/><button class="btn-line">Choisir</button></form>
+      {{end}}
+    </div>
+    <div class="card p-5 space-y-3 border-teal-500/50 dark:border-teal-500/40 animate-blur-slide stagger-2">
+      <div class="flex items-center justify-between">
+        <p class="font-extrabold text-lg tracking-tight">Pro</p>
+        <span class="badge bg-teal-500/10 text-teal-600 dark:text-teal-400">Populaire</span>
+      </div>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400">50 générations · exports larges · 30 maquettes</p>
+      {{if .CanBilling}}<button data-plan="pro" class="checkout-btn btn-accent">Passer à Pro</button>{{end}}
+    </div>
+    <div class="card p-5 space-y-3 animate-blur-slide stagger-3">
+      <div class="flex items-center justify-between">
+        <p class="font-extrabold text-lg tracking-tight">Bureau</p>
+        <span class="badge bg-blue-500/10 text-blue-500">Cabinet</span>
+      </div>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400">300 générations · API cabinets · 200 maquettes</p>
+      {{if .CanBilling}}<button data-plan="bureau" class="checkout-btn btn-line">Passer à Bureau</button>{{end}}
+    </div>
+  </div>
+
+  <div class="card p-5 space-y-4 animate-blur-slide stagger-4">
+    <p class="section-title">Usage du mois</p>
+    <div class="grid sm:grid-cols-3 gap-4">
+      <div class="rounded-xl border border-line dark:border-zinc-850 p-4">
+        <p class="label">Générations</p>
+        <p class="kpi">{{.Usage.GenerationsUsed}}<span class="text-sm text-zinc-400 font-semibold"> / {{.Limits.Generations}}</span></p>
+      </div>
+      <div class="rounded-xl border border-line dark:border-zinc-850 p-4">
+        <p class="label">Exports</p>
+        <p class="kpi">{{.Usage.ExportsUsed}}<span class="text-sm text-zinc-400 font-semibold"> / {{.Limits.Exports}}</span></p>
+      </div>
+      <div class="rounded-xl border border-line dark:border-zinc-850 p-4">
+        <p class="label">GPU minutes</p>
+        <p class="kpi">{{printf "%.1f" .Usage.GPUMinutesUsed}}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.checkout-btn').forEach(btn => {
+    btn.onclick = async () => {
+      const res = await fetch('/api/v1/billing/checkout', {
+        method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
+        body: JSON.stringify({ plan: btn.dataset.plan })
+      });
+      const data = await res.json();
+      if (data.url) location.href = data.url;
+    };
+  });
+</script>
+{{template "dash_end" .}}
+{{template "footer" .}}

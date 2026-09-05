@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://a-ai.local/schemas/compliance.schema.json",
+  "title": "ComplianceReport",
+  "description": "Score de conformité indicatif persisté sur PlanRevision. Pas un contrôle réglementaire.",
+  "type": "object",
+  "required": ["score", "grade", "passed", "total", "checks", "disclaimer"],
+  "additionalProperties": false,
+  "properties": {
+    "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "grade": { "type": "string", "enum": ["A", "B", "C", "D", "E"] },
+    "passed": { "type": "integer", "minimum": 0 },
+    "total": { "type": "integer", "minimum": 0 },
+    "disclaimer": { "type": "string" },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "label", "ok", "weight"],
+        "additionalProperties": false,
+        "properties": {
+          "key": { "type": "string" },
+          "label": { "type": "string" },
+          "ok": { "type": "boolean" },
+          "weight": { "type": "integer", "minimum": 0 },
+          "detail": { "type": "string" }
+        }
+      }
+    }
+  }
+}

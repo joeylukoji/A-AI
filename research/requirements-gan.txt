@@ -1,0 +1,4 @@
+# Entraînement GAN refine (recherche, hors image Docker produit)
+pillow>=10.0
+torch
+torchvision
