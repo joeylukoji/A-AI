@@ -3,25 +3,53 @@ from __future__ import annotations
 
 from typing import Any
 
+from .layout_opt import sanitary_violations
+
 
 HABITABLE = {"living", "bedroom", "dining", "office"}
 TOL = 0.15
 MIN_SEAM = 0.55
 
 
+def _pt(p: Any) -> tuple[float, float] | None:
+    """(x, y) d'un sommet, ou None si le point est malformé.
+
+    `evaluate` tourne sur le `plan_document` brut envoyé à /v1/adapt : les
+    sommets ne sont pas validés en amont, un `{"x": null}` ou un entier à la
+    place d'un dict faisait remonter KeyError/TypeError en 500.
+    """
+    if not isinstance(p, dict):
+        return None
+    try:
+        return float(p["x"]), float(p["y"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _points(poly: Any) -> list[tuple[float, float]]:
+    if not isinstance(poly, list):
+        return []
+    pts = [_pt(p) for p in poly]
+    return [p for p in pts if p is not None]
+
+
 def _area(poly: list[dict[str, float]]) -> float:
-    if len(poly) < 3:
+    pts = _points(poly)
+    if len(pts) < 3:
         return 0.0
     acc = 0.0
-    for i, p in enumerate(poly):
-        q = poly[(i + 1) % len(poly)]
-        acc += float(p["x"]) * float(q["y"]) - float(q["x"]) * float(p["y"])
+    for i, (px, py) in enumerate(pts):
+        qx, qy = pts[(i + 1) % len(pts)]
+        acc += px * qy - qx * py
     return abs(acc) / 2
 
 
 def _bbox(poly: list[dict[str, float]]) -> tuple[float, float, float, float]:
-    xs = [float(p["x"]) for p in poly]
-    ys = [float(p["y"]) for p in poly]
+    pts = _points(poly)
+    if not pts:
+        return 0.0, 0.0, 0.0, 0.0
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
     return min(xs), min(ys), max(xs), max(ys)
 
 
@@ -86,14 +114,22 @@ def _touches_outer(
         ex0, ey0, ex1, ey1 = env
         if x0 <= ex0 + TOL or y0 <= ey0 + TOL or x1 >= ex1 - TOL or y1 >= ey1 - TOL:
             return True
-    return x0 <= TOL or y0 <= TOL or (width and x1 >= width - TOL) or (depth and y1 >= depth - TOL)
+    return bool(
+        x0 <= TOL
+        or y0 <= TOL
+        or (width > 0 and x1 >= width - TOL)
+        or (depth > 0 and y1 >= depth - TOL)
+    )
 
 
 def _is_outer_wall(wall: dict[str, Any] | None, width: float, depth: float) -> bool:
-    if not wall or "a" not in wall or "b" not in wall:
+    if not isinstance(wall, dict):
         return False
-    xs = {float(wall["a"]["x"]), float(wall["b"]["x"])}
-    ys = {float(wall["a"]["y"]), float(wall["b"]["y"])}
+    a, b = _pt(wall.get("a")), _pt(wall.get("b"))
+    if a is None or b is None:
+        return False
+    xs = {a[0], b[0]}
+    ys = {a[1], b[1]}
     return (
         max(xs) <= TOL
         or min(xs) >= width - TOL
@@ -104,9 +140,14 @@ def _is_outer_wall(wall: dict[str, Any] | None, width: float, depth: float) -> b
 
 
 def evaluate(plan: dict[str, Any]) -> dict[str, Any]:
-    rooms = [r for r in (plan.get("rooms") or []) if len(r.get("polygon") or []) >= 3]
-    walls = plan.get("walls") or []
-    openings = plan.get("openings") or []
+    # Entrées non validées (plan_document libre côté /v1/adapt) : on ignore
+    # silencieusement les éléments malformés plutôt que de planter.
+    rooms = [
+        r for r in (plan.get("rooms") or [])
+        if isinstance(r, dict) and len(_points(r.get("polygon"))) >= 3
+    ]
+    walls = [w for w in (plan.get("walls") or []) if isinstance(w, dict)]
+    openings = [o for o in (plan.get("openings") or []) if isinstance(o, dict)]
     floor = plan.get("floor") or {}
     bounds = floor.get("bounds") or {}
     width = float(bounds.get("width") or 0)
@@ -159,13 +200,50 @@ def evaluate(plan: dict[str, Any]) -> dict[str, Any]:
     thin_doors = [o for o in openings if o.get("type") == "door" and float(o.get("width_m") or 0) < 0.80]
     checks.append(check("doors", "Portes ≥ 0,80 m", bool(openings) and not thin_doors, 4))
 
+    issues = sanitary_violations(rooms)
+    checks.append(check(
+        "wc_kitchen",
+        "WC séparé de la cuisine / salle à manger",
+        "wc_kitchen" not in issues,
+        10,
+        "ok" if "wc_kitchen" not in issues else "mur commun interdit (RSD / logement décent)",
+    ))
+    checks.append(check(
+        "bedroom_living",
+        "Chambres séparées du séjour par un couloir",
+        "bedroom_living" not in issues,
+        10,
+        "ok" if "bedroom_living" not in issues else "chambre collée au séjour",
+    ))
+    need_hall = bool(beds)
+    hall_ok = (not need_hall) or (bool(halls) and "bedroom_hall" not in issues and "wc_hall" not in issues)
+    guest_ok = "wc_hall" not in issues and "wc_bedroom" not in issues and "wc_kitchen" not in issues
+    checks.append(check(
+        "bedroom_hall",
+        "Chambres et WC desservis par le couloir",
+        hall_ok,
+        8,
+        "ok" if hall_ok else "accès hors circulation",
+    ))
+    checks.append(check(
+        "wc_guest",
+        "WC invités sans traverser chambre ni cuisine",
+        guest_ok,
+        8,
+        "ok" if guest_ok else "WC accessible seulement via une pièce privée",
+    ))
+
     ortho = True
+    checked_walls = 0
     for w in walls:
-        ax, ay, bx, by = float(w["a"]["x"]), float(w["a"]["y"]), float(w["b"]["x"]), float(w["b"]["y"])
-        if abs(ax - bx) > 1e-6 and abs(ay - by) > 1e-6:
+        a, b = _pt(w.get("a")), _pt(w.get("b"))
+        if a is None or b is None:
+            continue  # mur malformé : ignoré, pas d'exception
+        checked_walls += 1
+        if abs(a[0] - b[0]) > 1e-6 and abs(a[1] - b[1]) > 1e-6:
             ortho = False
             break
-    checks.append(check("ortho", "Murs orthogonaux", bool(walls) and ortho, 6))
+    checks.append(check("ortho", "Murs orthogonaux", bool(checked_walls) and ortho, 6))
 
     overlaps = 0.0
     for i, a in enumerate(rooms):

@@ -5,7 +5,8 @@ cuisine sans table à manger, voiture au garage.
 """
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 # Empreintes locales (m) — même contrat que services/blender/catalog/catalog.json
 CATALOG: dict[str, dict[str, float]] = {
@@ -39,6 +40,7 @@ _Add = Callable[..., None]
 
 def furnish(rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Retourne `furniture[]` à coller dans le PlanDocument."""
+    rooms = [r for r in rooms if isinstance(r, dict)]
     types = {str(r.get("type") or "") for r in rooms}
     has_dining = "dining" in types
     has_kitchen = "kitchen" in types
@@ -55,12 +57,12 @@ def furnish(rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _place_room(
     room: dict[str, Any], n: int, *, has_dining: bool, has_kitchen: bool
 ) -> tuple[list[dict[str, Any]], int]:
-    poly = room.get("polygon") or []
-    if len(poly) < 3:
+    box = _bbox(room.get("polygon") or [])
+    if box is None:
         return [], n
     typ = str(room.get("type") or "")
     inset = 0.10 if typ in {"wc", "bathroom"} else _MARGIN
-    x0, y0, x1, y1 = _bbox(poly)
+    x0, y0, x1, y1 = box
     x0, y0, x1, y1 = x0 + inset, y0 + inset, x1 - inset, y1 - inset
     w, h = x1 - x0, y1 - y0
     if w < 0.55 or h < 0.55:
@@ -204,9 +206,24 @@ def _dining_set(add: _Add, cx: float, cy: float, w: float, n_chairs: int) -> Non
         add("chair.dining", cx + along_x, cy, 270)
 
 
-def _bbox(poly: list[dict[str, Any]]) -> tuple[float, float, float, float]:
-    xs = [float(p["x"]) for p in poly]
-    ys = [float(p["y"]) for p in poly]
+def _bbox(poly: list[dict[str, Any]]) -> tuple[float, float, float, float] | None:
+    """Emprise du polygone, ou None s'il a moins de 3 sommets exploitables.
+
+    Le `layout` de /v1/vectorize n'est pas validé : un sommet sans `x` faisait
+    remonter KeyError en 500.
+    """
+    pts: list[tuple[float, float]] = []
+    for p in poly:
+        if not isinstance(p, dict):
+            continue
+        try:
+            pts.append((float(p["x"]), float(p["y"])))
+        except (KeyError, TypeError, ValueError):
+            continue
+    if len(pts) < 3:
+        return None
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
     return min(xs), min(ys), max(xs), max(ys)
 
 

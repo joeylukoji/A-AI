@@ -5,20 +5,38 @@ from typing import Any
 from .furnish import furnish
 
 
+def _obj(value: Any) -> dict[str, Any]:
+    """Sous-objet d'un payload libre : `{}` si ce n'en est pas un.
+
+    `/v1/vectorize` accepte un document non validé : un `{"layout": "x"}`
+    faisait remonter un AttributeError — donc un 500 — au lieu d'une entrée
+    simplement ignorée.
+    """
+    return value if isinstance(value, dict) else {}
+
+
+def _seq(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
 def vectorize(payload: dict[str, Any]) -> dict[str, Any]:
-    layout = payload.get("layout") or {}
-    spec = payload.get("building_spec") or {}
-    width = float(layout.get("width") or (spec.get("constraints") or {}).get("max_width_m") or 12)
-    depth = float(layout.get("depth") or (spec.get("constraints") or {}).get("max_depth_m") or 10)
+    payload = _obj(payload)
+    layout = _obj(payload.get("layout"))
+    spec = _obj(payload.get("building_spec"))
+    constraints = _obj(spec.get("constraints"))
+    width = float(layout.get("width") or constraints.get("max_width_m") or 12)
+    depth = float(layout.get("depth") or constraints.get("max_depth_m") or 10)
     height = float(layout.get("height_m") or 2.7)
 
-    rooms = layout.get("rooms") or []
-    walls = layout.get("walls") or []
-    openings = [o for o in (layout.get("openings") or []) if o.get("wall_id")]
+    rooms = [r for r in _seq(layout.get("rooms")) if isinstance(r, dict)]
+    walls = [w for w in _seq(layout.get("walls")) if isinstance(w, dict)]
+    openings = [
+        o for o in _seq(layout.get("openings")) if isinstance(o, dict) and o.get("wall_id")
+    ]
     if not openings and walls:
         from .diffusion import default_openings
 
-        openings = default_openings(walls, width, depth)
+        openings = default_openings(walls, width, depth, rooms)
 
     plan = {
         "version": "1.0",

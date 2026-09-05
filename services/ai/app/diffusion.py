@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import io
 import os
 import re
@@ -9,6 +10,10 @@ from typing import Any
 
 import httpx
 from PIL import Image, ImageDraw, ImageFont
+
+# `ImageFont.truetype` rend une `FreeTypeFont`, `load_default()` l'une ou
+# l'autre selon la build Pillow : les deux exposent l'API utilisée ici.
+_Font = ImageFont.ImageFont | ImageFont.FreeTypeFont
 
 
 def _flag_on(value: Any) -> bool:
@@ -45,7 +50,7 @@ def render_plan_document(doc: dict[str, Any]) -> str:
 
 
 def render_preview(doc: dict[str, Any], spec: dict[str, Any] | None = None) -> tuple[str, str]:
-    """Aperçu = plan vectoriel (géométrie + mobilier) puis FLUX.2-max le redessine."""
+    """Aperçu = plan vectoriel puis Gemini (Eden) le redessine."""
     spec = spec or {}
     brief = str(spec.get("brief") or "")
     constraints = spec.get("constraints") or {}
@@ -73,7 +78,7 @@ def generate_flux_plan(
     openings: list[dict[str, Any]] | None = None,
     furniture: list[dict[str, Any]] | None = None,
 ) -> tuple[str, str]:
-    """Dessin local (pièces + meubles au bon endroit) puis un seul appel FLUX pour le style."""
+    """Dessin local (pièces + meubles au bon endroit) puis un seul appel image (Gemini / Flux)."""
     from . import together_image
 
     constraints = constraints or {}
@@ -108,7 +113,7 @@ def generate_flux_plan(
         reference_png_b64=ref,
     )
     if b64:
-        return b64, together_image.METHOD
+        return b64, together_image.method_name()
     return "", "flux-failed"
 
 
@@ -248,7 +253,7 @@ def _edit_flux_image(
     )
     b64 = together_image.generate_floorplan_image(prompt, width, depth, reference_png_b64=ref)
     if b64:
-        return b64, together_image.METHOD + "+edit"
+        return b64, together_image.method_name() + "+edit"
     return "", "flux-failed"
 
 
@@ -383,10 +388,8 @@ def _rooms_from_counts(
         if old.get("id"):
             item["id"] = old["id"]
         if old.get("area_m2"):
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 item["area_m2"] = float(old["area_m2"])
-            except (TypeError, ValueError):
-                pass
         out.append(item)
     return out
 
@@ -492,10 +495,8 @@ def _sanitize_rooms_program(rooms: Any) -> list[dict[str, Any]] | None:
             n = 1
         item = {"type": typ, "count": n}
         if r.get("area_m2"):
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 item["area_m2"] = float(r["area_m2"])
-            except (TypeError, ValueError):
-                pass
         out.append(item)
     return out if len(out) >= 2 else None
 
@@ -530,7 +531,9 @@ def _flux_wanted() -> bool:
     if not together_image.available():
         return False
     renderer = (os.getenv("IMAGE_RENDERER") or "flux").strip().lower()
-    return renderer in {"flux", "flux2", "flux2-dev", "flux2-max", "image"}
+    return renderer in {
+        "flux", "flux2", "flux2-dev", "flux2-max", "image", "gemini", "eden", "edenai",
+    }
 
 
 def _flux_or_vector(
@@ -567,8 +570,10 @@ def generate(spec: dict[str, Any], *, image: bool = True) -> dict[str, Any]:
     # une largeur/profondeur absurde venue d'un payload direct sur /v1/generate
     # ferait tourner ces boucles très longtemps (DoS). Mêmes bornes que
     # `nlu._clamp_dim`.
-    width = max(2.0, min(200.0, float(constraints.get("max_width_m", 12))))
-    depth = max(2.0, min(200.0, float(constraints.get("max_depth_m", 10))))
+    # `or 12` (et non un défaut de `.get`) : un `{"max_width_m": null}` explicite
+    # dans le JSON passait `None` à `float()` → TypeError → 500.
+    width = max(2.0, min(200.0, float(constraints.get("max_width_m") or 12)))
+    depth = max(2.0, min(200.0, float(constraints.get("max_depth_m") or 10)))
     program = _apply_canonical_names(expand_rooms(spec.get("rooms") or []))
 
     layout_rooms, veranda_depth, planned = None, 0.0, False
@@ -579,7 +584,7 @@ def generate(spec: dict[str, Any], *, image: bool = True) -> dict[str, Any]:
         layout_rooms = pack_rooms(program, width, depth)
     layout_rooms = _apply_canonical_names(layout_rooms)
     walls = perimeter_and_internal_walls(layout_rooms, width, depth)
-    openings = default_openings(walls, width, depth)
+    openings = default_openings(walls, width, depth, layout_rooms)
 
     method = "together-layout" if planned else "procedural"
     b64 = ""
@@ -809,7 +814,7 @@ def _stamp(
     ell(0.05, 0.06, wm * 0.5, dm * 0.46, (24, 18, 12, 55))
     paint(dr, L, rr, ell, lw)
     if abs(rot) > 0.4:
-        layer = layer.rotate(-rot, expand=True, resample=Image.BICUBIC)
+        layer = layer.rotate(-rot, expand=True, resample=Image.Resampling.BICUBIC)
     wx, wy = P(px, py)
     img.paste(layer, (int(round(wx - layer.width / 2)), int(round(wy - layer.height / 2))), layer)
 
@@ -1449,7 +1454,7 @@ def _render_floorplan(
                     best, target = s[3] - s[2], s
         if target:
             _door(d, target, P, sc)
-    for room, bm in halls:  # relie le couloir à la façade sud (entrée)
+    for _hall, bm in halls:  # relie le couloir à la façade sud (entrée)
         if bm[3] >= depth - 0.15:
             _door(d, ("h", depth, bm[0], bm[2]), P, sc)
 
@@ -1543,8 +1548,7 @@ def _render_floorplan(
         d.polygon([(nx - 3.5 * _SS, ny + 4 * _SS), (nx + 3.5 * _SS, ny + 4 * _SS), (nx, ny - 6 * _SS)], fill=_TEXT)
         d.text((nx, ny - 15 * _SS), "N", fill=_TEXT_SOFT, font=_room_font(10 * _SS), anchor="mm")
 
-    lanczos = getattr(getattr(Image, "Resampling", Image), "LANCZOS", 1)
-    out = img.resize((cw // _SS, ch // _SS), lanczos)
+    out = img.resize((cw // _SS, ch // _SS), Image.Resampling.LANCZOS)
     buf = io.BytesIO()
     out.save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode("ascii")
@@ -1867,7 +1871,7 @@ def _layout_guide_b64(
 
     try:
         wall_list = walls if walls else perimeter_and_internal_walls(rooms, width, depth)
-        open_list = openings if openings else default_openings(wall_list, width, depth)
+        open_list = openings if openings else default_openings(wall_list, width, depth, rooms)
         png = _render_floorplan(
             rooms, wall_list, open_list, width, depth, furniture=furniture or None
         )
@@ -2159,11 +2163,15 @@ _LAYOUT_SYSTEM = (
     "- Names must be copied character-for-character from the program list.\n"
     "- Origin top-left: x to the east, y to the south. y=0 is NORTH (back of the house, "
     "bedrooms). y=D is SOUTH (garden + main entrance).\n"
-    "- Night zone (all CHAMBRE) along the north (small y). Day zone (SEJOUR, CUISINE) along "
-    "the south (large y). CUISINE and SDB stacked on the WEST. GARAGE on the EAST, south of "
-    "the master bedroom. SEJOUR is the central hub, largest room, with the entrance on its "
-    "south wall. SDB adjacent to bedrooms. If two SDB, one is an ensuite on the east of the "
-    "master bedroom.\n"
+    "- Night zone (all CHAMBRE) along the north. A HALLWAY/COULOIR MUST sit between the "
+    "night zone and the day zone (SEJOUR, CUISINE). Bedrooms must not share a wall with "
+    "the living room: they open onto the corridor only.\n"
+    "- WC/toilettes is a GUEST toilet on the corridor (east of the hallway), opening ONLY "
+    "onto the hallway. Never place it inside/behind a bedroom or kitchen: guests must reach "
+    "it from the circulation without crossing a private room. CUISINE west of the day zone. "
+    "Family SDB opens onto the corridor; ensuite may open to the master bedroom only.\n"
+    "- GARAGE on the EAST. SEJOUR is the largest day room, entrance on its south wall. "
+    "If two SDB, one is an ensuite east of the master bedroom.\n"
     "- Keep proportions habitable: no room thinner than 1.8 m (WC/SDB may be 1.4 m).\n\n"
     "OUTPUT - one JSON object, no markdown:\n"
     "{\"veranda_depth\": 0, \"rooms\": [{\"name\": \"SEJOUR\", \"area\": 28, \"zone\": \"front\"}]}\n"
@@ -2300,9 +2308,11 @@ def _parse_llm_rect(it: dict[str, Any], width: float, depth: float) -> tuple[flo
             return min(xs), min(ys), max(xs), max(ys)
         except (TypeError, ValueError, KeyError):
             pass
+    raw_x = it.get("x")
+    raw_y = it.get("y")
     try:
-        x = float(it.get("x") if it.get("x") is not None else it.get("x_m", 0))
-        y = float(it.get("y") if it.get("y") is not None else it.get("y_m", 0))
+        x = float(raw_x if raw_x is not None else it.get("x_m") or 0)
+        y = float(raw_y if raw_y is not None else it.get("y_m") or 0)
         w = float(it.get("w") or it.get("width") or it.get("width_m") or 0)
         d = float(it.get("d") or it.get("depth") or it.get("depth_m") or it.get("h") or 0)
     except (TypeError, ValueError):
@@ -2387,7 +2397,9 @@ def _normalize_llm_rooms(
 
 
 def _house_like(rooms: list[dict[str, Any]], width: float, depth: float) -> bool:
-    """True si les chambres sont au nord (y petit) et le séjour au sud (y grand)."""
+    """True si zones nuit/jour + règles sanitaires (WC/cuisine, chambres/séjour)."""
+    from .layout_opt import sanitary_violations
+
     living = next((r for r in rooms if r.get("type") == "living"), None)
     beds = [r for r in rooms if r.get("type") == "bedroom"]
     if living:
@@ -2398,6 +2410,8 @@ def _house_like(rooms: list[dict[str, Any]], width: float, depth: float) -> bool
         ys = [float(p["y"]) for p in (bed.get("polygon") or [])]
         if ys and min(ys) > depth * 0.50:
             return False
+    if sanitary_violations(rooms):
+        return False
     _ = width
     return True
 
@@ -2444,8 +2458,13 @@ def _llm_program(
     return [{k: r[k] for k in r if k != "polygon"} for r in rooms], vd
 
 
-def default_openings(walls: list[dict[str, Any]], width: float, depth: float) -> list[dict[str, Any]]:
-    """Porte d'entrée sud + porte de garage est + fenêtres façades + portes internes."""
+def default_openings(
+    walls: list[dict[str, Any]],
+    width: float,
+    depth: float,
+    rooms: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Porte d'entrée sud + porte de garage est + fenêtres façades + portes internes autorisées."""
     openings: list[dict[str, Any]] = []
     oid = 1
     internals = [w for w in walls if not str(w.get("id", "")).startswith("w_outer")]
@@ -2454,6 +2473,8 @@ def default_openings(walls: list[dict[str, Any]], width: float, depth: float) ->
     east = by_id.get("w_outer_2")
     north = by_id.get("w_outer_1")
     west = by_id.get("w_outer_4")
+    room_list = [r for r in (rooms or []) if len(r.get("polygon") or []) >= 3]
+    has_garage = any(r.get("type") == "garage" for r in room_list)
 
     if south:
         flen = _wall_len(south)
@@ -2461,11 +2482,14 @@ def default_openings(walls: list[dict[str, Any]], width: float, depth: float) ->
             "id": f"o{oid}",
             "wall_id": south["id"],
             "type": "door",
-            "offset_m": max(0.4, min(flen - 1.2, flen * 0.42)),
+            # 42 % de la façade tombait au hasard : l'entrée pouvait déboucher
+            # dans la salle de bain. On la cale sur l'entrée / le séjour dès
+            # qu'on connaît les pièces.
+            "offset_m": _entrance_offset(south, flen, room_list),
             "width_m": 0.9,
         })
         oid += 1
-    if east:
+    if east and has_garage:
         wl = _wall_len(east)
         if wl >= 2.4:
             openings.append({
@@ -2493,7 +2517,11 @@ def default_openings(walls: list[dict[str, Any]], width: float, depth: float) ->
 
     for wall in internals:
         wl = _wall_len(wall)
-        if wl < 1.2:
+        if wl < 1.05:
+            continue
+        if room_list and not _allow_internal_door(wall, room_list):
+            continue
+        if not room_list and wl < 1.2:
             continue
         openings.append({
             "id": f"o{oid}",
@@ -2503,25 +2531,347 @@ def default_openings(walls: list[dict[str, Any]], width: float, depth: float) ->
             "width_m": 0.8,
         })
         oid += 1
+    if room_list:
+        _add_missing_room_doors(openings, walls, internals, room_list, oid)
     _ = (width, depth)
     return openings
 
 
+# Voisinages qu'on refuse même en dernier recours : ouvrir une de ces portes
+# vaut un écart sanitaire signalé par `compliance.evaluate`.
+_FORBIDDEN_PAIRS = {
+    frozenset({"wc", "kitchen"}),
+    frozenset({"wc", "dining"}),
+    frozenset({"wc", "bedroom"}),
+    frozenset({"bedroom", "living"}),
+    frozenset({"kitchen", "bathroom"}),
+}
+# Pièces auxquelles une porte de façade convient si aucune porte intérieure
+# n'est acceptable (un WC ou une chambre ne s'ouvre pas sur le jardin).
+_FACADE_DOOR_OK = {"garage", "living", "kitchen", "dining", "hallway", "office", "storage", "laundry"}
+_NEIGHBOUR_RANK = {"hallway": 4, "living": 3, "dining": 3, "kitchen": 2, "office": 2, "garage": 2}
+
+
+def _wall_span_for_room(
+    wall: dict[str, Any], room: dict[str, Any]
+) -> tuple[float, float] | None:
+    """Portion du mur en vis-à-vis de `room`, en mètres depuis l'extrémité `a`.
+
+    Un mur de façade court le long de toute la maison : centrer une ouverture
+    sur le mur la posait devant une autre pièce (porte d'entrée débouchant
+    dans la salle de bain, porte de secours percée chez le voisin).
+    """
+    from .layout_opt import _room_bbox
+
+    a, b = _wall_point(wall.get("a")), _wall_point(wall.get("b"))
+    box = _room_bbox(room)
+    if a is None or b is None or box is None:
+        return None
+    x0, y0, x1, y1 = box
+    if abs(a[0] - b[0]) <= 0.15:  # mur vertical
+        if abs(x0 - a[0]) > 0.15 and abs(x1 - a[0]) > 0.15:
+            return None
+        lo, hi = max(min(a[1], b[1]), y0), min(max(a[1], b[1]), y1)
+        if hi - lo <= 0.05:
+            return None
+        return (lo - a[1], hi - a[1]) if b[1] >= a[1] else (a[1] - hi, a[1] - lo)
+    if abs(a[1] - b[1]) > 0.15:  # mur oblique : pas de découpe fiable
+        return None
+    if abs(y0 - a[1]) > 0.15 and abs(y1 - a[1]) > 0.15:
+        return None
+    lo, hi = max(min(a[0], b[0]), x0), min(max(a[0], b[0]), x1)
+    if hi - lo <= 0.05:
+        return None
+    return (lo - a[0], hi - a[0]) if b[0] >= a[0] else (a[0] - hi, a[0] - lo)
+
+
+def _centred_offset(span: tuple[float, float], width_m: float, wall_len: float) -> float:
+    lo, hi = span
+    off = lo + max(0.0, (hi - lo - width_m) / 2)
+    return round(max(0.0, min(off, max(0.0, wall_len - width_m))), 3)
+
+
+def _served_rooms(
+    wall: dict[str, Any], opening: dict[str, Any], rooms: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Pièces réellement desservies par une ouverture (au droit de sa position)."""
+    from .layout_opt import _room_bbox
+
+    a, b = _wall_point(wall.get("a")), _wall_point(wall.get("b"))
+    if a is None or b is None:
+        return []
+    length = _wall_len(wall)
+    try:
+        mid = float(opening.get("offset_m") or 0) + float(opening.get("width_m") or 0) / 2
+    except (TypeError, ValueError):
+        return []
+    t = min(1.0, max(0.0, mid / length)) if length > 0 else 0.5
+    px, py = a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
+    out: list[dict[str, Any]] = []
+    for room in rooms:
+        box = _room_bbox(room)
+        if not box:
+            continue
+        x0, y0, x1, y1 = box
+        on_v = (abs(x0 - px) <= 0.15 or abs(x1 - px) <= 0.15) and y0 - 0.15 <= py <= y1 + 0.15
+        on_h = (abs(y0 - py) <= 0.15 or abs(y1 - py) <= 0.15) and x0 - 0.15 <= px <= x1 + 0.15
+        if on_v or on_h:
+            out.append(room)
+    return out
+
+
+def _add_missing_room_doors(
+    openings: list[dict[str, Any]],
+    walls: list[dict[str, Any]],
+    internals: list[dict[str, Any]],
+    rooms: list[dict[str, Any]],
+    oid: int,
+) -> None:
+    """Donne une porte à toute pièce qui n'en a aucune.
+
+    La liste blanche `_DOOR_PAIRS` sait dire quelles portes sont *souhaitables*,
+    mais rien ne garantissait qu'il en reste au moins une par pièce : un bureau
+    coincé entre cuisine et salle à manger, ou un WC qui ne touche pas le
+    couloir, se retrouvait muré — une pièce inaccessible, donc un plan faux.
+    """
+    by_id = {str(w.get("id")): w for w in walls}
+    served: set[int] = set()
+    for op in openings:
+        if op.get("type") != "door":
+            continue
+        wall = by_id.get(str(op.get("wall_id")))
+        if wall is None:
+            continue
+        for room in _served_rooms(wall, op, rooms):
+            served.add(id(room))
+    for room in rooms:
+        if id(room) in served:
+            continue
+        wall = _best_access_wall(room, internals, walls, rooms)
+        if wall is None:
+            continue
+        wl = _wall_len(wall)
+        span = _wall_span_for_room(wall, room) or (0.0, wl)
+        usable = span[1] - span[0]
+        width_m = 0.8 if usable >= 0.85 else max(0.6, usable - 0.05)
+        openings.append({
+            "id": f"o{oid}",
+            "wall_id": wall["id"],
+            "type": "door",
+            "offset_m": _centred_offset(span, width_m, wl),
+            "width_m": round(width_m, 2),
+        })
+        oid += 1
+        served.add(id(room))
+
+
+def _best_access_wall(
+    room: dict[str, Any],
+    internals: list[dict[str, Any]],
+    walls: list[dict[str, Any]],
+    rooms: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Meilleur mur pour percer la porte manquante d'une pièce enclavée."""
+    typ = str(room.get("type") or "")
+    best: tuple[tuple[float, float, float], dict[str, Any]] | None = None
+    for wall in internals:
+        pair = _rooms_on_wall(wall, rooms)
+        if len(pair) != 2 or all(r is not room for r in pair):
+            continue
+        other = next(r for r in pair if r is not room)
+        other_t = str(other.get("type") or "")
+        if frozenset({typ, other_t}) in _FORBIDDEN_PAIRS:
+            continue
+        span = _wall_span_for_room(wall, room)
+        usable = (span[1] - span[0]) if span else _wall_len(wall)
+        if usable < 0.7:
+            continue
+        # Un mur assez large pour une porte réglementaire (0,80 m) passe avant
+        # un voisinage mieux classé mais trop étroit.
+        rank = (1.0 if usable >= 0.85 else 0.0, float(_NEIGHBOUR_RANK.get(other_t, 1)), usable)
+        if best is None or rank > best[0]:
+            best = (rank, wall)
+    if best is not None:
+        return best[1]
+    facade: list[tuple[float, dict[str, Any]]] = []
+    if typ in _FACADE_DOOR_OK:
+        for w in walls:
+            if not str(w.get("id", "")).startswith("w_outer"):
+                continue
+            span = _wall_span_for_room(w, room)
+            if span and span[1] - span[0] >= 1.0:
+                facade.append((span[1] - span[0], w))
+    if facade:
+        return max(facade, key=lambda it: it[0])[1]
+    return _last_resort_wall(room, internals, rooms)
+
+
+def _last_resort_wall(
+    room: dict[str, Any], internals: list[dict[str, Any]], rooms: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Mur le plus large, voisinage déconseillé compris.
+
+    Une pièce murée est pire qu'un écart sanitaire : celui-ci est au moins
+    signalé par `compliance.evaluate`, l'autre rend le plan inutilisable.
+    """
+    best: tuple[float, dict[str, Any]] | None = None
+    for wall in internals:
+        pair = _rooms_on_wall(wall, rooms)
+        if len(pair) != 2 or all(r is not room for r in pair):
+            continue
+        span = _wall_span_for_room(wall, room)
+        usable = (span[1] - span[0]) if span else _wall_len(wall)
+        if usable >= 0.7 and (best is None or usable > best[0]):
+            best = (usable, wall)
+    return best[1] if best else None
+
+
+# Pièces qui peuvent recevoir la porte d'entrée, de la meilleure à la pire.
+_ENTRANCE_ORDER = ("hallway", "living", "dining", "kitchen", "office", "garage")
+
+
+def _entrance_offset(
+    south: dict[str, Any], flen: float, rooms: list[dict[str, Any]]
+) -> float:
+    """Position de la porte d'entrée sur la façade sud, devant une pièce d'accueil."""
+    default = max(0.4, min(flen - 1.2, flen * 0.42))
+    if not rooms:
+        return default
+    best: tuple[int, float, tuple[float, float]] | None = None
+    for room in rooms:
+        span = _wall_span_for_room(south, room)
+        if not span or span[1] - span[0] < 1.1:
+            continue
+        typ = str(room.get("type") or "")
+        rank = _ENTRANCE_ORDER.index(typ) if typ in _ENTRANCE_ORDER else len(_ENTRANCE_ORDER)
+        key = (rank, -(span[1] - span[0]), span)
+        if best is None or key[:2] < best[:2]:
+            best = key
+    if best is None:
+        return default
+    return _centred_offset(best[2], 0.9, flen)
+
+
+_DOOR_PAIRS = {
+    frozenset({"bedroom", "hallway"}),
+    frozenset({"bathroom", "hallway"}),
+    frozenset({"wc", "hallway"}),
+    frozenset({"laundry", "hallway"}),
+    frozenset({"storage", "hallway"}),
+    frozenset({"office", "hallway"}),
+    frozenset({"kitchen", "living"}),
+    frozenset({"kitchen", "dining"}),
+    frozenset({"kitchen", "hallway"}),
+    frozenset({"living", "hallway"}),
+    frozenset({"living", "dining"}),
+    frozenset({"living", "office"}),
+    frozenset({"dining", "hallway"}),
+    frozenset({"garage", "hallway"}),
+    frozenset({"garage", "living"}),
+}
+
+
+def _rooms_on_wall(wall: dict[str, Any], rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    from .layout_opt import _room_bbox
+
+    a = _wall_point(wall.get("a"))
+    b = _wall_point(wall.get("b"))
+    if a is None or b is None:
+        return []
+    ax, ay = a
+    bx, by = b
+    vertical = abs(ax - bx) <= 0.15
+    hits: list[dict[str, Any]] = []
+    for room in rooms:
+        box = _room_bbox(room)
+        if not box:
+            continue
+        x0, y0, x1, y1 = box
+        if vertical:
+            x = (ax + bx) / 2
+            ylo, yhi = min(ay, by), max(ay, by)
+            if abs(x0 - x) > 0.15 and abs(x1 - x) > 0.15:
+                continue
+            if min(y1, yhi) - max(y0, ylo) >= 0.5:
+                hits.append(room)
+        else:
+            y = (ay + by) / 2
+            xlo, xhi = min(ax, bx), max(ax, bx)
+            if abs(y0 - y) > 0.15 and abs(y1 - y) > 0.15:
+                continue
+            if min(x1, xhi) - max(x0, xlo) >= 0.5:
+                hits.append(room)
+    return hits
+
+
+def _allow_internal_door(wall: dict[str, Any], rooms: list[dict[str, Any]]) -> bool:
+    pair = _rooms_on_wall(wall, rooms)
+    if len(pair) != 2:
+        return False
+    types = [str(r.get("type") or "") for r in pair]
+    key = frozenset(types)
+    if key == {"bedroom", "bathroom"}:
+        return any(bool(r.get("ensuite")) for r in pair if r.get("type") == "bathroom")
+    if key == {"bathroom", "hallway"}:
+        bath = next(r for r in pair if r.get("type") == "bathroom")
+        return not bath.get("ensuite")
+    return key in _DOOR_PAIRS
+
+
+def _wall_point(node: Any) -> tuple[float, float] | None:
+    """(x, y) d'une extrémité de mur, ou None si le mur est malformé.
+
+    Les murs peuvent venir d'un `layout` libre (/v1/vectorize) : un `{}` ou un
+    `{"a": 3}` faisait remonter KeyError/TypeError en 500.
+    """
+    if not isinstance(node, dict):
+        return None
+    try:
+        return float(node["x"]), float(node["y"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def _wall_len(wall: dict[str, Any]) -> float:
-    a, b = wall["a"], wall["b"]
-    return max(0.1, ((b["x"] - a["x"]) ** 2 + (b["y"] - a["y"]) ** 2) ** 0.5)
+    a = _wall_point(wall.get("a")) if isinstance(wall, dict) else None
+    b = _wall_point(wall.get("b")) if isinstance(wall, dict) else None
+    if a is None or b is None:
+        return 0.0
+    return max(0.1, ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5)
+
+
+# Bornes du programme de pièces. `/v1/generate` accepte un `building_spec`
+# libre : sans plafond, `{"rooms": [{"count": 1_000_000_000}]}` faisait
+# exploser la mémoire et le temps de pavage (DoS). Sans `.get()` tolérant, une
+# pièce sans `id`/`type` remontait en KeyError → 500.
+MAX_ROOM_COUNT = 20
+MAX_ROOMS_TOTAL = 60
 
 
 def expand_rooms(rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    for r in rooms:
-        count = int(r.get("count") or 1)
+    for idx, r in enumerate(rooms):
+        if not isinstance(r, dict):
+            continue
+        try:
+            count = int(r.get("count") or 1)
+        except (TypeError, ValueError):
+            count = 1
+        count = max(1, min(MAX_ROOM_COUNT, count))
+        rid = str(r.get("id") or f"r{idx + 1}")
+        typ = str(r.get("type") or "other")
+        try:
+            area = float(r.get("area_m2") or 12)
+        except (TypeError, ValueError):
+            area = 12.0
         for i in range(count):
+            if len(out) >= MAX_ROOMS_TOTAL:
+                return out
             out.append({
-                "id": f"{r['id']}_{i+1}" if count > 1 else r["id"],
-                "type": r["type"],
-                "name": _label(r["type"], i + 1 if count > 1 else None),
-                "area_m2": float(r.get("area_m2") or 12),
+                "id": f"{rid}_{i + 1}" if count > 1 else rid,
+                "type": typ,
+                "name": _label(typ, i + 1 if count > 1 else None),
+                "area_m2": area,
             })
     return out
 
@@ -2545,7 +2895,7 @@ def _label(room_type: str, n: int | None) -> str:
 
 
 def pack_rooms(rooms: list[dict[str, Any]], width: float, depth: float) -> list[dict[str, Any]]:
-    """Pavé maison : chambres au nord, séjour au sud, cuisine à l'ouest, garage à l'est."""
+    """Pavé maison : nuit au nord, couloir, jour au sud, cuisine à l'ouest, garage à l'est."""
     if not rooms:
         return []
     from .layout_opt import pack_house
@@ -2558,6 +2908,10 @@ def _r(v: float) -> float:
 
 
 def _bsp_pack(rooms: list[dict[str, Any]], x0: float, y0: float, x1: float, y1: float) -> list[dict[str, Any]]:
+    if not rooms:
+        # Sans cette garde, `mid = max(1, 0)` renvoyait deux moitiés vides :
+        # récursion infinie puis ZeroDivisionError sur `a_l + a_r`.
+        return []
     if len(rooms) == 1:
         return [{
             **rooms[0],
@@ -2592,7 +2946,9 @@ def perimeter_and_internal_walls(rooms: list[dict[str, Any]], width: float, dept
     seen: set[tuple[float, float, float, float]] = set()
     wid = 1
     for room in rooms:
-        poly = room["polygon"]
+        poly = room.get("polygon") or [] if isinstance(room, dict) else []
+        if len(poly) < 3:
+            continue
         for i in range(len(poly)):
             a, b = poly[i], poly[(i + 1) % len(poly)]
             if _is_outer_edge(a, b, width, depth):
@@ -2641,7 +2997,7 @@ ROOM_FILL: dict[str, tuple[int, int, int]] = {
 }
 
 
-def _room_font(size: int) -> ImageFont.ImageFont:
+def _room_font(size: int) -> _Font:
     for path in ("arial.ttf", "C:/Windows/Fonts/arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
         try:
             return ImageFont.truetype(path, size)
@@ -2653,7 +3009,7 @@ def _room_font(size: int) -> ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
-def _draw_room_contents(draw: ImageDraw.ImageDraw, room: dict[str, Any], sx: float, sy: float, font: ImageFont.ImageFont) -> None:
+def _draw_room_contents(draw: ImageDraw.ImageDraw, room: dict[str, Any], sx: float, sy: float, font: _Font) -> None:
     poly = room.get("polygon") or []
     if len(poly) < 3:
         return

@@ -12,11 +12,11 @@ def _good_plan() -> dict:
         "units": "m",
         "floor": {"level": 0, "height_m": 2.7, "bounds": {"width": width, "depth": depth}},
         "rooms": [
-            {"id": "r1", "type": "living", "name": "Séjour", "polygon": _rect(0, 0, 6, 6)},
-            {"id": "r2", "type": "kitchen", "name": "Cuisine", "polygon": _rect(6, 0, 6, 4)},
-            {"id": "r3", "type": "bedroom", "name": "Chambre", "polygon": _rect(6, 4, 6, 6)},
-            {"id": "r4", "type": "bathroom", "name": "SDB", "polygon": _rect(0, 6, 3, 4)},
-            {"id": "r5", "type": "hallway", "name": "Entrée", "polygon": _rect(3, 6, 3, 4)},
+            {"id": "r1", "type": "bedroom", "name": "Chambre", "polygon": _rect(0, 0, 8, 3.5)},
+            {"id": "r2", "type": "bathroom", "name": "SDB", "polygon": _rect(8, 0, 4, 3.5)},
+            {"id": "r3", "type": "hallway", "name": "Couloir", "polygon": _rect(0, 3.5, 12, 1.2)},
+            {"id": "r4", "type": "kitchen", "name": "Cuisine", "polygon": _rect(0, 4.7, 4, 5.3)},
+            {"id": "r5", "type": "living", "name": "Séjour", "polygon": _rect(4, 4.7, 8, 5.3)},
         ],
         "walls": [
             {"id": "w_outer_1", "a": {"x": 0, "y": 0}, "b": {"x": 12, "y": 0}},
@@ -38,7 +38,7 @@ def test_empty_plan_is_low():
     out = evaluate({})
     assert out["score"] < 50
     assert out["grade"] in {"D", "E"}
-    assert out["total"] == 15
+    assert out["total"] == 19
     by_key = {c["key"]: c for c in out["checks"]}
     assert by_key["living"]["ok"] is False
     assert by_key["window"]["ok"] is False
@@ -54,7 +54,7 @@ def test_good_plan_scores_high():
 
 def test_tiny_bedroom_fails_that_check():
     plan = _good_plan()
-    plan["rooms"][2]["polygon"] = _rect(6, 4, 2, 2)
+    plan["rooms"][0]["polygon"] = _rect(6, 4, 2, 2)
     out = evaluate(plan)
     by_key = {c["key"]: c for c in out["checks"]}
     assert by_key["bedrooms"]["ok"] is False
@@ -104,6 +104,6 @@ def test_pipeline_returns_compliance():
     body = res.json()
     assert "compliance" in body
     assert 0 <= body["compliance"]["score"] <= 100
-    assert body["compliance"]["total"] == 15
+    assert body["compliance"]["total"] == 19
     assert "plan_document" in body
     assert "compliance" not in body["plan_document"]

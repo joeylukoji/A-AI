@@ -35,9 +35,14 @@ def image_to_canny(img: Image.Image, low: int = 80, high: int = 160) -> Image.Im
     return Image.fromarray(np.stack([edges, edges, edges], axis=-1))
 
 
+def _ink_threshold(value: int) -> int:
+    """Seuil noir/blanc du rendu « encre sur papier »."""
+    return 0 if value < 140 else 255
+
+
 def ink_paper(img: Image.Image) -> Image.Image:
     g = ImageOps.autocontrast(img.convert("L"))
-    return g.point(lambda p: 0 if p < 140 else 255).convert("RGB")
+    return g.point(_ink_threshold).convert("RGB")
 
 
 def _sobel_edges(gray: np.ndarray, low: int) -> np.ndarray:
@@ -76,7 +81,7 @@ def try_controlnet(src: Image.Image) -> Image.Image | None:
         pipe.enable_model_cpu_offload()
         _PIPE = pipe
 
-    control = image_to_canny(src).resize((512, 512), Image.NEAREST)
+    control = image_to_canny(src).resize((512, 512), Image.Resampling.NEAREST)
     out = _PIPE(
         PROMPT,
         image=control,
@@ -86,7 +91,7 @@ def try_controlnet(src: Image.Image) -> Image.Image | None:
         controlnet_conditioning_scale=float(os.getenv("CONTROLNET_SCALE", "1.1")),
         generator=torch.Generator(device="cuda").manual_seed(int(os.getenv("CONTROLNET_SEED", "42"))),
     ).images[0]
-    out = out.resize(src.size, Image.LANCZOS)
+    out = out.resize(src.size, Image.Resampling.LANCZOS)
     if os.getenv("CONTROLNET_INK", "1") != "0":
         out = ink_paper(out)
     return out

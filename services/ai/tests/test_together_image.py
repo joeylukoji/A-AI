@@ -42,10 +42,18 @@ from app.diffusion import (  # noqa: E402
 from app.gan_refine import refine  # noqa: E402
 from app.nlu import parse_brief  # noqa: E402
 
+# PNG 2x2 réel : `_as_png_b64` refuse désormais un payload qui n'est pas une
+# image décodable, les doubles d'API doivent donc renvoyer une vraie image.
+TINY_PNG_B64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGP8zwACTGCSAQANHQEDgslx/wAAAABJRU5ErkJggg=="
+)
+
 
 def test_backend_disabled_without_key(monkeypatch):
     monkeypatch.delenv("TOGETHER_API_KEY", raising=False)
     monkeypatch.delenv("TOGETHER_AI_API_KEY", raising=False)
+    monkeypatch.delenv("EDENAI_API_KEY", raising=False)
+    monkeypatch.delenv("EDEN_API_KEY", raising=False)
     assert together_image.available() is False
     assert together_image.generate_floorplan_image("x") is None
 
@@ -66,6 +74,8 @@ def test_model_name_default(monkeypatch):
 def test_generate_sends_sweet_home_as_data_uri(monkeypatch):
     monkeypatch.setenv("TOGETHER_API_KEY", "dummy")
     monkeypatch.setenv("IMAGE_BACKEND", "together")
+    monkeypatch.delenv("EDENAI_API_KEY", raising=False)
+    monkeypatch.delenv("EDEN_API_KEY", raising=False)
     captured: dict = {}
 
     def fake_sdk(payload):
@@ -74,7 +84,7 @@ def test_generate_sends_sweet_home_as_data_uri(monkeypatch):
 
     def fake_rest(_key, payload):
         captured["p"] = payload
-        return "Zm9v"
+        return TINY_PNG_B64
 
     monkeypatch.setattr(together_image, "_via_sdk", fake_sdk)
     monkeypatch.setattr(together_image, "_via_rest", fake_rest)
@@ -82,6 +92,91 @@ def test_generate_sends_sweet_home_as_data_uri(monkeypatch):
     assert out
     uri = (captured.get("p") or {}).get("image_url") or ""
     assert uri.startswith("data:image/jpeg;base64,YWJj")
+
+
+def test_available_with_eden_key_only(monkeypatch):
+    monkeypatch.delenv("TOGETHER_API_KEY", raising=False)
+    monkeypatch.delenv("TOGETHER_AI_API_KEY", raising=False)
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
+    monkeypatch.setenv("IMAGE_BACKEND", "together")
+    assert together_image.available() is True
+    assert together_image.planner_enabled() is False
+    assert together_image.method_name() == "gemini-3-pro-image"
+
+
+def test_eden_generate_sends_layout_as_reference(monkeypatch):
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
+    monkeypatch.setenv("IMAGE_BACKEND", "together")
+    captured: dict = {}
+
+    class FakeResp:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {"data": [{"b64_json": TINY_PNG_B64}]}
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, url, headers=None, json=None):
+            captured["url"] = url
+            captured["json"] = json
+            captured["auth"] = (headers or {}).get("Authorization") == "Bearer dummy"
+            return FakeResp()
+
+    monkeypatch.setattr(together_image.httpx, "Client", FakeClient)
+    out = together_image.generate_floorplan_image("a house", 12, 10, reference_png_b64="YWJj")
+    assert captured.get("auth")
+    assert "/v3/images/edits" in (captured.get("url") or "")
+    body = captured.get("json") or {}
+    assert body.get("model") == "google/gemini-3-pro-image-preview"
+    assert body.get("prompt") == "a house"
+    imgs = body.get("images") or []
+    assert imgs and str(imgs[0].get("image_url") or "").startswith("data:image/jpeg;base64,YWJj")
+    assert out
+
+
+def test_eden_generate_without_layout_uses_generations(monkeypatch):
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
+    monkeypatch.setenv("IMAGE_BACKEND", "together")
+    captured: dict = {}
+
+    class FakeResp:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {"data": [{"b64_json": TINY_PNG_B64}]}
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, url, headers=None, json=None):
+            captured["url"] = url
+            captured["json"] = json
+            return FakeResp()
+
+    monkeypatch.setattr(together_image.httpx, "Client", FakeClient)
+    out = together_image.generate_floorplan_image("a house", 12, 10)
+    assert "/v3/images/generations" in (captured.get("url") or "")
+    assert (captured.get("json") or {}).get("model") == "google/gemini-3-pro-image-preview"
+    assert out
+
 
 
 def test_style_reference_is_the_sweet_home_screenshot():
@@ -107,23 +202,18 @@ def test_blank_style_labels_removes_dark_letters():
     img = Image.new("RGB", (220, 80), (232, 214, 176))
     d = ImageDraw.Draw(img)
     d.text((24, 28), "Bedroom", fill=(28, 28, 28), font=ImageFont.load_default())
-    dark_before = 0
-    px = img.load()
-    w, h = img.size
-    for y in range(h):
-        for x in range(w):
-            r, g, b = px[x, y]
-            if (77 * r + 150 * g + 29 * b) >> 8 < 80:
-                dark_before += 1
+
+    def dark_pixels(image: Image.Image) -> int:
+        raw = image.convert("RGB").tobytes()
+        return sum(
+            1
+            for i in range(0, len(raw), 3)
+            if (77 * raw[i] + 150 * raw[i + 1] + 29 * raw[i + 2]) >> 8 < 80
+        )
+
+    dark_before = dark_pixels(img)
     assert dark_before > 10
-    out = together_image._blank_style_labels(img)
-    dark_after = 0
-    ox = out.load()
-    for y in range(h):
-        for x in range(w):
-            r, g, b = ox[x, y]
-            if (77 * r + 150 * g + 29 * b) >> 8 < 80:
-                dark_after += 1
+    dark_after = dark_pixels(together_image._blank_style_labels(img))
     assert dark_after < dark_before // 2
 
 
@@ -271,7 +361,6 @@ def test_render_floorplan_produces_png():
 def test_render_plan_document_with_furniture():
     from app.plan_adapt import adapt
     from app.vectorize import vectorize
-    from app.diffusion import render_plan_document
     import base64
     import io
 
@@ -823,3 +912,194 @@ def test_edit_plan_remove_room_redraws_layout(monkeypatch):
     assert not out.get("clarify")
     assert out["image_png_b64"] == png
     assert "+edit" in out["method"]
+
+
+# --- SSRF : téléchargement d'images pointées par une réponse externe ---------
+
+
+def test_fetch_image_url_rejects_non_https():
+    from app.together_image import _fetch_image_url
+
+    for url in ["http://example.com/a.png", "file:///etc/passwd", "ftp://x/a.png", "", None, 42]:
+        assert _fetch_image_url(url) is None, url
+
+
+def test_is_public_https_url_rejects_internal_targets(monkeypatch):
+    """Métadonnées cloud, loopback et réseaux privés doivent être refusés."""
+    import socket as socket_mod
+
+    from app import together_image
+
+    def fake_getaddrinfo(host, *_a, **_kw):
+        mapping = {
+            "metadata.evil.test": "169.254.169.254",  # métadonnées cloud
+            "localhost.evil.test": "127.0.0.1",
+            "intranet.evil.test": "10.1.2.3",
+            "public.example.test": "93.184.216.34",
+        }
+        ip = mapping.get(host)
+        if ip is None:
+            raise OSError("unknown host")
+        return [(socket_mod.AF_INET, socket_mod.SOCK_STREAM, 6, "", (ip, 443))]
+
+    monkeypatch.setattr(together_image.socket, "getaddrinfo", fake_getaddrinfo)
+
+    assert not together_image._is_public_https_url("https://metadata.evil.test/latest/meta-data/")
+    assert not together_image._is_public_https_url("https://localhost.evil.test/x.png")
+    assert not together_image._is_public_https_url("https://intranet.evil.test/x.png")
+    assert not together_image._is_public_https_url("https://unresolvable.evil.test/x.png")
+    assert together_image._is_public_https_url("https://public.example.test/x.png")
+
+
+def test_fetch_image_url_refuses_redirect_to_internal_target(monkeypatch):
+    """Une URL publique ne doit pas pouvoir rebondir vers une cible interne."""
+    from app import together_image
+
+    monkeypatch.setattr(
+        together_image,
+        "_is_public_https_url",
+        lambda url: isinstance(url, str) and url.startswith("https://public."),
+    )
+
+    class _Resp:
+        is_redirect = True
+        headers = {"location": "https://169.254.169.254/latest/meta-data/"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+    class _Client:
+        def __init__(self, *_a, **_kw):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+        def stream(self, _method, _url):
+            return _Resp()
+
+    monkeypatch.setattr(together_image.httpx, "Client", _Client)
+    assert together_image._fetch_image_url("https://public.example.test/x.png") is None
+
+
+# --- Robustesse du chemin Eden AI : réponse mal formée, hostile, gigantesque --
+
+
+def _fake_client(responses):
+    """httpx.Client bouchonné qui rend `responses` (status, payload) à la suite."""
+    calls: list[dict] = []
+
+    class FakeResp:
+        def __init__(self, status, payload):
+            self.status_code = status
+            self._payload = payload
+            self.text = "boom"
+
+        def json(self):
+            if isinstance(self._payload, Exception):
+                raise self._payload
+            return self._payload
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            calls.append({"timeout": k.get("timeout")})
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, url, headers=None, json=None):
+            idx = min(len(calls) - 1, len(responses) - 1)
+            status, payload = responses[idx]
+            calls[-1].update({"url": url, "json": json})
+            return FakeResp(status, payload)
+
+    return FakeClient, calls
+
+
+def test_eden_malformed_responses_never_raise(monkeypatch):
+    """Champs manquants, types inattendus, base64 invalide : repli local, pas de crash."""
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
+    monkeypatch.setenv("IMAGE_BACKEND", "together")
+    hostile = [
+        {},
+        {"data": None},
+        {"data": "not-a-list"},
+        {"data": [None]},
+        {"data": [{"b64_json": 12345}]},
+        {"data": [{"b64_json": "!!! pas du base64 !!!"}]},
+        {"data": [{"url": {"nested": "dict"}}]},
+        {"output": "chaîne au lieu d'un objet"},
+        {"output": {"items": [{"image": ""}]}},
+        {"status": "fail", "error": {"message": "quota"}},
+        [1, 2, 3],
+        "réponse texte",
+    ]
+    for payload in hostile:
+        client, _ = _fake_client([(200, payload)])
+        monkeypatch.setattr(together_image.httpx, "Client", client)
+        assert together_image.generate_floorplan_image("plan", 12, 10) is None, payload
+
+
+def test_eden_http_error_and_json_error_fall_back_locally(monkeypatch):
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
+    monkeypatch.setenv("IMAGE_BACKEND", "together")
+    for responses in ([(500, {})], [(200, ValueError("pas du JSON"))], [(429, {})]):
+        client, _ = _fake_client(responses)
+        monkeypatch.setattr(together_image.httpx, "Client", client)
+        assert together_image.generate_floorplan_image("plan", 12, 10) is None
+
+
+def test_eden_fallback_chain_shares_one_time_budget(monkeypatch):
+    """Trois tentatives à `_image_timeout()` chacune bloquaient un worker
+    jusqu'à 30 min : le budget est désormais global."""
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
+    monkeypatch.setenv("IMAGE_BACKEND", "together")
+    monkeypatch.setenv("TOGETHER_IMAGE_TIMEOUT", "60")
+    client, calls = _fake_client([(200, {})])
+    monkeypatch.setattr(together_image.httpx, "Client", client)
+    assert together_image.generate_floorplan_image("plan", 12, 10, reference_png_b64="YWJj") is None
+    assert len(calls) >= 2
+    assert sum(c["timeout"] or 0 for c in calls) <= 60.0 * len(calls)
+    assert all((c["timeout"] or 0) <= 60.0 for c in calls)
+
+
+def test_oversized_image_is_rejected():
+    """Une image géante renvoyée par le fournisseur ne doit pas être décodée."""
+    import base64
+    import io
+
+    from PIL import Image
+
+    img = Image.new("L", (8000, 8000), 128)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    img.close()
+    assert together_image._as_png_b64(base64.b64encode(buf.getvalue()).decode()) is None
+
+
+def test_oversized_inline_base64_is_rejected():
+    payload = "A" * (together_image.MAX_IMAGE_B64_CHARS + 1)
+    assert together_image._strip_b64(payload) is None
+    assert together_image._as_png_b64(payload) is None
+
+
+def test_eden_failure_still_produces_a_local_preview(monkeypatch):
+    """Le worker doit rendre un plan même quand le fournisseur image est muet."""
+    from app.diffusion import generate
+
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
+    monkeypatch.setenv("IMAGE_BACKEND", "together")
+    client, _ = _fake_client([(503, {})])
+    monkeypatch.setattr(together_image.httpx, "Client", client)
+    out = generate({"rooms": [{"type": "living", "count": 1}, {"type": "bedroom", "count": 1}]})
+    assert out["image_png_b64"]
+    assert out["layout"]["rooms"]

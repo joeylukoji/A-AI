@@ -1,10 +1,15 @@
-"""Packer résidentiel : topologie type Sweet Home 3D (pas un BSP naïf).
+"""Packer résidentiel : zones nuit / circulation / jour (pas un BSP naïf).
 
 Convention du dessin (origine en haut à gauche, y vers le sud) :
   y = 0     → nord / fond de parcelle (chambres)
   y = depth → sud / jardin + entrée
-  x = 0     → ouest (cuisine, SDB)
-  x = width → est (chambre parentale, garage)
+  x = 0     → ouest (cuisine en zone jour, SDB au-dessus)
+  x = width → est (WC, parentale, garage)
+
+Règles sanitaires / distribution (RSD type, décret logement décent, usage courant) :
+  - le WC ne partage pas de mur avec cuisine ni salle à manger ;
+  - les chambres ne donnent pas sur le séjour : un couloir les sépare ;
+  - chaque chambre et chaque WC s'ouvrent sur la circulation, pas l'un dans l'autre.
 """
 from __future__ import annotations
 
@@ -13,6 +18,7 @@ from typing import Any
 
 GRID = 0.5
 MIN_SIDE = 2.0
+_EPS = 1e-6
 HABITABLE = {"living", "bedroom", "dining", "office"}
 WET = {"bathroom", "wc", "laundry", "storage"}
 
@@ -48,18 +54,24 @@ def _min_side(typ: str, default: float) -> float:
 
 
 def _place(room: dict[str, Any], x0: float, y0: float, x1: float, y1: float, grid: float) -> dict[str, Any]:
-    x0, y0 = _snap(x0, grid), _snap(y0, grid)
-    x1, y1 = _snap(x1, grid), _snap(y1, grid)
+    """Rectangle jointif dans la bande [x0, x1] x [y0, y1] telle qu'elle est donnée.
+
+    Le calage sur la grille se fait en amont, dans `_splits` : le refaire ici
+    écrasait les bornes d'une bande plus étroite que le pas de grille, puis la
+    pièce était réélargie d'un pas de grille — elle sortait de sa bande et
+    recouvrait la voisine. On remet donc seulement les bornes dans l'ordre et
+    on garantit 1 cm d'épaisseur, sans jamais élargir d'un pas de grille.
+    """
+    _ = grid
     if x1 < x0:
         x0, x1 = x1, x0
     if y1 < y0:
         y0, y1 = y1, y0
-    x1 = max(x1, x0 + grid)
-    y1 = max(y1, y0 + grid)
-    w, h = x1 - x0, y1 - y0
+    x0, y0 = round(x0, 2), round(y0, 2)
+    x1, y1 = round(max(x1, x0 + 0.01), 2), round(max(y1, y0 + 0.01), 2)
     out = dict(room)
-    out["polygon"] = _box(round(x0, 2), round(y0, 2), round(x1, 2), round(y1, 2))
-    out["area_m2"] = round(w * h, 2)
+    out["polygon"] = _box(x0, y0, x1, y1)
+    out["area_m2"] = round((x1 - x0) * (y1 - y0), 2)
     return out
 
 
@@ -76,10 +88,10 @@ def _splits(span: float, weights: list[float], mins: list[float], grid: float) -
         return [0.0, span]
     total = sum(weights) or float(n)
     raw = [span * w / total for w in weights]
-    need = sum(max(0.0, m - r) for r, m in zip(raw, mins))
-    extra = sum(max(0.0, r - m) for r, m in zip(raw, mins))
+    need = sum(max(0.0, m - r) for r, m in zip(raw, mins, strict=True))
+    extra = sum(max(0.0, r - m) for r, m in zip(raw, mins, strict=True))
     sizes = []
-    for r, m in zip(raw, mins):
+    for r, m in zip(raw, mins, strict=True):
         if r < m and extra > 1e-9:
             sizes.append(m)
         elif r > m and need > 1e-9:
@@ -91,21 +103,61 @@ def _splits(span: float, weights: list[float], mins: list[float], grid: float) -
     sizes = [span * s / ssum for s in sizes]
     pos = [0.0]
     acc = 0.0
-    for i, s in enumerate(sizes[:-1]):
+    for s in sizes[:-1]:
         acc += s
         pos.append(_snap(acc, grid))
     pos.append(span)
-    for i in range(1, len(pos)):
-        if pos[i] <= pos[i - 1]:
-            pos[i] = pos[i - 1] + grid
-    if pos[-1] != span:
-        scale = span / (pos[-1] or 1.0)
-        pos = [0.0] + [_snap(p * scale, grid) for p in pos[1:-1]] + [span]
-        for i in range(1, len(pos)):
-            if pos[i] <= pos[i - 1]:
-                pos[i] = min(span, pos[i - 1] + grid)
-        pos[-1] = span
-    return pos
+    return _monotone(pos, span, grid, mins)
+
+
+def _floors(span: float, mins: list[float], grid: float) -> list[float]:
+    """Largeur plancher réellement garantie à chaque pièce d'une bande.
+
+    `_splits` renormalisait les tailles sur la bande (`span * s / ssum`), ce qui
+    ré-écrasait tous les minimums qu'il venait d'appliquer : on obtenait des
+    chambres de 0,7 m et des couloirs de 0,4 m. On garde donc les minimums, en
+    les réduisant proportionnellement (et seulement alors) quand la bande est
+    trop courte pour les tenir tous.
+    """
+    n = len(mins)
+    if n <= 0:
+        return []
+    base = [max(0.0, m) for m in mins]
+    total = sum(base)
+    if total > span > 0:
+        base = [m * span / total for m in base]
+    floor = min(grid if grid > 0 else GRID, span / n)
+    base = [max(m, floor) for m in base]
+    total = sum(base)
+    if total > span > 0:
+        base = [m * span / total for m in base]
+    return base
+
+
+def _monotone(pos: list[float], span: float, grid: float, mins: list[float]) -> list[float]:
+    """Bornes croissantes, toutes dans [0, span], extrémités exactes.
+
+    L'ancienne version décollait chaque borne de la précédente d'un pas de
+    grille *sans plafond* : sur une bande étroite les dernières bornes
+    sortaient de la bande (`pos[-1] > span`), la pièce correspondante était
+    posée au-delà de sa colonne et recouvrait la voisine — ou débordait de
+    l'emprise.
+    """
+    n = len(pos) - 1
+    span = max(0.0, span)
+    if n <= 0:
+        return [0.0, span]
+    floors = _floors(span, mins, grid) if len(mins) == n else [span / n] * n
+    tail = [0.0] * (n + 1)
+    for i in range(n - 1, -1, -1):
+        tail[i] = tail[i + 1] + floors[i]
+    out = [0.0]
+    for i in range(1, n):
+        lo = out[-1] + floors[i - 1]
+        hi = span - tail[i]
+        out.append(min(max(pos[i], lo), max(lo, hi)))
+    out.append(span)
+    return out
 
 
 def _stack(
@@ -163,7 +215,7 @@ def pack_house(
     grid: float = GRID,
     min_side: float = MIN_SIDE,
 ) -> list[dict[str, Any]]:
-    """Pavé orthogonal jointif, disposition maison individuelle (Sweet Home)."""
+    """Pavé orthogonal jointif : nuit au nord, couloir, jour au sud."""
     if not rooms:
         return []
     width = _snap(max(width, min_side * 2), grid)
@@ -186,9 +238,12 @@ def pack_house(
     offices = _all(items, "office")
     dinings = _all(items, "dining")
     hallways = _all(items, "hallway")
-    living = _first(items, "living")
-    kitchen = _first(items, "kitchen")
-    garage = _first(items, "garage")
+    livings = _all(items, "living")
+    kitchens = _all(items, "kitchen")
+    garages = _all(items, "garage")
+    living = livings[0] if livings else None
+    kitchen = kitchens[0] if kitchens else None
+    garage = garages[0] if garages else None
     leftovers = [
         it for it in items
         if it.get("type") not in {
@@ -196,117 +251,73 @@ def pack_house(
             "dining", "hallway", "living", "kitchen", "garage",
         }
     ]
-
+    # Une 2ᵉ cuisine / un 2ᵉ séjour / un 2ᵉ garage n'étaient portés par aucune
+    # liste (`_first` n'en garde qu'un) : la pièce disparaissait du plan sans
+    # le moindre signal. On les traite comme des pièces jour supplémentaires.
+    leftovers.extend(kitchens[1:] + livings[1:] + garages[1:])
     ensuite = baths[-1] if len(baths) >= 2 and beds else None
     day_baths = baths[:-1] if ensuite else baths
-
-    if garage:
-        return _pack_with_garage(
-            beds, day_baths, ensuite, wcs, laundries, storages, offices, dinings,
-            hallways, leftovers, living, kitchen, garage,
-            width, depth, grid, min_side,
-        )
-    return _pack_night_strip(
+    hallways = _ensure_hallway(hallways, beds, living, kitchen, wcs, dinings)
+    packed = _pack_zoned(
         beds, day_baths, ensuite, wcs, laundries, storages, offices, dinings,
-        hallways, leftovers, living, kitchen,
+        hallways, leftovers, living, kitchen, garage,
         width, depth, grid, min_side,
     )
+    return _clip_footprint(packed, width, depth)
 
 
-def _pack_with_garage(
-    beds: list[dict[str, Any]],
-    day_baths: list[dict[str, Any]],
-    ensuite: dict[str, Any] | None,
-    wcs: list[dict[str, Any]],
-    laundries: list[dict[str, Any]],
-    storages: list[dict[str, Any]],
-    offices: list[dict[str, Any]],
-    dinings: list[dict[str, Any]],
+def _clip_footprint(
+    rooms: list[dict[str, Any]], width: float, depth: float
+) -> list[dict[str, Any]]:
+    """Dernier garde-fou : aucune pièce ne dépasse l'emprise (rétrécit seulement).
+
+    Les bandes sont désormais calculées pour rester dedans ; cette passe évite
+    qu'une future régression n'expédie un mur hors de la parcelle sans que
+    personne ne le voie. Elle ne fait que rogner, donc ne peut pas créer de
+    recouvrement.
+    """
+    for room in rooms:
+        box = _room_bbox(room)
+        if box is None:
+            continue
+        x0, y0, x1, y1 = box
+        cx0, cy0 = max(0.0, min(x0, width)), max(0.0, min(y0, depth))
+        cx1, cy1 = max(0.0, min(x1, width)), max(0.0, min(y1, depth))
+        if (cx0, cy0, cx1, cy1) == (x0, y0, x1, y1):
+            continue
+        room["polygon"] = _box(round(cx0, 2), round(cy0, 2), round(cx1, 2), round(cy1, 2))
+        room["area_m2"] = round(max(0.0, cx1 - cx0) * max(0.0, cy1 - cy0), 2)
+    return rooms
+
+
+def _ensure_hallway(
     hallways: list[dict[str, Any]],
-    leftovers: list[dict[str, Any]],
+    beds: list[dict[str, Any]],
     living: dict[str, Any] | None,
     kitchen: dict[str, Any] | None,
-    garage: dict[str, Any],
-    width: float,
-    depth: float,
-    grid: float,
-    min_side: float,
+    wcs: list[dict[str, Any]],
+    dinings: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """3 colonnes : services+chambres extra | séjour | parentale+garage."""
-    master = beds[-1] if beds else None
-    center_bed = beds[-2] if len(beds) >= 2 else None
-    left_beds = beds[:-2]
+    """Couloir obligatoire dès qu'il y a des chambres, ou un WC à séparer de la cuisine.
 
-    left_list = left_beds + day_baths + wcs + laundries + storages + leftovers
-    if kitchen:
-        left_list.append(kitchen)
-    left_list.extend(dinings)
-    left_list.extend(offices)
-
-    left_area = sum(_weights(left_list)) or 1.0
-    right_area = (master.get("area") if master else 0) + garage.get("area", 18)
-    if ensuite:
-        right_area += ensuite.get("area", 4)
-    living_area = (living.get("area") if living else 20) + (center_bed.get("area") if center_bed else 0)
-    living_area += sum(_weights(hallways))
-    total = left_area + right_area + living_area
-    left_w = max(min_side + 0.2, min(width * 0.34, width * left_area / total))
-    right_w = max(3.2, min(width * 0.36, width * right_area / total))
-    if left_w + right_w > width - 3.2:
-        scale = (width - 3.2) / (left_w + right_w)
-        left_w, right_w = left_w * scale, right_w * scale
-    left_w = _snap(left_w, grid)
-    right_x = _snap(width - right_w, grid)
-    if right_x <= left_w + min_side:
-        left_w = _snap(width * 0.26, grid)
-        right_x = _snap(width * 0.68, grid)
-
-    out: list[dict[str, Any]] = []
-    if left_list:
-        out.extend(_stack(left_list, 0.0, 0.0, left_w, depth, grid, min_side))
-    else:
-        left_w = 0.0
-
-    night_d = 0.0
-    if center_bed or master:
-        night_d = max(2.8, min(depth * 0.42, depth - 3.4))
-        night_d = _snap(night_d, grid)
-
-    cx0, cx1 = left_w, right_x
-    if center_bed:
-        out.append(_place(center_bed, cx0, 0.0, cx1, night_d, grid))
-        y_liv = night_d
-    else:
-        y_liv = 0.0
-
-    hall_d = 0.0
-    if hallways and living:
-        hall_d = min(1.4, max(1.1, (depth - y_liv) * 0.16))
-        hall_d = _snap(hall_d, grid)
-
-    if living:
-        out.append(_place(living, cx0, y_liv, cx1, depth - hall_d, grid))
+    La salle à manger compte au même titre que la cuisine : la règle sanitaire
+    interdit le mur commun WC / salle à manger, et sans couloir le WC n'avait
+    aucune pièce sur laquelle s'ouvrir (porte impossible, pièce enclavée).
+    """
     if hallways:
-        out.extend(_row(hallways, cx0, depth - hall_d, cx1, depth, grid, 1.1))
-
-    # Colonne est : ensuite collée au nord-est de la parentale, garage au sud.
-    rx0, rx1 = right_x, width
-    if master and ensuite:
-        ens_w = min(2.2, max(1.5, (rx1 - rx0) * 0.32))
-        ens_w = _snap(ens_w, grid)
-        out.append(_place(master, rx0, 0.0, rx1 - ens_w, night_d, grid))
-        out.append(_place(ensuite, rx1 - ens_w, 0.0, rx1, night_d, grid))
-    elif master:
-        out.append(_place(master, rx0, 0.0, rx1, night_d, grid))
-    elif ensuite:
-        out.append(_place(ensuite, rx0, 0.0, rx1, night_d, grid))
-
-    gy0 = night_d if (master or ensuite) else 0.0
-    out.append(_place(garage, rx0, gy0, rx1, depth, grid))
-    return _fill_gaps(out, width, depth, grid)
+        return hallways
+    if beds or (wcs and (kitchen or living or dinings)):
+        return [{
+            "id": "r_hall",
+            "type": "hallway",
+            "name": "Couloir",
+            "area": 8.0,
+            "area_m2": 8.0,
+        }]
+    return hallways
 
 
-def _pack_night_strip(
+def _pack_zoned(
     beds: list[dict[str, Any]],
     day_baths: list[dict[str, Any]],
     ensuite: dict[str, Any] | None,
@@ -319,74 +330,240 @@ def _pack_night_strip(
     leftovers: list[dict[str, Any]],
     living: dict[str, Any] | None,
     kitchen: dict[str, Any] | None,
+    garage: dict[str, Any] | None,
     width: float,
     depth: float,
     grid: float,
     min_side: float,
 ) -> list[dict[str, Any]]:
-    """Sans garage : bande nuit au nord, services à l'ouest, séjour au sud."""
-    left_list = day_baths + wcs + laundries + storages + leftovers
-    if kitchen:
-        left_list.append(kitchen)
-    left_list.extend(dinings)
+    """Nuit (nord) + couloir + jour (sud). WC invités sur le couloir, pas dans une chambre."""
+    garage_w = 0.0
+    if garage:
+        garage_w = max(3.2, min(width * 0.28, float(garage.get("area") or 18) / max(depth, 1.0)))
+        garage_w = _snap(garage_w, grid)
+        if garage_w > width - 6.0:
+            garage_w = _snap(max(3.2, width * 0.24), grid)
+        # Bande garage non vide : sur une emprise minimale `inner_w` valait
+        # `width`, le garage était posé sur une bande de largeur nulle puis
+        # élargi d'un pas de grille — hors de l'emprise.
+        garage_w = min(max(garage_w, grid), max(grid, width - grid))
+    inner_w = max(min_side * 2, width - garage_w)
+    if garage:
+        inner_w = min(inner_w, max(grid, width - grid))
 
-    night_items = list(beds)
-    if offices:
-        night_items.extend(offices)
+    has_night = bool(beds or offices)
+    guest = list(wcs) + list(laundries) + list(storages)
+    leftovers = list(leftovers)
+    hall_d = 0.0
+    if hallways and (has_night or guest or (wcs and kitchen)):
+        hall_d = _snap(min(1.5, max(1.4 if guest else 1.15, depth * 0.12)), grid)
+        if depth - hall_d < (2.8 if has_night else 2.2) + 2.4:
+            hall_d = _snap(max(1.4 if guest else 1.1, min(1.4, depth * 0.12)), grid)
+        # Le couloir doit rester dans l'emprise et laisser de la place au reste.
+        hall_d = min(max(hall_d, grid), max(grid, depth - 2 * grid))
 
-    left_area = sum(_weights(left_list)) or (12 if left_list else 0)
-    rest_area = (
-        (living.get("area") if living else 24)
-        + sum(_weights(night_items))
-        + (ensuite.get("area") if ensuite else 0)
-        + sum(_weights(hallways))
-    )
-    total = max(left_area + rest_area, 1.0)
-    left_w = 0.0
-    if left_list:
-        left_w = max(min_side, min(width * 0.36, width * left_area / total))
-        left_w = _snap(left_w, grid)
-        if left_w > width - 3.4:
-            left_w = _snap(width * 0.28, grid)
-
+    wet_w = 0.0
+    if has_night and guest and hall_d > 0:
+        wet_w = sum(_weights(guest)) / max(hall_d, 1.4)
+        wet_w = _snap(max(1.6, min(inner_w * 0.30, wet_w)), grid)
+        wet_w = min(wet_w, max(1.6, inner_w - 4.5))
+        wet_w = min(max(wet_w, grid), max(grid, inner_w - grid))
     out: list[dict[str, Any]] = []
-    if left_list:
-        out.extend(_stack(left_list, 0.0, 0.0, left_w, depth, grid, min_side))
-
-    mx0, mx1 = left_w, width
-    night_d = 0.0
-    if night_items:
-        night_d = max(2.8, min(depth * 0.40, depth - 3.2))
-        night_d = _snap(night_d, grid)
-        if ensuite and night_items:
-            ens_w = min(2.2, max(1.5, (mx1 - mx0) * 0.22))
-            ens_w = _snap(ens_w, grid)
-            row = _row(night_items, mx0, 0.0, mx1 - ens_w, night_d, grid, min_side)
-            out.extend(row)
-            out.append(_place(ensuite, mx1 - ens_w, 0.0, mx1, night_d, grid))
+    if has_night:
+        if guest and not wet_w:
+            # Pas de bande humide (aucun couloir à desservir) : sans ce repli
+            # les WC / buanderies / rangements n'étaient posés nulle part et
+            # disparaissaient purement et simplement du plan rendu.
+            leftovers = leftovers + guest
+            guest = []
+        if not (hallways and hall_d > 0):
+            # Sans ce repli le couloir n'était rattaché à aucune rangée et
+            # disparaissait du plan.
+            leftovers = leftovers + list(hallways)
+            hall_d = 0.0
+        day_seq = _day_sequence(kitchen, living, dinings, leftovers)
+        night_d = _snap(max(2.8, min(depth * 0.38, depth - hall_d - 3.0)), grid)
+        if night_d + hall_d >= depth - 2.4:
+            night_d = _snap(max(2.6, depth - hall_d - 2.6), grid)
+        # Bornée : `max(2.6, ...)` réclamait plus de profondeur qu'il n'y en
+        # avait sur une petite emprise, et la rangée jour partait au-delà de
+        # la façade sud (coordonnées inversées par `_place`).
+        night_d = min(max(night_d, grid), max(grid, depth - hall_d - grid))
+        if not day_seq:
+            # Programme sans pièce jour : la bande sud restait un trou dans
+            # l'emprise (jusqu'à 30 % de la surface non couverte). Nuit et
+            # couloir se partagent alors toute la profondeur.
+            night_d = max(grid, depth - hall_d)
+        hall_x1 = inner_w - wet_w if wet_w else inner_w
+        night_priv = _night_private(beds, offices, ensuite) + list(day_baths)
+        if night_priv:
+            out.extend(_row(night_priv, 0.0, 0.0, hall_x1, night_d, grid, min_side))
+        if ensuite:
+            for room in out:
+                if room.get("id") == ensuite.get("id"):
+                    room["ensuite"] = True
+        if wet_w and hallways:
+            stub = dict(hallways[0])
+            stub["id"] = str(stub.get("id") or "r_hall") + "_n"
+            stub["name"] = stub.get("name") or "Couloir"
+            out.append(_place(stub, hall_x1, 0.0, inner_w, night_d, grid))
+        y_hall = night_d
+        if hallways and hall_d > 0:
+            out.extend(_row(hallways, 0.0, y_hall, hall_x1, y_hall + hall_d, grid, 1.1))
+            if guest and wet_w:
+                out.extend(_row(guest, hall_x1, y_hall, inner_w, y_hall + hall_d, grid, 1.4))
+        y_day = y_hall + hall_d
+        if day_seq and depth - y_day > _EPS:
+            day_seq = _food_off_east(day_seq, guest if wet_w else [])
+            out.extend(_row(day_seq, 0.0, y_day, inner_w, depth, grid, min_side))
+        elif not night_priv:
+            filler = leftovers or day_baths
+            if filler:
+                out.append(_place(filler[-1], 0.0, y_day, inner_w, depth, grid))
+    else:
+        main = _day_sequence(kitchen, living, dinings, leftovers)
+        main.extend(day_baths)
+        main.extend(offices)
+        if main and hallways and hall_d > 0:
+            out.extend(_row(_food_off_east(main, guest),
+                            0.0, 0.0, inner_w, depth - hall_d, grid, min_side))
+            if guest:
+                wet_w = _snap(max(1.6, min(inner_w * 0.28, sum(_weights(guest)) / max(hall_d, 1.4))), grid)
+                wet_w = min(max(wet_w, grid), max(grid, inner_w - grid))
+                hall_x1 = inner_w - wet_w
+                out.extend(_row(hallways, 0.0, depth - hall_d, hall_x1, depth, grid, 1.1))
+                out.extend(_row(guest, hall_x1, depth - hall_d, inner_w, depth, grid, 1.4))
+            else:
+                out.extend(_row(hallways, 0.0, depth - hall_d, inner_w, depth, grid, 1.1))
         else:
-            out.extend(_row(night_items, mx0, 0.0, mx1, night_d, grid, min_side))
+            # Sans cette branche, un plan sans zone nuit perdait ses couloirs
+            # (et ses pièces de service) dès que la bande couloir n'était pas
+            # calculée : ils n'étaient rattachés à aucune rangée.
+            rest = main + list(hallways) + list(guest)
+            if rest:
+                out.extend(_row(rest, 0.0, 0.0, inner_w, depth, grid, min_side))
 
-    hall_d = 0.0
-    if hallways and living:
-        hall_d = min(1.4, max(1.1, (depth - night_d) * 0.16))
-        hall_d = _snap(hall_d, grid)
-    if living:
-        out.append(_place(living, mx0, night_d, mx1, depth - hall_d, grid))
-    elif not night_items:
-        # studio / local sans séjour : tout le reste
-        filler = leftovers or left_list
-        if filler:
-            out.append(_place(filler[-1], mx0, night_d, mx1, depth, grid))
-    if hallways:
-        out.extend(_row(hallways, mx0, depth - hall_d, mx1, depth, grid, 1.1))
+    if garage:
+        out.append(_place(garage, inner_w, 0.0, width, depth, grid))
     return _fill_gaps(out, width, depth, grid)
+
+
+def _night_private(
+    beds: list[dict[str, Any]],
+    offices: list[dict[str, Any]],
+    ensuite: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Chambres + ensuite : jamais le WC invités (celui-ci s'ouvre sur le couloir)."""
+    extra = list(beds[:-1]) if (ensuite and beds) else list(beds)
+    master = [beds[-1]] if (ensuite and beds) else []
+    ens = [ensuite] if ensuite else []
+    return extra + list(offices) + master + ens
+
+
+_FOOD = {"kitchen", "dining"}
+
+
+def _food_off_east(row: list[dict[str, Any]], guest: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Écarte cuisine / salle à manger du bout est d'une rangée quand la bande
+    WC vient s'y coller.
+
+    La bande humide occupe l'est du couloir : la pièce en bout de rangée
+    partage forcément un mur avec elle. Une cuisine ou une salle à manger à
+    cet endroit produit le mur commun WC / cuisine interdit (RSD).
+    """
+    if not row or not any(str(g.get("type") or "") == "wc" for g in guest):
+        return row
+    if str(row[-1].get("type") or "") not in _FOOD:
+        return row
+    swap = next(
+        (i for i in range(len(row) - 2, -1, -1) if str(row[i].get("type") or "") not in _FOOD),
+        None,
+    )
+    if swap is None:
+        return row
+    row = list(row)
+    row[swap], row[-1] = row[-1], row[swap]
+    return row
+
+
+def _day_sequence(
+    kitchen: dict[str, Any] | None,
+    living: dict[str, Any] | None,
+    dinings: list[dict[str, Any]],
+    leftovers: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Cuisine à l'ouest, séjour au centre — jamais un WC dans cette rangée."""
+    day: list[dict[str, Any]] = []
+    if kitchen:
+        day.append(kitchen)
+    if living:
+        day.append(living)
+    day.extend(dinings)
+    day.extend(leftovers)
+    return day
+
+
+def _floor_grid(v: float, grid: float) -> float:
+    """Arrondi *par défaut* au pas de grille : ne réclame jamais plus que libre."""
+    g = grid if grid > 0 else GRID
+    return max(0.0, int(max(0.0, v) / g + 1e-9) * g)
+
+
+def _free_edge(
+    rooms: list[dict[str, Any]], target: dict[str, Any],
+    box: tuple[float, float, float, float], axis: str, side: str,
+    width: float, depth: float,
+) -> float:
+    """Coordonnée jusqu'où `box` peut s'étendre sans mordre sur une voisine.
+
+    `axis` = "x" (est/ouest) ou "y" (nord/sud) ; `side` = "lo" (vers 0) ou "hi".
+    Seules les pièces qui chevauchent la bande de `box` sur l'autre axe font
+    obstacle : la pièce étendue reste ainsi un rectangle jointif, sans
+    recouvrement.
+
+    `box` est passé explicitement (et non relu depuis `target`) pour que les
+    extensions successives se contrôlent entre elles : en calculant les quatre
+    côtés sur la boîte d'origine, une voisine seulement diagonale n'obstruait
+    ni l'axe x ni l'axe y, et l'agrandissement simultané des deux axes
+    l'avalait — deux pièces superposées.
+    """
+    x0, y0, x1, y1 = box
+    horizontal = axis == "x"
+    near, far = (x0, x1) if horizontal else (y0, y1)
+    limit = 0.0 if side == "lo" else (width if horizontal else depth)
+    for other in rooms:
+        if other is target:
+            continue
+        ob = _room_bbox(other)
+        if ob is None:
+            continue
+        ox0, oy0, ox1, oy1 = ob
+        if horizontal:
+            if min(y1, oy1) - max(y0, oy0) <= 1e-6:
+                continue  # pas en face : n'obstrue pas cette bande
+            lo_edge, hi_edge = ox1, ox0
+        else:
+            if min(x1, ox1) - max(x0, ox0) <= 1e-6:
+                continue
+            lo_edge, hi_edge = oy1, oy0
+        if side == "lo" and lo_edge <= near + 1e-6:
+            limit = max(limit, lo_edge)
+        elif side == "hi" and hi_edge >= far - 1e-6:
+            limit = min(limit, hi_edge)
+    return limit
 
 
 def _fill_gaps(
     rooms: list[dict[str, Any]], width: float, depth: float, grid: float
 ) -> list[dict[str, Any]]:
-    """Étend le séjour (ou la plus grande pièce) s'il reste un trou d'emprise."""
+    """Étend le séjour (ou la plus grande pièce) s'il reste un trou d'emprise.
+
+    Les découpes proportionnelles de `_splits` laissent parfois une bande vide
+    contre une façade. On l'absorbe dans une seule pièce, et seulement du côté
+    où la bande est réellement libre : le résultat reste un rectangle jointif,
+    sans recouvrement (c'était auparavant une fonction morte — elle calculait
+    la pièce cible puis renvoyait `rooms` inchangé).
+    """
     if not rooms:
         return rooms
     covered = sum(float(r.get("area_m2") or 0) for r in rooms)
@@ -395,6 +572,20 @@ def _fill_gaps(
         return rooms
     living = next((r for r in rooms if r.get("type") == "living"), None)
     target = living or max(rooms, key=lambda r: float(r.get("area_m2") or 0))
+    box = _room_bbox(target)
+    if box is None:
+        return rooms
+    x0, y0, x1, y1 = box
+    x0 -= _floor_grid(x0 - _free_edge(rooms, target, (x0, y0, x1, y1), "x", "lo", width, depth), grid)
+    x1 += _floor_grid(_free_edge(rooms, target, (x0, y0, x1, y1), "x", "hi", width, depth) - x1, grid)
+    y0 -= _floor_grid(y0 - _free_edge(rooms, target, (x0, y0, x1, y1), "y", "lo", width, depth), grid)
+    y1 += _floor_grid(_free_edge(rooms, target, (x0, y0, x1, y1), "y", "hi", width, depth) - y1, grid)
+    x0, y0 = max(0.0, x0), max(0.0, y0)
+    x1, y1 = min(width, x1), min(depth, y1)
+    if x1 - x0 < grid or y1 - y0 < grid:
+        return rooms
+    target["polygon"] = _box(round(x0, 2), round(y0, 2), round(x1, 2), round(y1, 2))
+    target["area_m2"] = round((x1 - x0) * (y1 - y0), 2)
     return rooms
 
 
@@ -438,3 +629,60 @@ def place_habitables_on_facade(
         room["area_m2"], donor["area_m2"] = donor.get("area_m2"), room.get("area_m2")
         service = [s for s in service if s is not donor]
     return rooms
+
+
+def _room_bbox(room: dict[str, Any]) -> tuple[float, float, float, float] | None:
+    poly = room.get("polygon") or []
+    if len(poly) < 3:
+        return None
+    xs = [float(p["x"]) for p in poly]
+    ys = [float(p["y"]) for p in poly]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def share_edge(a: dict[str, Any], b: dict[str, Any], *, tol: float = 0.15, min_seam: float = 0.55) -> bool:
+    """True si deux pièces partagent un mur (pas seulement un coin)."""
+    ba, bb = _room_bbox(a), _room_bbox(b)
+    if not ba or not bb:
+        return False
+    ax0, ay0, ax1, ay1 = ba
+    bx0, by0, bx1, by1 = bb
+    y_ov = min(ay1, by1) - max(ay0, by0)
+    x_ov = min(ax1, bx1) - max(ax0, bx0)
+    x_touch = abs(ax1 - bx0) <= tol or abs(bx1 - ax0) <= tol
+    y_touch = abs(ay1 - by0) <= tol or abs(by1 - ay0) <= tol
+    return (x_touch and y_ov >= min_seam) or (y_touch and x_ov >= min_seam)
+
+
+def sanitary_violations(rooms: list[dict[str, Any]]) -> list[str]:
+    """Écarts de distribution (cuisine/WC, chambres/séjour, accès couloir)."""
+    issues: list[str] = []
+    beds = [r for r in rooms if r.get("type") == "bedroom"]
+    halls = [r for r in rooms if r.get("type") == "hallway"]
+    kitchens = [r for r in rooms if r.get("type") in {"kitchen", "dining"}]
+    wcs = [r for r in rooms if r.get("type") == "wc"]
+    livings = [r for r in rooms if r.get("type") == "living"]
+    for wet in wcs:
+        for food in kitchens:
+            if share_edge(wet, food):
+                issues.append("wc_kitchen")
+                break
+    for bed in beds:
+        for living in livings:
+            if share_edge(bed, living):
+                issues.append("bedroom_living")
+                break
+    if halls:
+        for bed in beds:
+            if not any(share_edge(bed, hall) for hall in halls):
+                issues.append("bedroom_hall")
+                break
+        for wet in wcs:
+            if not any(share_edge(wet, hall) for hall in halls):
+                issues.append("wc_hall")
+                break
+    for wet in wcs:
+        if any(share_edge(wet, bed) for bed in beds):
+            issues.append("wc_bedroom")
+            break
+    return issues

@@ -153,7 +153,7 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
 
     packed = optimize_rooms(work, house_w, house_d, {"rooms": spec_rooms}, grid=grid, min_side=min_side)
     walls = perimeter_and_internal_walls(packed, house_w, house_d)
-    openings = default_openings(walls, house_w, house_d)
+    openings = default_openings(walls, house_w, house_d, packed)
     openings = apply_opening_rules(openings, rules, house_w, house_d)
 
     doc = {

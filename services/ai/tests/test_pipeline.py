@@ -88,6 +88,13 @@ def test_nlu_t3_is_two_bedrooms():
     assert bedroom.get("count") == 2
 
 
+def test_nlu_one_bedroom_has_hallway():
+    spec = parse_brief("Maison 1 chambre", {})
+    types = {r["type"] for r in spec["rooms"]}
+    assert "hallway" in types
+    assert "bedroom" in types
+
+
 def test_nlu_does_not_invent_garage():
     spec = parse_brief("Maison 2 chambres", {})
     assert all(r["type"] != "garage" for r in spec["rooms"])
@@ -227,3 +234,44 @@ def test_edit_keeps_plan_without_together_key(monkeypatch):
     body = res.json()
     assert body["image_png_b64"] == "ZmFrZQ=="
     assert body["reply_fr"]
+
+
+def test_free_form_payloads_never_return_500():
+    """Les endpoints acceptent des documents libres : un sous-objet du mauvais
+    type (`{"layout": "x"}`) partait en AttributeError → 500 côté API."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app, raise_server_exceptions=False)
+    weird = ["x", 3, None, [], {}, [1], {"a": 1}, True, -1, 1e300, "", [[]]]
+    builders = {
+        "/v1/vectorize": lambda v: {"layout": v, "building_spec": v},
+        "/v1/refine": lambda v: {"layout": v, "building_spec": v},
+        "/v1/generate": lambda v: {"rooms": v, "constraints": v, "style": v},
+        "/v1/adapt": lambda v: {"plan_document": {"rooms": v, "walls": v, "floor": v}},
+        "/v1/edit": lambda v: {
+            "instruction": "agrandir", "plan_document": {"rooms": v, "walls": v},
+        },
+    }
+    for path, build in builders.items():
+        for value in weird:
+            body = build(value)
+            res = client.post(path, json=body)
+            assert res.status_code < 500, (path, body, res.status_code, res.text[:200])
+
+
+def test_malformed_polygons_are_ignored_not_fatal():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app, raise_server_exceptions=False)
+    for poly in ([{"x": 1}], [{"x": "a", "y": 1}], ["x"], [{"x": 1, "y": None}], [[0, 0]]):
+        res = client.post("/v1/vectorize", json={
+            "layout": {
+                "rooms": [{"type": "living", "polygon": poly}],
+                "walls": [{"a": {"x": 0, "y": 0}, "b": poly}],
+            }
+        })
+        assert res.status_code < 500, (poly, res.text[:200])

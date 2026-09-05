@@ -1,12 +1,10 @@
-fastapi==0.128.0
-# starlette isn't a direct dependency of this service, but fastapi 0.128.0
-# alone permits the vulnerable 0.41.3 pip already had resolved (pip won't
-# upgrade an already-satisfying transitive dep on its own) — pin explicitly
-# to clear known CVEs (PYSEC-2026-1941/1942) fixed in 0.47.2/0.49.1.
-# Residual starlette CVEs only fixed in >=1.0 (PYSEC-2026-161/248/249/2280/
-# 2281) require a much newer fastapi (>=0.13x) outside this pass's scope —
-# see docs/production.md.
-starlette>=0.49.1,<0.51.0
+fastapi==0.141.1
+# starlette n'est pas une dépendance directe de ce service, mais fastapi ne la
+# borne pas par le haut : sans épinglage, pip conserve la version déjà résolue.
+# >=1.3.1 est le premier palier qui corrige l'ensemble des CVE connues
+# (PYSEC-2026-161/248/249/1941/1942/2280/2281). Nécessite fastapi >=0.135,
+# qui a levé la borne `starlette<0.51`.
+starlette>=1.3.1
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
 redis==5.2.1

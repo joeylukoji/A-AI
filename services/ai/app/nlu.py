@@ -28,7 +28,8 @@ _NLU_SYSTEM = (
     "bathroom, and bedrooms when a house/apartment is implied.\n"
     "- Do NOT invent garage, office, dining, laundry, storage, or a second bathroom "
     "unless the brief mentions them.\n"
-    "- Add hallway only if there are 2 or more bedrooms (circulation).\n"
+    "- Add hallway if there is at least one bedroom (night/day corridor). Always add it "
+    "for 2+ bedrooms.\n"
     "- Add a separate type wc if the brief mentions WC, toilettes, toilet, or w.c. "
     "as its own room — do not fold it into bathroom.\n"
     "- type must be one of: living, kitchen, bedroom, bathroom, wc, hallway, garage, "
@@ -67,7 +68,7 @@ def _heuristic_parse(brief: str, constraints: dict[str, Any]) -> dict[str, Any]:
     add("bathroom", 5 if is_studio else 6)
     if bedroom_count >= 3 or re.search(r"(deux|2)\s+salles?\s+de\s+bain", text):
         add("bathroom", 5)
-    if bedroom_count >= 2:
+    if bedroom_count >= 1:
         add("hallway", 8, adjacent_to=["r1"])
     if "garage" in text:
         add("garage", 18)
@@ -166,11 +167,12 @@ def _filter_invented_rooms(brief: str, rooms: list[dict[str, Any]]) -> list[dict
     out: list[dict[str, Any]] = []
     for room in rooms:
         typ = str(room.get("type") or "")
-        if typ in {"living", "kitchen", "bedroom", "bathroom"}:
-            out.append(room)
-        elif typ == "hallway" and bedroom_n >= 2:
-            out.append(room)
-        elif mentioned.get(typ):
+        keep = (
+            typ in {"living", "kitchen", "bedroom", "bathroom"}  # noyau du logement
+            or (typ == "hallway" and bedroom_n >= 1)             # circulation nuit
+            or bool(mentioned.get(typ))                          # demandée au brief
+        )
+        if keep:
             out.append(room)
     return out
 
