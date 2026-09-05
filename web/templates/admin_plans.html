@@ -48,7 +48,7 @@
             <td class="py-2 pr-3">{{.RoomCount}}</td>
             <td class="py-2 pr-3">
               {{if .ComplianceScore}}
-              <span class="badge {{if ge .ComplianceScore 80}}bg-emerald-500/10 text-emerald-500{{else if ge .ComplianceScore 50}}bg-amber-500/10 text-amber-500{{else}}bg-red-500/10 text-red-500{{end}}">{{.ComplianceScore}}/100 {{.ComplianceGrade}}</span>
+              <span class="badge {{if ge .Score 80}}bg-emerald-500/10 text-emerald-500{{else if ge .Score 50}}bg-amber-500/10 text-amber-500{{else}}bg-red-500/10 text-red-500{{end}}">{{.ComplianceScore}}/100 {{.ComplianceGrade}}</span>
               {{else}}<span class="text-zinc-400">—</span>{{end}}
             </td>
             <td class="py-2 pr-3 text-zinc-500 dark:text-zinc-400">{{.CreatedAt.Format "02/01/2006 15:04"}}</td>

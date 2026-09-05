@@ -7,10 +7,14 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/a-ai/a-ai/internal/admin"
 	"github.com/a-ai/a-ai/internal/domain"
+	"github.com/a-ai/a-ai/internal/project"
 	"github.com/a-ai/a-ai/web"
 	"github.com/google/uuid"
 )
@@ -124,5 +128,123 @@ func TestProjectAndEditorPagesEscapeStoredXSSInPlanDocument(t *testing.T) {
 				t.Fatalf("%s: expected the escaped closing tag to survive inside the embedded JSON blob", pg.name)
 			}
 		})
+	}
+}
+
+// renderedPageIsComplete fails when a template execution error truncated the
+// output. render() streams straight to the ResponseWriter, so a mid-execution
+// failure leaves a 200 with a half-written page plus the literal text
+// "template error" — the status code alone never reveals it.
+func renderedPageIsComplete(t *testing.T, name, body string) {
+	t.Helper()
+	if strings.Contains(body, "template error") {
+		t.Fatalf("%s: template execution failed, page truncated. Tail: %q",
+			name, body[max(0, len(body)-300):])
+	}
+	if !strings.HasSuffix(strings.TrimSpace(body), "</html>") {
+		t.Fatalf("%s: page does not reach </html>, output was truncated. Tail: %q",
+			name, body[max(0, len(body)-300):])
+	}
+}
+
+// TestPagesWithComplianceScoreRenderCompletely is the regression test for a
+// bug that broke every page showing a compliance badge: the score is a *int
+// and the badge colour was chosen with `{{if ge .ComplianceScore 80}}`.
+// html/template's ge/lt reject a pointer ("invalid type for comparison"), so
+// as soon as a plan had a compliance report — which every generated plan has —
+// execution aborted mid-tag. The page still returned 200 with a truncated
+// body: on project.html that cut off the whole history card and every script
+// below it (generate, restore, export), i.e. exactly the feature the page was
+// added for. The templates now compare the Score() accessor instead.
+func TestPagesWithComplianceScoreRenderCompletely(t *testing.T) {
+	tmpl, err := web.Templates()
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &Server{tmpl: tmpl, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+
+	user := domain.User{ID: uuid.New(), Name: "Ada", Email: "a@b.c"}
+	org := domain.Org{ID: uuid.New(), Name: "Studio"}
+	proj := &domain.Project{ID: uuid.New(), OrgID: org.ID, Name: "Villa", Status: "ready"}
+
+	// One score per badge branch (>=80, >=50, <50) so all three are executed.
+	for _, score := range []int{92, 64, 12} {
+		score := score
+		t.Run(strconv.Itoa(score), func(t *testing.T) {
+			scoredProject := *proj
+			scoredProject.ComplianceScore = &score
+			scoredProject.ComplianceGrade = "B"
+
+			revisions := []project.RevisionSummary{{
+				ID: uuid.New(), ProjectID: proj.ID, Version: 2, Source: "ai",
+				ComplianceScore: &score, ComplianceGrade: "B", RoomCount: 4,
+				CreatedAt: time.Now(), IsCurrent: true,
+			}, {
+				ID: uuid.New(), ProjectID: proj.ID, Version: 1, Source: "ai",
+				RoomCount: 3, CreatedAt: time.Now().Add(-time.Hour),
+			}}
+			planRows := []admin.PlanRow{{
+				RevisionID: uuid.New(), Version: 2, Source: "ai", CreatedAt: time.Now(),
+				RoomCount: 4, ComplianceScore: &score, ComplianceGrade: "B",
+				ProjectID: proj.ID, ProjectName: proj.Name,
+				OrgID: org.ID, OrgName: org.Name, AuthorEmail: user.Email,
+			}}
+
+			pages := []struct {
+				name string
+				data map[string]any
+			}{
+				{"projects.html", map[string]any{
+					"Title": "Projets", "User": user, "Org": org,
+					"Projects": []domain.Project{scoredProject}, "Nav": "projects",
+				}},
+				{"project.html", map[string]any{
+					"Title": proj.Name, "User": user, "Org": org, "Project": proj,
+					"Revision": nil, "Role": domain.RoleOwner, "HasPreview": false,
+					"PlanJSON": safeScriptJSON("{}"), "Compliance": nil, "Nav": "plan2d",
+					"Revisions": revisions,
+				}},
+				{"admin.html", map[string]any{
+					"Title": "Administration", "User": user, "Org": org, "Role": domain.RoleOwner,
+					"Nav": "admin", "IsPlatformAdmin": true,
+					"Stats":       admin.Stats{Orgs: 1, Users: 1, Projects: 1, Plans: 2},
+					"Orgs":        []admin.OrgRow{{OrgID: org.ID, OrgName: org.Name, Plan: "free", Members: 1}},
+					"RecentPlans": planRows,
+				}},
+				{"admin_plans.html", map[string]any{
+					"Title": "Tous les plans", "User": user, "Org": org, "Role": domain.RoleOwner,
+					"Nav": "admin", "IsPlatformAdmin": true,
+					"Plans": planRows, "Total": 1, "Search": "",
+					"Page": 1, "LastPage": 1, "PrevPage": 0, "NextPage": 2,
+				}},
+			}
+
+			for _, pg := range pages {
+				rr := httptest.NewRecorder()
+				srv.render(rr, httptest.NewRequest(http.MethodGet, "/", nil), pg.name, pg.data)
+				renderedPageIsComplete(t, pg.name, rr.Body.String())
+				if !strings.Contains(rr.Body.String(), strconv.Itoa(score)+"/100") {
+					t.Errorf("%s: compliance badge %d/100 missing from the page", pg.name, score)
+				}
+			}
+		})
+	}
+}
+
+// TestScoreAccessorsHandleNilPointer pins the contract the templates rely on:
+// no compliance report means 0, never a panic.
+func TestScoreAccessorsHandleNilPointer(t *testing.T) {
+	if got := (domain.Project{}).Score(); got != 0 {
+		t.Errorf("domain.Project.Score() with no report = %d, want 0", got)
+	}
+	if got := (project.RevisionSummary{}).Score(); got != 0 {
+		t.Errorf("project.RevisionSummary.Score() with no report = %d, want 0", got)
+	}
+	if got := (admin.PlanRow{}).Score(); got != 0 {
+		t.Errorf("admin.PlanRow.Score() with no report = %d, want 0", got)
+	}
+	n := 73
+	if got := (admin.PlanRow{ComplianceScore: &n}).Score(); got != 73 {
+		t.Errorf("admin.PlanRow.Score() = %d, want 73", got)
 	}
 }

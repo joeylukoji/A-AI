@@ -103,7 +103,10 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		// known, safe sentinel gets its own message.
 		msg := "Inscription impossible, réessayez."
 		switch {
-		case errors.Is(err, auth.ErrEmailTaken):
+		case errors.Is(err, auth.ErrEmailTaken), errors.Is(err, auth.ErrReservedEmail):
+			// Same message for both: telling an anonymous visitor that an
+			// address is "reserved for an administrator" would confirm which
+			// accounts are privileged.
 			msg = "Cet email est déjà utilisé."
 		case err.Error() == "invalid registration payload":
 			msg = "Merci de renseigner un email, un nom et un mot de passe d’au moins 8 caractères."

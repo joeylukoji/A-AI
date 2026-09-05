@@ -43,3 +43,33 @@ func TestValidateRequiresStripeWebhookSecretWhenStripeEnabled(t *testing.T) {
 		t.Fatal("expected error when STRIPE_SECRET_KEY is set without STRIPE_WEBHOOK_SECRET")
 	}
 }
+
+// TestParseEmailListNormalises pins the parsing of ADMIN_EMAILS, the env var
+// that decides who can read every organisation's plans from /admin: entries
+// are trimmed and lowercased so the comparison against users.email is
+// case-insensitive, blanks are dropped, and an unset/blank value yields no
+// administrator at all (fail closed).
+func TestParseEmailListNormalises(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want []string
+	}{
+		{"", nil},
+		{"   ", nil},
+		{",  , ,", nil},
+		{"A@b.com", []string{"a@b.com"}},
+		{" A@b.com , ,c@D.com ", []string{"a@b.com", "c@d.com"}},
+	}
+	for _, tc := range cases {
+		got := parseEmailList(tc.raw)
+		if len(got) != len(tc.want) {
+			t.Errorf("parseEmailList(%q) = %q, want %q", tc.raw, got, tc.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Errorf("parseEmailList(%q)[%d] = %q, want %q", tc.raw, i, got[i], tc.want[i])
+			}
+		}
+	}
+}

@@ -114,7 +114,7 @@
                 {{if .IsCurrent}}<span class="badge bg-teal-500/10 text-teal-600 dark:text-teal-400">actuelle</span>{{end}}
                 <span class="badge bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{{.Source}}</span>
                 {{if .ComplianceScore}}
-                <span class="badge {{if ge .ComplianceScore 80}}bg-emerald-500/10 text-emerald-500{{else if ge .ComplianceScore 50}}bg-amber-500/10 text-amber-500{{else}}bg-red-500/10 text-red-500{{end}}">{{.ComplianceScore}}/100 {{.ComplianceGrade}}</span>
+                <span class="badge {{if ge .Score 80}}bg-emerald-500/10 text-emerald-500{{else if ge .Score 50}}bg-amber-500/10 text-amber-500{{else}}bg-red-500/10 text-red-500{{end}}">{{.ComplianceScore}}/100 {{.ComplianceGrade}}</span>
                 {{end}}
               </p>
               <p class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">

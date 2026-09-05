@@ -35,6 +35,19 @@ type RevisionSummary struct {
 	CreatedBy       uuid.UUID `json:"created_by"`
 }
 
+// Score returns the compliance score as a plain int, 0 when the revision has
+// no compliance report. Templates need this: html/template's ge/lt refuse a
+// *int ("invalid type for comparison") and the resulting execution error
+// truncates the page mid-tag, so the history card must compare Score, never
+// ComplianceScore. The pointer field stays for the JSON API, where the
+// distinction between "no report" and "scored 0" is meaningful.
+func (r RevisionSummary) Score() int {
+	if r.ComplianceScore == nil {
+		return 0
+	}
+	return *r.ComplianceScore
+}
+
 type Service struct {
 	db *sql.DB
 }

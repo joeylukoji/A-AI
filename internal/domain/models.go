@@ -58,6 +58,19 @@ type Project struct {
 	ComplianceGrade   string     `json:"compliance_grade,omitempty"`
 }
 
+// Score returns the compliance score as a plain int, 0 when the project has no
+// scored revision. Templates need this: html/template's ge/lt refuse a *int
+// ("invalid type for comparison") and the resulting execution error truncates
+// the page mid-tag, so projects.html must compare Score, never
+// ComplianceScore. The pointer field stays for the JSON API, where the
+// distinction between "no report" and "scored 0" is meaningful.
+func (p Project) Score() int {
+	if p.ComplianceScore == nil {
+		return 0
+	}
+	return *p.ComplianceScore
+}
+
 type PlanRevision struct {
 	ID           uuid.UUID       `json:"id"`
 	ProjectID    uuid.UUID       `json:"project_id"`

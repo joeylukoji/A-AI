@@ -21,6 +21,9 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrEmailTaken         = errors.New("email already registered")
 	ErrUnauthorized       = errors.New("unauthorized")
+	// ErrReservedEmail is returned when signup targets an address configured as
+	// a platform administrator: such accounts must not be self-registered.
+	ErrReservedEmail = errors.New("email reserved for a platform administrator")
 )
 
 type Service struct {
@@ -59,6 +62,13 @@ func (s *Service) Register(ctx context.Context, email, password, name, orgName s
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" || len(password) < 8 || strings.TrimSpace(name) == "" {
 		return nil, nil, "", fmt.Errorf("invalid registration payload")
+	}
+	// An address listed in ADMIN_EMAILS grants cross-organisation access at the
+	// next boot. Self-service signup is unverified, so letting anyone claim
+	// such an address would hand them every tenant's plans. The administrator
+	// account must exist *before* its address is added to ADMIN_EMAILS.
+	if s.IsConfiguredAdmin(email) {
+		return nil, nil, "", ErrReservedEmail
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -209,11 +219,13 @@ func (s *Service) Authenticate(ctx context.Context, token string) (*Principal, e
 		return nil, err
 	}
 	p.Org.ID = orgID
-	// ADMIN_EMAILS wins over the stored column so adding an address takes
-	// effect on the next request rather than the next restart.
-	if !p.IsPlatformAdmin && s.IsConfiguredAdmin(p.User.Email) {
-		p.IsPlatformAdmin = true
-	}
+	// Deliberately NOT promoting here from ADMIN_EMAILS. Doing so used to make
+	// a newly registered administrator effective without a restart, but since
+	// registration is self-service and unverified, it also meant anyone who
+	// signed up with a configured address was instantly granted read access to
+	// every organisation's plans. Promotion now happens only through
+	// store.GrantPlatformAdmins at boot, against accounts that already exist,
+	// and Register refuses to create an account for a configured address.
 	return &p, nil
 }
 

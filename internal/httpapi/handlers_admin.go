@@ -47,27 +47,40 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	plans, _, err := s.admin.ListPlans(r.Context(), admin.ListPlansFilter{Limit: 15})
+	// SkipTotal: this list is a fixed "latest 15", and the global plan count
+	// is already in Stats — no need for a second full-join COUNT(*).
+	plans, _, err := s.admin.ListPlans(r.Context(), admin.ListPlansFilter{Limit: 15, SkipTotal: true})
 	if err != nil {
 		s.log.Error("admin list plans failed", "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	// IsPlatformAdmin is injected by render() from the principal; requireAdmin
+	// already guarantees it is true here.
 	s.render(w, r, "admin.html", map[string]any{
-		"Title": "Administration", "User": p.User, "Org": p.Org, "Role": p.Role,
-		"IsPlatformAdmin": true, "Nav": "admin",
+		"Title": "Administration", "User": p.User, "Org": p.Org, "Role": p.Role, "Nav": "admin",
 		"Stats": stats, "Orgs": orgs, "RecentPlans": plans,
 	})
 }
 
-const adminPlansPerPage = 50
+const (
+	adminPlansPerPage = 50
+	// maxAdminPlansPage keeps (page-1)*adminPlansPerPage well inside int range
+	// and inside the offset ceiling admin.ListPlans enforces.
+	maxAdminPlansPage = 2000
+)
 
 func (s *Server) handleAdminPlansPage(w http.ResponseWriter, r *http.Request) {
 	p := principal(r)
 	search := r.URL.Query().Get("q")
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	// ?page=9223372036854775807 would overflow (page-1)*adminPlansPerPage into
+	// a negative offset; clamp before multiplying rather than after.
 	if page < 1 {
 		page = 1
+	}
+	if page > maxAdminPlansPage {
+		page = maxAdminPlansPage
 	}
 	rows, total, err := s.admin.ListPlans(r.Context(), admin.ListPlansFilter{
 		Search: search,
@@ -84,8 +97,7 @@ func (s *Server) handleAdminPlansPage(w http.ResponseWriter, r *http.Request) {
 		lastPage = 1
 	}
 	s.render(w, r, "admin_plans.html", map[string]any{
-		"Title": "Tous les plans", "User": p.User, "Org": p.Org, "Role": p.Role,
-		"IsPlatformAdmin": true, "Nav": "admin",
+		"Title": "Tous les plans", "User": p.User, "Org": p.Org, "Role": p.Role, "Nav": "admin",
 		"Plans": rows, "Total": total, "Search": search,
 		"Page": page, "LastPage": lastPage,
 		"PrevPage": page - 1, "NextPage": page + 1,
@@ -115,8 +127,7 @@ func (s *Server) handleAdminPlanDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, r, "admin_plan.html", map[string]any{
 		"Title": "Plan v" + strconv.Itoa(detail.Version), "User": p.User, "Org": p.Org, "Role": p.Role,
-		"IsPlatformAdmin": true, "Nav": "admin",
-		"Plan": detail, "PlanJSON": safeScriptJSON(planJSON),
+		"Nav": "admin", "Plan": detail, "PlanJSON": safeScriptJSON(planJSON),
 	})
 }
 
@@ -171,6 +182,9 @@ func (s *Server) handleAdminPlanPreview(w http.ResponseWriter, r *http.Request) 
 		contentType = "image/png"
 	}
 	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Cache-Control", "private, max-age=300")
+	// Same policy as the tenant preview endpoint: these bytes belong to another
+	// organisation, so no cache may keep them around after the admin flag is
+	// revoked.
+	w.Header().Set("Cache-Control", "private, no-store, must-revalidate")
 	_, _ = w.Write(body)
 }

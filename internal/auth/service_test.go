@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -52,5 +54,22 @@ func TestNoConfiguredAdminsWhenListEmpty(t *testing.T) {
 	svc := NewService(nil, nil)
 	if svc.IsConfiguredAdmin("anyone@example.com") {
 		t.Fatal("no one should be an admin when ADMIN_EMAILS is empty")
+	}
+}
+
+// TestRegisterRefusesConfiguredAdminEmail closes a privilege-escalation hole:
+// an address listed in ADMIN_EMAILS is promoted to platform administrator at
+// boot, and signup is self-service and unverified. If anyone could register
+// such an address, they would be handed read access to every organisation's
+// plans. The administrator account must therefore exist before its address is
+// added to ADMIN_EMAILS.
+func TestRegisterRefusesConfiguredAdminEmail(t *testing.T) {
+	svc := NewService(nil, []string{"boss@example.com"})
+
+	// nil *sql.DB would panic if we ever reached the database, so reaching the
+	// sentinel also proves the check happens before any query.
+	_, _, _, err := svc.Register(context.Background(), "BOSS@Example.com", "password123", "Squatter", "Org")
+	if !errors.Is(err, ErrReservedEmail) {
+		t.Fatalf("registering a configured admin address must be refused, got %v", err)
 	}
 }

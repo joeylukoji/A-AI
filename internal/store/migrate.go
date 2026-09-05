@@ -119,6 +119,10 @@ CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(org_id);
 CREATE INDEX IF NOT EXISTS idx_revisions_project ON plan_revisions(project_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(project_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash);
+-- Matches the admin plan listing's ORDER BY r.created_at DESC, r.id DESC:
+-- without it the unfiltered listing sorts every revision on the instance to
+-- return the first page.
+CREATE INDEX IF NOT EXISTS idx_revisions_created_at ON plan_revisions(created_at DESC, id DESC);
 `
 
 func (d *DB) Migrate(ctx context.Context) error {

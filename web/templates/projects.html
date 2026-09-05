@@ -46,7 +46,7 @@
         <div class="mt-4 flex items-center gap-2">
           <span class="badge bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{{.Status}}</span>
           {{if .ComplianceScore}}
-          <span class="badge {{if ge .ComplianceScore 80}}bg-emerald-500/10 text-emerald-500{{else if ge .ComplianceScore 50}}bg-amber-500/10 text-amber-500{{else}}bg-red-500/10 text-red-500{{end}}">
+          <span class="badge {{if ge .Score 80}}bg-emerald-500/10 text-emerald-500{{else if ge .Score 50}}bg-amber-500/10 text-amber-500{{else}}bg-red-500/10 text-red-500{{end}}">
             Conformité {{.ComplianceScore}}/100 {{.ComplianceGrade}}
           </span>
           {{end}}

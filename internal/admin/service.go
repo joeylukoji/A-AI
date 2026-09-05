@@ -45,6 +45,18 @@ type PlanRow struct {
 	AuthorEmail     string    `json:"author_email"`
 }
 
+// Score returns the compliance score as a plain int, 0 when the plan has no
+// compliance report. Templates need this: html/template's ge/lt refuse a *int
+// ("invalid type for comparison"), and the resulting execution error truncates
+// the admin page mid-tag. The pointer field stays for the JSON API, where the
+// distinction between "no report" and "scored 0" is meaningful.
+func (p PlanRow) Score() int {
+	if p.ComplianceScore == nil {
+		return 0
+	}
+	return *p.ComplianceScore
+}
+
 // Stats are the headline counters on the admin dashboard.
 type Stats struct {
 	Orgs         int `json:"orgs"`
@@ -76,11 +88,23 @@ type ListPlansFilter struct {
 	Search string
 	Limit  int
 	Offset int
+	// SkipTotal drops the COUNT(*) companion query when the caller does not
+	// paginate (the dashboard shows a fixed "latest 15" list and already has
+	// the global plan count from Stats). Counting scans the whole
+	// revisions/projects/orgs join, so it is the expensive half of ListPlans.
+	SkipTotal bool
 }
 
 const (
 	defaultLimit = 50
 	maxLimit     = 200
+	// maxSearchLen caps the ILIKE pattern. A megabyte-long q= would otherwise
+	// be matched against every project name, org name and email on the
+	// instance on every request.
+	maxSearchLen = 200
+	// maxOffset bounds deep pagination: OFFSET is O(offset) in Postgres, and
+	// nothing legitimate pages past a few hundred thousand rows.
+	maxOffset = 100_000
 )
 
 // ListPlans returns generated plans across every organisation, newest first,
@@ -97,23 +121,31 @@ func (s *Service) ListPlans(ctx context.Context, f ListPlansFilter) (rows []Plan
 	if offset < 0 {
 		offset = 0
 	}
+	if offset > maxOffset {
+		offset = maxOffset
+	}
 
 	// The search term is passed as a bound parameter and only ever used inside
 	// ILIKE, never concatenated into the SQL. '%' and '_' in user input act as
 	// wildcards, which is acceptable for a search box.
 	search := f.Search
+	if len(search) > maxSearchLen {
+		search = search[:maxSearchLen]
+	}
 	like := "%" + search + "%"
 	matchAll := search == ""
 
-	if err = s.db.QueryRowContext(ctx, `
-		SELECT count(*)
-		FROM plan_revisions r
-		JOIN projects p ON p.id = r.project_id
-		JOIN orgs o ON o.id = p.org_id
-		LEFT JOIN users u ON u.id = r.created_by
-		WHERE $1 OR p.name ILIKE $2 OR o.name ILIKE $2 OR COALESCE(u.email::text,'') ILIKE $2
-	`, matchAll, like).Scan(&total); err != nil {
-		return nil, 0, err
+	if !f.SkipTotal {
+		if err = s.db.QueryRowContext(ctx, `
+			SELECT count(*)
+			FROM plan_revisions r
+			JOIN projects p ON p.id = r.project_id
+			JOIN orgs o ON o.id = p.org_id
+			LEFT JOIN users u ON u.id = r.created_by
+			WHERE $1 OR p.name ILIKE $2 OR o.name ILIKE $2 OR COALESCE(u.email::text,'') ILIKE $2
+		`, matchAll, like).Scan(&total); err != nil {
+			return nil, 0, err
+		}
 	}
 
 	sqlRows, err := s.db.QueryContext(ctx, `
@@ -128,7 +160,10 @@ func (s *Service) ListPlans(ctx context.Context, f ListPlansFilter) (rows []Plan
 		JOIN orgs o ON o.id = p.org_id
 		LEFT JOIN users u ON u.id = r.created_by
 		WHERE $1 OR p.name ILIKE $2 OR o.name ILIKE $2 OR COALESCE(u.email::text,'') ILIKE $2
-		ORDER BY r.created_at DESC
+		-- r.id breaks ties: created_at alone is not unique (a batch of
+		-- revisions can share a timestamp) and a non-deterministic order makes
+		-- LIMIT/OFFSET pagination drop or repeat rows between pages.
+		ORDER BY r.created_at DESC, r.id DESC
 		LIMIT $3 OFFSET $4
 	`, matchAll, like, limit, offset)
 	if err != nil {
@@ -175,21 +210,39 @@ type OrgRow struct {
 }
 
 // ListOrgs returns every organisation with its usage counters, busiest first.
+//
+// The counters come from two grouped aggregates joined once, not from
+// correlated sub-selects: ORDER BY runs on the plan count, so the counters
+// have to be computed for *every* organisation before LIMIT can apply, and
+// per-org sub-selects would re-scan plan_revisions once per organisation
+// (O(orgs x revisions)). Grouped aggregates scan each table once instead.
 func (s *Service) ListOrgs(ctx context.Context, limit int) ([]OrgRow, error) {
 	if limit <= 0 || limit > maxLimit {
 		limit = defaultLimit
 	}
+	// subscriptions.org_id is UNIQUE, so the LEFT JOIN cannot duplicate rows.
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT o.id, o.name, COALESCE(sub.plan,'free'), o.created_at,
-		       (SELECT count(*) FROM memberships m WHERE m.org_id = o.id),
-		       (SELECT count(*) FROM projects p WHERE p.org_id = o.id),
-		       (SELECT count(*) FROM plan_revisions r
-		          JOIN projects p2 ON p2.id = r.project_id WHERE p2.org_id = o.id),
-		       (SELECT max(r.created_at) FROM plan_revisions r
-		          JOIN projects p3 ON p3.id = r.project_id WHERE p3.org_id = o.id)
+		       COALESCE(mem.members, 0),
+		       COALESCE(agg.projects, 0),
+		       COALESCE(agg.plans, 0),
+		       agg.last_plan_at
 		FROM orgs o
 		LEFT JOIN subscriptions sub ON sub.org_id = o.id
-		ORDER BY 7 DESC, o.created_at DESC
+		LEFT JOIN (
+		    SELECT m.org_id, count(*) AS members
+		    FROM memberships m GROUP BY m.org_id
+		) mem ON mem.org_id = o.id
+		LEFT JOIN (
+		    SELECT p.org_id,
+		           count(DISTINCT p.id) AS projects,
+		           count(r.id) AS plans,
+		           max(r.created_at) AS last_plan_at
+		    FROM projects p
+		    LEFT JOIN plan_revisions r ON r.project_id = p.id
+		    GROUP BY p.org_id
+		) agg ON agg.org_id = o.id
+		ORDER BY COALESCE(agg.plans, 0) DESC, o.created_at DESC
 		LIMIT $1
 	`, limit)
 	if err != nil {
@@ -224,7 +277,14 @@ type PlanDetail struct {
 // GetPlan loads one plan by revision id, from any organisation.
 func (s *Service) GetPlan(ctx context.Context, revisionID uuid.UUID) (*PlanDetail, error) {
 	var it PlanDetail
-	var comp []byte
+	// plan_document is NOT NULL but building_spec and compliance are nullable,
+	// and database/sql refuses to scan a SQL NULL straight into a
+	// json.RawMessage (a named []byte type is not the *[]byte the nil case
+	// handles) — it fails the whole query with "converting NULL to
+	// json.RawMessage is unsupported". Scanning into plain []byte, which does
+	// accept NULL as nil, is what the rest of the codebase does too
+	// (project.scanRevision).
+	var planDoc, spec, comp []byte
 	var isCurrent sql.NullBool
 	err := s.db.QueryRowContext(ctx, `
 		SELECT r.id, r.version, r.source, r.created_at,
@@ -242,11 +302,13 @@ func (s *Service) GetPlan(ctx context.Context, revisionID uuid.UUID) (*PlanDetai
 		&it.RevisionID, &it.Version, &it.Source, &it.CreatedAt,
 		&isCurrent, &it.HasPreview, &it.RoomCount, &comp,
 		&it.ProjectID, &it.ProjectName, &it.OrgID, &it.OrgName, &it.AuthorEmail,
-		&it.PlanDocument, &it.BuildingSpec, &it.PreviewKey,
+		&planDoc, &spec, &it.PreviewKey,
 	)
 	if err != nil {
 		return nil, err
 	}
+	it.PlanDocument = planDoc
+	it.BuildingSpec = spec
 	it.IsCurrent = isCurrent.Valid && isCurrent.Bool
 	if len(comp) > 0 && string(comp) != "null" {
 		var report plancalc.Report
