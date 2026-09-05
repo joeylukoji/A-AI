@@ -27,12 +27,25 @@ ces identifiants publics obtiendrait un compte au premier démarrage.
 produit qui traverse volontairement les frontières entre clients — à traiter comme un accès
 privilégié :
 
-- La liste est réappliquée à chaque démarrage (`store.GrantPlatformAdmins`) : retirer un email
-  révoque l'accès au prochain boot, et `users.is_platform_admin` reflète toujours l'env.
-- `auth.Service` honore aussi `ADMIN_EMAILS` à chaque requête, pour qu'un administrateur qui
-  crée son compte après le démarrage ne reste pas bloqué jusqu'au redémarrage suivant.
-- Laisser `ADMIN_EMAILS` vide (défaut) signifie **aucun** administrateur : `/admin` renvoie 404
-  pour tout le monde. C'est le comportement voulu tant qu'on n'en a pas besoin.
+**Ordre obligatoire : créer le compte d'abord, l'ajouter à `ADMIN_EMAILS` ensuite.**
+L'inscription est en libre-service et sans vérification d'email. Si une adresse est listée
+alors qu'aucun compte ne la porte, elle serait revendicable par n'importe qui — qui hériterait
+alors de la lecture de toutes les organisations. Deux garde-fous appliquent cette règle :
+
+1. `Register` **refuse** une adresse listée dans `ADMIN_EMAILS` (`ErrReservedEmail`), avec le
+   même message que pour une adresse déjà prise, afin de ne pas révéler quels comptes sont
+   privilégiés.
+2. La promotion n'a lieu qu'au démarrage (`store.GrantPlatformAdmins`), sur des comptes
+   **existants** — il n'y a plus de promotion silencieuse à chaque requête.
+
+Conséquences pratiques :
+
+- Pour ajouter un administrateur : il s'inscrit normalement, **puis** on ajoute son email à
+  `ADMIN_EMAILS` et on redémarre l'API.
+- Retirer un email révoque l'accès au prochain démarrage ; `users.is_platform_admin` reflète
+  toujours l'environnement.
+- `ADMIN_EMAILS` vide (défaut) = **aucun** administrateur, `/admin` renvoie 404 pour tout le
+  monde. C'est le comportement voulu tant qu'on n'en a pas besoin.
 - Un non-administrateur reçoit 404 sur les pages (l'existence de la zone n'est pas annoncée) et
   403 sur `/api/v1/admin/*`.
 
