@@ -22,6 +22,11 @@ WORKDIR /app
 COPY services/qcad/server.py /app/server.py
 COPY internal/export/qcad_normalize.js /app/normalize_dxf.js
 
+RUN useradd --create-home --shell /usr/sbin/nologin aai \
+    && chown -R aai:aai /app
+USER aai
+ENV HOME=/home/aai
+
 EXPOSE 9090
 HEALTHCHECK --interval=15s --timeout=5s --retries=5 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9090/healthz')"

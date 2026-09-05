@@ -35,4 +35,9 @@ COPY worker.py s3util.py openings.py ./
 COPY scripts ./scripts
 COPY catalog ./catalog
 
+RUN useradd --create-home --shell /usr/sbin/nologin aai \
+    && chown -R aai:aai /app
+USER aai
+ENV HOME=/home/aai
+
 CMD ["python3", "-u", "worker.py"]

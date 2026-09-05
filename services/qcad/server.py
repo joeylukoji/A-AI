@@ -54,6 +54,11 @@ def run_qcad(src: bytes) -> bytes:
 
 
 class Handler(BaseHTTPRequestHandler):
+    # Borne le temps passé à lire les en-têtes / le corps d'une requête lente
+    # ou muette (type slowloris) : socketserver applique ce timeout à la
+    # connexion et lève socket.timeout, qui coupe proprement la requête.
+    timeout = 30
+
     def log_message(self, fmt: str, *args) -> None:
         print(f"qcad {self.address_string()} {fmt % args}")
 
@@ -96,7 +101,11 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.rstrip("/") != "/normalize":
             self.send_error(404)
             return
-        length = int(self.headers.get("Content-Length") or "0")
+        try:
+            length = int(self.headers.get("Content-Length") or "0")
+        except ValueError:
+            self.send_error(400, "invalid Content-Length")
+            return
         if length <= 0 or length > MAX_BODY:
             self.send_error(400, "invalid Content-Length")
             return

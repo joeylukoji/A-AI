@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -18,6 +19,9 @@ import redis
 from s3util import upload_file
 
 QUEUE = "queue:generate_3d"
+# Le process Blender peut rester silencieux longtemps sur de gros plans ;
+# ce timeout borne le blocage du worker (un seul job traité à la fois).
+BLENDER_TIMEOUT_S = float(os.getenv("BLENDER_TIMEOUT_S", "600"))
 
 
 def main() -> None:
@@ -54,55 +58,89 @@ def main() -> None:
             time.sleep(1)
 
 
+def _is_valid_uuid(value: Any) -> bool:
+    """True si `value` est un UUID bien formé (jamais de '..' ni de séparateur)."""
+    if not isinstance(value, str) or not value:
+        return False
+    try:
+        uuid.UUID(value)
+    except (ValueError, AttributeError, TypeError):
+        return False
+    return True
+
+
 def process(job: dict[str, Any], api: str, token: str) -> None:
-    job_id = job["job_id"]
-    project_id = job.get("project_id") or ""
+    job_id_raw = job.get("job_id")
     headers = {"X-Internal-Token": token, "Content-Type": "application/json"}
-    inp = job.get("input") or {}
-    plan = inp.get("plan_document")
-    if isinstance(plan, str):
-        plan = json.loads(plan)
-    if not plan:
-        _fail(api, headers, job_id, "missing plan_document")
+
+    if not _is_valid_uuid(job_id_raw):
+        # Sans job_id fiable on ne peut pas notifier l'API en toute sécurité
+        # (le job_id sert à construire l'URL) : on journalise et on abandonne
+        # ce message plutôt que de risquer une requête vers une route inattendue.
+        print("invalid job_id, dropping message", job.get("job_id"))
+        return
+    job_id = job_id_raw
+
+    project_id = job.get("project_id") or ""
+    if not _is_valid_uuid(project_id):
+        _fail(api, headers, job_id, f"invalid project_id: {project_id!r}")
         return
 
-    with httpx.Client(timeout=300.0) as client:
-        client.post(f"{api}/internal/jobs/{job_id}/running", headers=headers, json={"step": "blender"})
-        out_dir = Path(tempfile.mkdtemp(prefix="aai3d-"))
-        plan_path = out_dir / "plan.json"
-        plan_path.write_text(json.dumps(plan), encoding="utf-8")
-        obj_path = out_dir / "model.obj"
-        glb_path = out_dir / "model.glb"
-
-        try:
-            _build(plan, plan_path, obj_path, glb_path)
-        except Exception as exc:  # noqa: BLE001
-            _fail(api, headers, job_id, f"blender build failed: {exc}")
+    out_dir: Path | None = None
+    try:
+        inp = job.get("input") or {}
+        plan = inp.get("plan_document")
+        if isinstance(plan, str):
+            plan = json.loads(plan)
+        if not plan:
+            _fail(api, headers, job_id, "missing plan_document")
             return
 
-        try:
-            artifacts = _upload_and_register(
-                client, api, headers, project_id, job_id, inp.get("revision_id"), obj_path, glb_path
-            )
-        except Exception as exc:  # noqa: BLE001
-            _fail(api, headers, job_id, f"minio upload failed: {exc}")
-            return
+        with httpx.Client(timeout=300.0) as client:
+            client.post(f"{api}/internal/jobs/{job_id}/running", headers=headers, json={"step": "blender"})
+            out_dir = Path(tempfile.mkdtemp(prefix="aai3d-"))
+            plan_path = out_dir / "plan.json"
+            plan_path.write_text(json.dumps(plan), encoding="utf-8")
+            obj_path = out_dir / "model.obj"
+            glb_path = out_dir / "model.glb"
 
-        client.post(
-            f"{api}/internal/jobs/{job_id}/complete",
-            headers=headers,
-            json={
-                "status": "succeeded",
-                "step": "blender",
-                "output": {
-                    "revision_id": inp.get("revision_id"),
-                    "artifacts": artifacts,
-                    "glb_artifact_id": artifacts.get("glb", {}).get("id"),
-                    "obj_artifact_id": artifacts.get("obj", {}).get("id"),
+            try:
+                _build(plan, plan_path, obj_path, glb_path)
+            except Exception as exc:  # noqa: BLE001
+                _fail(api, headers, job_id, f"blender build failed: {exc}")
+                return
+
+            try:
+                artifacts = _upload_and_register(
+                    client, api, headers, project_id, job_id, inp.get("revision_id"), obj_path, glb_path
+                )
+            except Exception as exc:  # noqa: BLE001
+                _fail(api, headers, job_id, f"minio upload failed: {exc}")
+                return
+
+            client.post(
+                f"{api}/internal/jobs/{job_id}/complete",
+                headers=headers,
+                json={
+                    "status": "succeeded",
+                    "step": "blender",
+                    "output": {
+                        "revision_id": inp.get("revision_id"),
+                        "artifacts": artifacts,
+                        "glb_artifact_id": artifacts.get("glb", {}).get("id"),
+                        "obj_artifact_id": artifacts.get("obj", {}).get("id"),
+                    },
                 },
-            },
-        )
-        print("completed", job_id, artifacts)
+            )
+            print("completed", job_id, artifacts)
+    except Exception as exc:  # noqa: BLE001
+        # Filet de sécurité : toute erreur inattendue ici (JSON invalide, panne
+        # réseau lors du marquage "running"/"complete", ...) ne doit jamais
+        # laisser le job bloqué en "running" indéfiniment côté API.
+        _fail(api, headers, job_id, f"unexpected worker error: {exc}")
+    finally:
+        if out_dir is not None:
+            shutil.rmtree(out_dir, ignore_errors=True)
 
 
 def _build(plan: dict[str, Any], plan_path: Path, obj_path: Path, glb_path: Path) -> None:
@@ -114,20 +152,31 @@ def _build(plan: dict[str, Any], plan_path: Path, obj_path: Path, glb_path: Path
         _stub_build(plan, obj_path, glb_path)
         return
     print("running blender", blender_bin)
-    subprocess.check_call(
-        [
-            blender_bin,
-            "--background",
-            "--python",
-            str(script),
-            "--",
-            str(plan_path),
-            str(obj_path),
-            str(glb_path),
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
+    # subprocess.run() lit stdout/stderr via communicate() : contrairement à
+    # check_call (basé sur wait()), il ne peut pas se bloquer si Blender
+    # remplit le buffer du pipe (sortie très verbeuse sur les gros plans).
+    try:
+        result = subprocess.run(
+            [
+                blender_bin,
+                "--background",
+                "--python",
+                str(script),
+                "--",
+                str(plan_path),
+                str(obj_path),
+                str(glb_path),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=BLENDER_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired as exc:
+        output = (exc.output or b"").decode("utf-8", errors="replace")[-4000:]
+        raise RuntimeError(f"blender timed out after {BLENDER_TIMEOUT_S}s: {output}") from exc
+    if result.returncode != 0:
+        output = (result.stdout or b"").decode("utf-8", errors="replace")[-4000:]
+        raise RuntimeError(f"blender exited with {result.returncode}: {output}")
     if not obj_path.exists() or not glb_path.exists():
         raise RuntimeError("blender did not produce obj/glb")
 
@@ -178,12 +227,18 @@ def _upload_and_register(
 
 def _fail(api: str, headers: dict[str, str], job_id: str, message: str) -> None:
     print("fail", job_id, message)
-    with httpx.Client(timeout=30.0) as client:
-        client.post(
-            f"{api}/internal/jobs/{job_id}/complete",
-            headers=headers,
-            json={"status": "failed", "error": message, "step": "blender"},
-        )
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            client.post(
+                f"{api}/internal/jobs/{job_id}/complete",
+                headers=headers,
+                json={"status": "failed", "error": message, "step": "blender"},
+            )
+    except Exception as exc:  # noqa: BLE001
+        # Ne jamais laisser un problème réseau pendant la notification d'échec
+        # remonter et interrompre la boucle worker : le job restera visible
+        # comme "running" côté API, mais le worker continue de traiter la file.
+        print("fail-notify failed", job_id, exc)
 
 
 def _stub_build(plan: dict[str, Any], obj_path: Path, glb_path: Path) -> None:
