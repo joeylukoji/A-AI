@@ -16,3 +16,7 @@ resplan/
 !research/benchmarks/results/gan_refine/last.pt
 *.log
 node_modules/
+# Unexplained local artifact seen during the 2026-09-05 review pass (not
+# produced by any tracked tool/agent invocation) — excluded, not deleted;
+# flagged to the user rather than removed silently.
+/session_memory.json
