@@ -151,6 +151,23 @@ _MODEL = None
 _DIFF = None
 
 
+def _load_checkpoint(weights_path: Path, map_location: str) -> Any:
+    """Charge le state_dict HouseDiffusion en essayant `weights_only=True` d'abord.
+
+    Voir `gan_refine._load_checkpoint` pour le rationnel : ceci mitige la
+    désérialisation pickle arbitraire tout en tolérant les checkpoints plus
+    anciens qui ne passent pas la liste blanche `weights_only`. Le fichier
+    (`HOUSEDIFFUSION_WEIGHTS` / `model250000.pt`) est toujours un chemin local
+    choisi par l'opérateur, jamais un contenu fourni par un client HTTP.
+    """
+    import torch
+
+    try:
+        return torch.load(weights_path, map_location=map_location, weights_only=True)
+    except Exception:
+        return torch.load(weights_path, map_location=map_location, weights_only=False)
+
+
 def _load(device: Any, steps: int):
     global _MODEL, _DIFF
     if _MODEL is not None:
@@ -201,9 +218,7 @@ def _load(device: Any, steps: int):
         target_set=args.target_set,
         set_name=args.set_name,
     )
-    import torch
-
-    state = torch.load(weights_path(), map_location="cpu", weights_only=False)
+    state = _load_checkpoint(weights_path(), "cpu")
     model.load_state_dict(state, strict=True)
     model.to(device)
     model.eval()

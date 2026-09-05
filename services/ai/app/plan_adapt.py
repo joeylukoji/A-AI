@@ -123,8 +123,11 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
     setback = max(0.0, float(parcel.get("setback_m") or 0))
 
     bounds = (plan.get("floor") or {}).get("bounds") or {}
-    lot_w = float(parcel.get("width_m") or bounds.get("width") or 12)
-    lot_d = float(parcel.get("depth_m") or bounds.get("depth") or 10)
+    # Bornée : `perimeter_and_internal_walls` / le rendu vectoriel itèrent en
+    # mètres ; une valeur `parcel.width_m` absurde ferait boucler très
+    # longtemps (DoS). Mêmes bornes que `nlu._clamp_dim`.
+    lot_w = max(2.0, min(200.0, float(parcel.get("width_m") or bounds.get("width") or 12)))
+    lot_d = max(2.0, min(200.0, float(parcel.get("depth_m") or bounds.get("depth") or 10)))
     house_w = _snap(max(min_side * 2, lot_w - 2 * setback), grid)
     house_d = _snap(max(min_side * 2, lot_d - 2 * setback), grid)
     height = float(rules.get("height_m") or 2.7)

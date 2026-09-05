@@ -68,3 +68,47 @@ def test_controlnet_flag_falls_back_without_weights(monkeypatch):
     assert out["layout"] is gen["layout"]
     assert out["method"] in {"controlnet_canny", "gan_refine_stub"}
     assert out["image_png_b64"]
+
+
+def test_load_checkpoint_prefers_weights_only_true(monkeypatch):
+    """`torch.load` doit être tenté d'abord avec `weights_only=True` (mitige la
+    désérialisation pickle arbitraire d'un fichier de poids corrompu)."""
+    import sys
+
+    from app.gan_refine import _load_checkpoint
+
+    calls: list[bool | None] = []
+
+    class FakeTorch:
+        @staticmethod
+        def load(path, map_location=None, weights_only=None):
+            calls.append(weights_only)
+            return {"G": {}, "size": 128, "in_ch": 2}
+
+    monkeypatch.setitem(sys.modules, "torch", FakeTorch())
+    out = _load_checkpoint("dummy.pt", "cpu")
+    assert out == {"G": {}, "size": 128, "in_ch": 2}
+    assert calls == [True]
+
+
+def test_load_checkpoint_falls_back_when_weights_only_unsupported(monkeypatch):
+    """Repli sur `weights_only=False` seulement si la liste blanche refuse le
+    format du checkpoint (ex. anciens poids pix2pix) — jamais l'inverse."""
+    import sys
+
+    from app.gan_refine import _load_checkpoint
+
+    calls: list[bool | None] = []
+
+    class FakeTorch:
+        @staticmethod
+        def load(path, map_location=None, weights_only=None):
+            calls.append(weights_only)
+            if weights_only:
+                raise RuntimeError("weights_only load failed: unsupported global")
+            return {"G": {}, "size": 128, "in_ch": 2}
+
+    monkeypatch.setitem(sys.modules, "torch", FakeTorch())
+    out = _load_checkpoint("dummy.pt", "cpu")
+    assert out == {"G": {}, "size": 128, "in_ch": 2}
+    assert calls == [True, False]

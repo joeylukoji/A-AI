@@ -162,6 +162,51 @@ def test_edit_requires_instruction():
     assert res.status_code == 400
 
 
+def test_nlu_clamps_absurd_dimensions():
+    """Une largeur/surface hors bornes venue de `constraints` ne doit pas se
+    propager telle quelle : les boucles de rendu vectoriel itèrent en mètres,
+    une valeur type 1e9 bloquerait un worker pendant des heures (DoS)."""
+    spec = parse_brief("Maison 2 chambres", {"max_width_m": 1e9, "max_depth_m": 1e9})
+    assert spec["constraints"]["max_width_m"] <= 200.0
+    assert spec["constraints"]["max_depth_m"] <= 200.0
+
+
+def test_diffusion_generate_clamps_absurd_dimensions():
+    spec = parse_brief("Maison 2 chambres", {})
+    spec["constraints"]["max_width_m"] = 1e9
+    spec["constraints"]["max_depth_m"] = 1e9
+    out = generate(spec, image=False)
+    assert out["layout"]["width"] <= 200.0
+    assert out["layout"]["depth"] <= 200.0
+
+
+def test_plan_adapt_clamps_absurd_parcel(monkeypatch):
+    from app.plan_adapt import adapt
+
+    spec = parse_brief("Maison 2 chambres", {})
+    gen = generate(spec)
+    plan = vectorize({"layout": gen["layout"], "building_spec": spec})["plan_document"]
+    out = adapt({
+        "plan_document": plan,
+        "parcel": {"width_m": 1e9, "depth_m": 1e9},
+    })
+    assert out["parcel"]["buildable_width_m"] <= 200.0
+    assert out["parcel"]["buildable_depth_m"] <= 200.0
+
+
+def test_adapt_endpoint_rejects_plan_without_rooms():
+    """`plan_adapt.adapt` lève `ValueError` pour un plan sans pièces : l'API doit
+    renvoyer un 422 propre plutôt qu'un 500 générique."""
+    res = client.post("/v1/adapt", json={"plan_document": {"rooms": []}})
+    assert res.status_code == 422, res.text
+
+
+def test_pipeline_rejects_oversized_brief():
+    huge_brief = "Maison " + "x" * 5000
+    res = client.post("/v1/pipeline", json={"brief": huge_brief})
+    assert res.status_code == 422
+
+
 def test_edit_keeps_plan_without_together_key(monkeypatch):
     monkeypatch.delenv("TOGETHER_API_KEY", raising=False)
     res = client.post("/v1/edit", json={

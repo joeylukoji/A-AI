@@ -64,6 +64,25 @@ def _stub_filter(b64: str) -> dict[str, str]:
     return {"image_png_b64": base64.b64encode(buf.getvalue()).decode("ascii")}
 
 
+def _load_checkpoint(weights_path: str, map_location: str) -> dict[str, Any]:
+    """Charge un checkpoint `.pt` en essayant `weights_only=True` d'abord.
+
+    `weights_only=True` (PyTorch >= 2.0) refuse la désérialisation d'objets
+    Python arbitraires et évite ainsi une exécution de code si le fichier de
+    poids est corrompu ou malveillant. On retombe sur `weights_only=False`
+    seulement si le format du checkpoint n'est pas couvert par la liste
+    blanche (ex. objets numpy anciens dans un state_dict pix2pix) : le risque
+    résiduel est accepté ici car `GAN_WEIGHTS` pointe toujours vers un fichier
+    local choisi par l'opérateur, jamais un contenu envoyé par un client.
+    """
+    import torch
+
+    try:
+        return torch.load(weights_path, map_location=map_location, weights_only=True)
+    except Exception:
+        return torch.load(weights_path, map_location=map_location, weights_only=False)
+
+
 def _try_gan(b64: str, layout: dict[str, Any] | None) -> str | None:
     weights = os.getenv("GAN_WEIGHTS", "").strip()
     if not weights or not os.path.isfile(weights):
@@ -80,7 +99,7 @@ def _try_gan(b64: str, layout: dict[str, Any] | None) -> str | None:
     src = Image.open(io.BytesIO(raw)).convert("L")
     orig = src.size
     resampling: Any = getattr(Image, "Resampling", Image)  # Pillow >= 10
-    ckpt = torch.load(weights, map_location="cuda", weights_only=False)
+    ckpt = _load_checkpoint(weights, "cuda")
     size = int(ckpt.get("size") or 128)
     in_ch = int(ckpt.get("in_ch") or 2)
 

@@ -4,6 +4,17 @@ import os
 import re
 from typing import Any
 
+_MIN_DIM_M = 2.0
+_MAX_DIM_M = 200.0  # borne haute anti-DoS : au-delà, le rendu (textures de sol) devient trop lent
+
+
+def _clamp_dim(value: float) -> float:
+    """Borne une dimension bâtiment (m) : évite qu'une valeur de `constraints`
+    absurde (ex. `max_width_m: 1e9`) ne fasse boucler très longtemps les
+    fonctions de rendu du plan (elles itèrent en unités mètres, pas pixels)."""
+    return max(_MIN_DIM_M, min(_MAX_DIM_M, value))
+
+
 _ALLOWED_TYPES = {
     "living", "kitchen", "bedroom", "bathroom", "wc", "hallway",
     "garage", "dining", "office", "storage", "laundry",
@@ -168,16 +179,16 @@ def _finalize_spec(brief: str, rooms: list[dict[str, Any]], constraints: dict[st
         constraints.get("total_area_m2")
         or sum(float(r.get("area_m2") or 10) * int(r.get("count") or 1) for r in rooms) * 1.15
     )
-    width = float(
+    width = _clamp_dim(float(
         constraints.get("parcel_width_m")
         or constraints.get("max_width_m")
         or max(10.0, round(total**0.5 * 1.15, 1))
-    )
-    depth = float(
+    ))
+    depth = _clamp_dim(float(
         constraints.get("parcel_depth_m")
         or constraints.get("max_depth_m")
         or max(8.0, round(total / max(width, 1), 1))
-    )
+    ))
     return {
         "version": "1.0",
         "brief": brief,

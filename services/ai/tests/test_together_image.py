@@ -330,7 +330,10 @@ def test_render_preview_sends_brief_straight_to_flux(monkeypatch):
 def test_item_forbidden_keeps_rooms_coherent():
     assert _item_forbidden("living", "double bed with pillows")
     assert not _item_forbidden("living", "coffee table in front of the sofa")
+    assert _item_forbidden("living", "dining table with six chairs")
     assert _item_forbidden("kitchen", "L-shaped sofa")
+    assert _item_forbidden("kitchen", "dining table with yellow chairs")
+    assert _item_forbidden("kitchen", "a large tub")
     assert not _item_forbidden("kitchen", "fridge at the end of the run")
     assert _item_forbidden("bedroom", "white toilet in the corner")
     assert _item_forbidden("bedroom", "bathtub along the wall")
@@ -370,6 +373,8 @@ def test_flux_prompt_checks_each_room_coherence():
     assert "2x bedroom" in text
     assert "WALLS:" in text
     assert "never in kitchen" in text.lower() or "NO toilet, NO bathtub" in text
+    assert "two armchairs" in text.lower() or "two armchairs" in _coherence_clause(spec)
+    assert "NO dining table" in text
 
 
 def test_flux_prompt_careful_redraw():

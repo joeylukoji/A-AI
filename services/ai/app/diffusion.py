@@ -563,8 +563,12 @@ def generate(spec: dict[str, Any], *, image: bool = True) -> dict[str, Any]:
     from . import together_image
 
     constraints = spec.get("constraints") or {}
-    width = float(constraints.get("max_width_m", 12))
-    depth = float(constraints.get("max_depth_m", 10))
+    # Bornée : le rendu vectoriel (textures de sol, mobilier) itère en mètres,
+    # une largeur/profondeur absurde venue d'un payload direct sur /v1/generate
+    # ferait tourner ces boucles très longtemps (DoS). Mêmes bornes que
+    # `nlu._clamp_dim`.
+    width = max(2.0, min(200.0, float(constraints.get("max_width_m", 12))))
+    depth = max(2.0, min(200.0, float(constraints.get("max_depth_m", 10))))
     program = _apply_canonical_names(expand_rooms(spec.get("rooms") or []))
 
     layout_rooms, veranda_depth, planned = None, 0.0, False
@@ -885,10 +889,12 @@ def _draw_catalog_item(img: Image.Image, d: ImageDraw.ImageDraw, item: dict[str,
         for i in range(1, n):
             x = -hx + (w * i) / n
             dr.line([L(x, -hy + 0.1), L(x, hy - 0.04)], fill=(160, 156, 148, 140), width=lw)
-        sx = -w * 0.18
-        rr(sx - 0.24, -hy + 0.16, sx + 0.22, hy - 0.1, 0.07, (196, 214, 222), (122, 152, 164))
-        rr(sx + 0.26, -hy + 0.16, sx + 0.72, hy - 0.1, 0.07, (196, 214, 222), (122, 152, 164))
-        ell(sx + 0.23, -hy + 0.12, 0.032, 0.032, (138, 144, 150), (74, 80, 86))
+        # Petit évier encastré (carré), pas une cuve / baignoire.
+        sw, sd = 0.32, min(0.28, max(0.18, dd * 0.42))
+        sx = -w * 0.12
+        rr(sx - sw / 2, -sd / 2, sx + sw / 2, sd / 2, 0.03, (214, 216, 218), (120, 124, 128))
+        rr(sx - sw / 2 + 0.04, -sd / 2 + 0.04, sx + sw / 2 - 0.04, sd / 2 - 0.04, 0.02, (198, 202, 206), (140, 144, 148))
+        ell(sx, -hy + 0.07, 0.028, 0.028, (138, 144, 150), (74, 80, 86))
 
     def stove(dr: Any, L: Any, rr: Any, ell: Any, lw: int) -> None:
         rr(-hx, -hy, hx, hy, 0.04, (42, 42, 44), (16, 16, 18))
@@ -1062,12 +1068,14 @@ def _furniture(d: ImageDraw.ImageDraw, typ: str, bx: tuple[float, float, float, 
             for i in range(1, n):                            # coussins
                 xx = sx0 + 0.24 + (sw - 0.48) * i / n
                 line(xx, sy0 + 0.3, xx, sy1)
-            sh(cx - 0.55, cy - 0.78, cx + 0.55, cy - 0.22, 0.08)
-            rr(cx - 0.55, cy - 0.78, cx + 0.55, cy - 0.22, 0.08, fill=(248, 248, 246))  # table basse
+            sh(cx - 0.42, cy - 0.62, cx + 0.42, cy - 0.28, 0.06)
+            rr(cx - 0.42, cy - 0.62, cx + 0.42, cy - 0.28, 0.06, fill=(248, 248, 246))  # table basse
             rect(cx - 0.32, cy + 0.15, cx + 0.32, cy + 0.85, fill=(28, 28, 30))  # cheminée
-            if x1 - sx1 > 1.1:                               # fauteuil
-                rr(sx1 + 0.35, sy0 + 0.05, sx1 + 1.15, sy1 - 0.05, 0.14, fill=(92, 62, 42))
-                line(sx1 + 0.5, sy0 + 0.05, sx1 + 0.5, sy1 - 0.05)
+            # deux fauteuils, jamais une table à manger
+            rr(cx - 1.45, cy - 0.55, cx - 0.62, cy + 0.22, 0.14, fill=(92, 62, 42))
+            line(cx - 1.32, cy - 0.55, cx - 1.32, cy + 0.22)
+            rr(cx + 0.62, cy - 0.55, cx + 1.45, cy + 0.22, 0.14, fill=(92, 62, 42))
+            line(cx + 1.32, cy - 0.55, cx + 1.32, cy + 0.22)
             circ(x1 - 0.38, y0 + 0.75, 0.3, fill=_PLANT)    # plante
             circ(x1 - 0.38, y0 + 0.75, 0.16, fill=_PLANT_IN)
         else:  # pièce en hauteur : canapé contre le mur gauche
@@ -1088,7 +1096,11 @@ def _furniture(d: ImageDraw.ImageDraw, typ: str, bx: tuple[float, float, float, 
             for i in range(1, n):
                 yy = sy0 + 0.24 + (sd - 0.48) * i / n
                 line(sx0 + 0.3, yy, sx1, yy)
-            rr(cx + 0.05, cy - 0.55, cx + 0.6, cy + 0.55, 0.08)   # table basse
+            rr(cx + 0.08, cy - 0.38, cx + 0.52, cy + 0.38, 0.06, fill=(248, 248, 246))  # table basse
+            rr(cx - 0.95, cy - 0.95, cx - 0.18, cy - 0.18, 0.14, fill=(92, 62, 42))
+            line(cx - 0.82, cy - 0.95, cx - 0.18, cy - 0.95)
+            rr(cx - 0.95, cy + 0.18, cx - 0.18, cy + 0.95, 0.14, fill=(92, 62, 42))
+            line(cx - 0.82, cy + 0.18, cx - 0.18, cy + 0.18)
             circ(x1 - 0.42, y1 - 0.55, 0.3, fill=_PLANT)
             circ(x1 - 0.42, y1 - 0.55, 0.16, fill=_PLANT_IN)
     elif typ == "kitchen":
@@ -1099,27 +1111,16 @@ def _furniture(d: ImageDraw.ImageDraw, typ: str, bx: tuple[float, float, float, 
             line(x0 + 0.62, y0, x0 + 0.62, y0 + min(h - 0.6, 3.4))
         rect(x1 - 0.68, y0 + 0.03, x1 - 0.04, y0 + 0.59, fill=_FURN_SOFT)  # frigo
         line(x1 - 0.68, y0 + 0.31, x1 - 0.04, y0 + 0.31)
-        ex = x0 + 0.9                                        # évier double bac
-        if ex + 1.0 < x1 - 0.75:
-            rr(ex, y0 + 0.1, ex + 0.42, y0 + 0.52, 0.05)
-            rr(ex + 0.48, y0 + 0.1, ex + 0.9, y0 + 0.52, 0.05)
-            circ(ex + 0.45, y0 + 0.07, 0.045, fill=_FURN)
+        ex = x0 + 0.85                                        # petit évier encastré, pas une cuve
+        if ex + 0.55 < x1 - 0.75:
+            rect(ex, y0 + 0.14, ex + 0.38, y0 + 0.46, fill=(214, 216, 218))
+            rect(ex + 0.05, y0 + 0.18, ex + 0.33, y0 + 0.42, fill=(198, 202, 206))
+            circ(ex + 0.19, y0 + 0.10, 0.035, fill=_FURN)
         px = min(x0 + max(2.1, w * 0.45), x1 - 1.75)         # plaques 4 foyers
         if px > x0 and px + 0.75 < x1 - 0.75:
             for i in range(2):
                 for j in range(2):
                     circ(px + 0.2 + i * 0.32, y0 + 0.17 + j * 0.28, 0.085 if (i + j) % 2 else 0.115)
-        if w >= 2.6 and h >= 3.0:                            # table à manger ovale + chaises jaunes
-            tw, th = min(1.8, w - 1.0), min(0.95, h * 0.28)
-            ty0 = y0 + max(1.1, h * 0.42)
-            tx0, tx1, ty1 = cx - tw / 2, cx + tw / 2, ty0 + th
-            sh(tx0, ty0, tx1, ty1, 0.08)
-            rr(tx0, ty0, tx1, ty1, 0.2, fill=(168, 118, 64))
-            yellow = (232, 196, 64)
-            rr(cx - 0.22, ty0 - 0.48, cx + 0.22, ty0 - 0.08, 0.08, fill=yellow)
-            rr(cx - 0.22, ty1 + 0.08, cx + 0.22, ty1 + 0.48, 0.08, fill=yellow)
-            rr(tx0 - 0.48, cy - 0.18, tx0 - 0.08, cy + 0.18, 0.08, fill=yellow)
-            rr(tx1 + 0.08, cy - 0.18, tx1 + 0.48, cy + 0.18, 0.08, fill=yellow)
     elif typ == "dining":
         tw, th = min(1.9, w - 1.7), min(1.05, h - 1.7)
         if tw < 1.0 or th < 0.75:
@@ -1598,8 +1599,8 @@ _FLUX_STYLE_BODIES = {
         "Thick medium-gray walls with white window recesses, brown door swing arcs. "
         "Simple wood-plank lines in bedrooms and living room, a light tile grid in the "
         "kitchen, pale gray tiles in bathrooms, flat light-gray in the garage. "
-        "Simple top-down furniture symbols: beds, an L-shaped sofa, coffee table, "
-        "armchairs, dining table with yellow chairs, kitchen counter with sink and hob, "
+        "Simple top-down furniture symbols: beds, an L-shaped sofa, low coffee table, "
+        "two armchairs, kitchen counter with a small square sink and hob, "
         "bathtub toilet and sink, a car in the garage. Flat green garden south and east, "
         "small wooden porch at the south entrance. Limited detail, lots of empty floor."
     ),
@@ -1683,10 +1684,11 @@ _FURN_FORBIDDEN = {
     "living": (
         "bed", "bathtub", "bath tub", "tub", "shower", "toilet", "bidet",
         "washbasin", "wash basin", "stove", "hob", "cooktop", "fridge", "car", "sink",
+        "dining table", "dining",
     ),
     "kitchen": (
         "bed", "sofa", "armchair", "bathtub", "bath tub", "tub", "shower", "toilet",
-        "bidet", "car", "wardrobe",
+        "bidet", "car", "wardrobe", "dining table", "dining", "cuve",
     ),
     "bedroom": (
         "stove", "hob", "cooktop", "fridge", "sofa", "armchair", "dining table",
@@ -1712,10 +1714,10 @@ _FURNITURE_SYSTEM = (
     "Each items entry is a short English placement (object + where it sits). "
     "Rules: only objects that belong in that room; few objects; leave walking space at doors; "
     "do not block windows with tall pieces. Check every room for coherence. "
-    "Living: one sofa against a wall, coffee table in front, TV on the opposite wall, "
-    "optional 1-2 armchairs. NO bed, NO kitchen appliances, NO bathroom fixtures. "
-    "Kitchen: L or U counters on the walls with sink and hob, fridge at the end of the run, "
-    "optional dining table in the free centre with 4-6 chairs. NO sofa, NO bed, NO toilet. "
+    "Living: one sofa against a wall, low coffee table in front, TV on the opposite wall, "
+    "two armchairs. NO dining table, NO dining chairs, NO bed, NO kitchen appliances, NO bathroom fixtures. "
+    "Kitchen: L or U counters on the walls with a small square sink and hob, fridge at the end of the run. "
+    "NO dining table, NO chairs around a table, NO sofa, NO bed, NO toilet, NO bathtub, NO tub. "
     "Bedroom: one bed, headboard against a wall, nightstands, wardrobe. "
     "NO toilet, NO bathtub, NO shower, NO washbasin, NO sink, NO bidet, NO kitchen appliances. "
     "Bathroom: tub or shower, toilet, washbasin — only here. Garage: one car aligned with the door. "
@@ -1763,13 +1765,13 @@ def _coherence_clause(spec: dict[str, Any] | None = None) -> str:
         )
     if "living" in types:
         parts.append(
-            "Living (salon/séjour): defined by a sofa, a coffee table and a TV opposite the sofa. "
-            "This is NOT a dining room. NO dining table as the main furniture, NO bed, NO bathroom fixtures. "
+            "Living (salon/séjour): sofa, two armchairs, a low coffee table and a TV opposite the sofa. "
+            "This is NOT a dining room. NO dining table, NO dining chairs, NO bed, NO bathroom fixtures. "
         )
     if "kitchen" in types:
         parts.append(
-            "Kitchen: counters, sink, hob, fridge, optional small table. "
-            "NO sofa, NO bed, NO toilet, NO bathtub, NO shower, NO washbasin. "
+            "Kitchen: wall counters, a small square sink on the counter, hob, fridge. "
+            "NO dining table, NO chairs, NO sofa, NO bed, NO toilet, NO bathtub, NO tub, NO large basin. "
         )
     if "dining" in types:
         parts.append(
@@ -1778,8 +1780,7 @@ def _coherence_clause(spec: dict[str, Any] | None = None) -> str:
         )
     else:
         parts.append(
-            "No separate dining room. A small table in the kitchen is OK. "
-            "Do not invent a second eating room. "
+            "No separate dining room. Do not invent a dining room in the living room or kitchen. "
         )
     if "garage" in types:
         parts.append("Garage: one car. NO bed, NO bathroom fixtures. ")
@@ -1933,11 +1934,10 @@ def _plan_furniture_with_llm(brief: str, spec: dict[str, Any] | None) -> str:
 
 def _default_furniture_block() -> str:
     return (
-        "Living room: one dark L-shaped sofa against a long wall, rug, coffee table in front, "
-        "TV on the opposite wall (sofa faces the TV), one or two armchairs. No bed here. "
-        "Kitchen: simple L-shaped or U-shaped counters on the walls, sink and hob in the run, "
-        "fridge at the end. Dining table in the free centre with 4 or 6 yellow chairs, "
-        "clearance from the counters. No sofa or bed in the kitchen. "
+        "Living room: one dark L-shaped sofa against a long wall, rug, low coffee table in front, "
+        "TV on the opposite wall (sofa faces the TV), two armchairs. No dining table, no dining chairs. "
+        "Kitchen: simple L-shaped or U-shaped counters on the walls, a small square sink and hob in the run, "
+        "fridge at the end. Empty floor in the centre. No dining table, no chairs, no bathtub, no tub. "
         "Bedrooms: one bed, headboard on a wall, nightstands, wardrobe. "
         "Never a toilet, bathtub, shower or washbasin in a bedroom. "
         "Bathroom: tub, toilet, basin — simple white symbols, only in this room. "
@@ -1987,8 +1987,9 @@ def _flux_prompt(
             "Do not invent a new plan. Do not move objects to another room. "
             "Bathroom and WC fixtures stay in the bathroom/WC — never copy them into the "
             "kitchen, living room, dining room or bedrooms. "
-            "Do not draw two dining rooms. The living room stays a sofa, coffee table and TV "
-            "facing the sofa — not a dining table. "
+            "Kitchen: wall counters and a small square sink only — never a bathtub, tub or large basin. "
+            "Living room: sofa, two armchairs, low coffee table and TV — not a dining table. "
+            "Do not draw two dining rooms. "
             "Redraw it as a simpler amateur Sweet Home 3D 2D screenshot: grey poche walls, "
             "simple floor fills, simple top-down furniture symbols, faint grid. "
             f"This request: {text}. "
@@ -2067,7 +2068,7 @@ _FLUX_FURNITURE = {
     "dining": "a dining table with six chairs",
     "bedroom": "a double bed with two nightstands and a wardrobe",
     "office": "a desk with an office chair and a bookshelf",
-    "kitchen": "an L-shaped kitchen counter with sink, cooktop and fridge",
+    "kitchen": "an L-shaped kitchen counter with a small square sink, cooktop and fridge",
     "bathroom": "a bathtub, a washbasin and a toilet",
     "wc": "a toilet and a small washbasin",
     "laundry": "a washing machine and a laundry sink",

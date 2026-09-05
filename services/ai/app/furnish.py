@@ -1,7 +1,7 @@
 """Place des instances du catalogue 3D dans chaque pièce.
 
-Disposition calquée sur Sweet Home 3D : lits jumeaux, canapé d'angle,
-cheminée, table ovale et chaises jaunes dans la cuisine, voiture au garage.
+Disposition calquée sur Sweet Home 3D : lits, canapé + fauteuils au salon,
+cuisine sans table à manger, voiture au garage.
 """
 from __future__ import annotations
 
@@ -65,6 +65,7 @@ def _place_room(
     w, h = x1 - x0, y1 - y0
     if w < 0.8 or h < 0.8:
         return [], n
+    _ = (has_dining, has_kitchen)
     typ = str(room.get("type") or "")
     rid = str(room.get("id") or "")
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
@@ -138,13 +139,10 @@ def _place_room(
         )
         add(sofa_id, sx, sy, 0)
         add("table.coffee", sx - 0.1, sy - sofa["d"] / 2 - 0.42, 0)
-        add("armchair", sx - sofa["w"] / 2 - 0.55, y1 - 0.5, 90)
-        add("armchair", sx - sofa["w"] / 2 - 0.55, y1 - 1.4, 90)
         add("tv.console", cx, y0 + CATALOG["tv.console"]["d"] / 2 + 0.02, 0)
         add("fireplace", x0 + CATALOG["fireplace"]["d"] / 2 + 0.02, cy, 90)
         add("plant.pot", x0 + 0.3, y1 - 0.3, 0)
-        if not has_dining and not has_kitchen and w >= 4.2 and h >= 4.0:
-            _dining_set(add, x0 + 1.6, cy, w, n_chairs=4)
+        _living_armchairs(add, x0, x1, sx, sy, sofa)
     elif typ == "kitchen":
         counter = CATALOG["counter.kitchen"]
         length = min(counter["w"], max(1.2, w - 0.85))
@@ -165,8 +163,6 @@ def _place_room(
                 90,
                 {"w": min(2.2, h * 0.55), "d": counter["d"], "h": counter["h"]},
             )
-        if not has_dining and w >= 2.6 and h >= 3.0:
-            _dining_set(add, cx + (0.15 if w > 3.2 else 0), y0 + h * 0.62, w, n_chairs=6 if w >= 3.2 else 4)
     elif typ == "office":
         add("desk", x0 + 0.85, y0 + 0.4, 0)
         add("chair.dining", x0 + 0.85, y0 + 1.05, 180)
@@ -187,6 +183,21 @@ def _place_room(
             add("car.sedan", cx, cy, 0)
 
     return out, n
+
+
+def _living_armchairs(
+    add: _Add, x0: float, x1: float, sx: float, sy: float, sofa: dict[str, float]
+) -> None:
+    """Deux fauteuils autour de la table basse, jamais une table à manger."""
+    arm = CATALOG["armchair"]
+    ay = sy - sofa["d"] / 2 - 0.42
+    left = max(x0 + arm["w"] / 2 + 0.02, sx - sofa["w"] / 2 + 0.15)
+    right = min(x1 - arm["w"] / 2 - 0.02, sx + sofa["w"] / 2 - 0.15)
+    if right - left < arm["w"] + 0.5:
+        left = max(x0 + arm["w"] / 2 + 0.02, sx - 0.95)
+        right = min(x1 - arm["w"] / 2 - 0.02, sx + 0.95)
+    add("armchair", left, ay, 0)
+    add("armchair", right, ay, 0)
 
 
 def _dining_set(add: _Add, cx: float, cy: float, w: float, n_chairs: int) -> None:

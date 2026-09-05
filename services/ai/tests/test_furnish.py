@@ -36,14 +36,16 @@ def test_dining_gets_table_and_chairs():
     assert ids.count("chair.dining") >= 4
 
 
-def test_living_without_dining_can_host_table():
+def test_living_has_sofa_armchairs_not_dining():
     items = furnish([
         {"id": "r1", "type": "living", "polygon": _rect(0, 0, 6, 5)},
     ])
     ids = [it["catalog_id"] for it in items]
     assert "sofa.2seat" in ids or "sofa.lshape" in ids
-    assert "table.dining" in ids
-    assert "chair.dining" in ids
+    assert ids.count("armchair") >= 2
+    assert "table.coffee" in ids
+    assert "table.dining" not in ids
+    assert "chair.dining" not in ids
 
 
 def test_living_gets_rug_tv_and_kitchen_fridge():
@@ -79,14 +81,16 @@ def test_living_skips_dining_set_when_dining_room_exists():
     assert "table.dining" not in living_ids
 
 
-def test_kitchen_hosts_dining_when_no_dining_room():
+def test_kitchen_has_counters_not_dining_or_tub():
     items = furnish([
         {"id": "r1", "type": "kitchen", "polygon": _rect(0, 0, 4.5, 5)},
     ])
     ids = [it["catalog_id"] for it in items]
     assert "counter.kitchen" in ids
-    assert "table.dining" in ids
-    assert ids.count("chair.dining") >= 4
+    assert "fridge" in ids
+    assert "table.dining" not in ids
+    assert "chair.dining" not in ids
+    assert "bathtub" not in ids
 
 
 def test_bathroom_and_garage_get_fixtures():
