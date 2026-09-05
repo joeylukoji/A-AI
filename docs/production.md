@@ -20,7 +20,23 @@ ces secrets vaut encore son placeholder de dev :
 `demo@a-ai.local` / `demo-demo-demo` (`EnsureDemoUser`) — sinon n'importe qui connaissant
 ces identifiants publics obtiendrait un compte au premier démarrage.
 
-## 1bis. Authentification inter-services
+## 2. Administrateurs plateforme (`/admin`)
+
+`ADMIN_EMAILS` (emails séparés par des virgules) désigne les comptes autorisés à ouvrir
+`/admin`, qui affiche **les plans de toutes les organisations**. C'est le seul endroit du
+produit qui traverse volontairement les frontières entre clients — à traiter comme un accès
+privilégié :
+
+- La liste est réappliquée à chaque démarrage (`store.GrantPlatformAdmins`) : retirer un email
+  révoque l'accès au prochain boot, et `users.is_platform_admin` reflète toujours l'env.
+- `auth.Service` honore aussi `ADMIN_EMAILS` à chaque requête, pour qu'un administrateur qui
+  crée son compte après le démarrage ne reste pas bloqué jusqu'au redémarrage suivant.
+- Laisser `ADMIN_EMAILS` vide (défaut) signifie **aucun** administrateur : `/admin` renvoie 404
+  pour tout le monde. C'est le comportement voulu tant qu'on n'en a pas besoin.
+- Un non-administrateur reçoit 404 sur les pages (l'existence de la zone n'est pas annoncée) et
+  403 sur `/api/v1/admin/*`.
+
+## 3. Authentification inter-services
 
 `services/ai` (FastAPI) exige désormais `X-Internal-Token` (même valeur que `INTERNAL_TOKEN`
 côté `api`/`blender-worker`) sur tous ses endpoints `/v1/*` sauf `/healthz` et
@@ -36,7 +52,7 @@ sans token par `internal/export/qcad.go`. Risque faible (pas de coût direct, no
 déjà généré côté Go) mais à ne jamais exposer publiquement ; garder son port hors de tout
 reverse proxy public.
 
-## 2. Réseau
+## 4. Réseau
 
 - Ne pas exposer les ports `5432` (Postgres), `6379` (Redis), `9000/9001` (MinIO) sur une
   interface publique — seul `api` (8080) doit être joignable depuis l'extérieur, derrière un
@@ -49,7 +65,7 @@ reverse proxy public.
   un plancher de sécurité, pas une garantie exacte de débit global. Passer à un limiteur
   partagé (Redis) si l'API est mise à l'échelle horizontalement.
 
-## 3. Intégrations externes (hors périmètre de ce durcissement)
+## 5. Intégrations externes (hors périmètre de ce durcissement)
 
 Ces éléments restent des stubs documentés (nécessitent des comptes/clés que l'opérateur doit
 fournir) :
@@ -60,19 +76,22 @@ fournir) :
 
 Voir [gaps.md](gaps.md) et [ameliorations.md](ameliorations.md) pour le détail produit.
 
-## 4. CI / scan de dépendances
+## 6. CI / scan de dépendances
 
 `.github/workflows/test.yml` fait tourner à chaque push/PR :
 
 - Go : `gofmt -l`, cohérence de `vendor/`, `go vet`, `go build`, `go test -race`.
-- `govulncheck` sur le module Go (base de vulnérabilités officielle Go).
+- `govulncheck` sur le module Go (base de vulnérabilités officielle Go). `go.mod` épingle
+  `toolchain go1.26.8` : les CVE restantes étaient toutes dans la bibliothèque standard d'un
+  toolchain plus ancien, et l'épinglage garantit qu'un build ne peut pas les réintroduire
+  silencieusement (8 vulnérabilités → 0).
 - Python : `pytest` sur `services/ai`, `services/blender`, `services/qcad`, `research/`.
 - `pip-audit` sur `services/ai` et `services/blender` (non bloquant pour l'instant — à
   durcir une fois la base d'alertes triée).
 
 Rien n'est configuré pour Snyk/Dependabot ; à brancher séparément si souhaité (compte externe).
 
-## 5. Images Docker
+## 7. Images Docker
 
 Chaque `Dockerfile` de service tourne désormais sous un utilisateur non-root (`aai`).
 `minio`/`minio/mc` sont épinglés à une version précise dans `docker-compose.yml` (pas
@@ -86,7 +105,7 @@ contrôle** — l'environnement qui a produit ce durcissement n'avait pas d'acc�
 sensible : télécharger `SHA256SUMS` depuis `download.blender.org` pour la version pinnée et
 vérifier l'archive avant extraction.
 
-## 6. Sauvegardes / observabilité
+## 8. Sauvegardes / observabilité
 
 - Postgres et MinIO utilisent des volumes Docker nommés (`pgdata`, `miniodata`) sans
   sauvegarde automatisée — mettre en place `pg_dump` planifié + réplication objet S3 avant
