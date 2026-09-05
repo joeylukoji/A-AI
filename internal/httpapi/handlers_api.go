@@ -23,6 +23,35 @@ import (
 	"github.com/google/uuid"
 )
 
+// maxJSONBodyBytes caps request bodies decoded as JSON. It guards against a
+// client (malicious or buggy) streaming an unbounded body to exhaust server
+// memory; every legitimate payload on this API (plan documents included) is
+// well under this size.
+const maxJSONBodyBytes = 4 << 20 // 4 MiB
+
+// decodeJSONBody decodes a JSON body into v, rejecting bodies larger than
+// maxJSONBodyBytes before they are fully buffered in memory.
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, v any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
+	return json.NewDecoder(r.Body).Decode(v)
+}
+
+// internalError logs the full error server-side (with request context) and
+// returns a generic message to the client — SQL errors, file paths and other
+// internal details must never leak through the public API.
+func (s *Server) internalError(w http.ResponseWriter, r *http.Request, err error) {
+	s.log.Error("internal error", "method", r.Method, "path", r.URL.Path, "err", err)
+	writeErr(w, http.StatusInternalServerError, "internal", "une erreur interne est survenue")
+}
+
+// upstreamError is internalError's counterpart for failures talking to a
+// downstream dependency (object storage, AI/worker services): still logged in
+// full server-side, still generic to the client.
+func (s *Server) upstreamError(w http.ResponseWriter, r *http.Request, err error) {
+	s.log.Error("upstream error", "method", r.Method, "path", r.URL.Path, "err", err)
+	writeErr(w, http.StatusBadGateway, "upstream", "service temporairement indisponible")
+}
+
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	p := principal(r)
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -36,7 +65,7 @@ func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 	p := principal(r)
 	list, err := s.projects.List(r.Context(), p.Org.ID)
 	if err != nil {
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, 200, map[string]any{"projects": list})
@@ -52,13 +81,13 @@ func (s *Server) handleCreateProjectAPI(w http.ResponseWriter, r *http.Request) 
 		Name  string `json:"name"`
 		Brief string `json:"brief"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSONBody(w, r, &body); err != nil {
 		writeErr(w, 400, "invalid_json", "invalid body")
 		return
 	}
 	proj, err := s.projects.Create(r.Context(), p.Org.ID, p.User.ID, body.Name, body.Brief)
 	if err != nil {
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, 201, proj)
@@ -104,7 +133,7 @@ func (s *Server) handleGenerate2D(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 402, "quota_exceeded", err.Error())
 			return
 		}
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	var body struct {
@@ -115,7 +144,7 @@ func (s *Server) handleGenerate2D(w http.ResponseWriter, r *http.Request) {
 		SetbackM     *float64       `json:"setback_m"`
 		Careful      bool           `json:"careful"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	_ = decodeJSONBody(w, r, &body)
 	if body.Brief == "" {
 		body.Brief = proj.Brief
 	}
@@ -143,7 +172,7 @@ func (s *Server) handleGenerate2D(w http.ResponseWriter, r *http.Request) {
 		SkipQueue: true, // processed inline via FastAPI to avoid double-consume with Redis worker
 	})
 	if err != nil {
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	_ = s.billing.Increment(r.Context(), p.Org.ID, "generate_2d")
@@ -183,14 +212,14 @@ func (s *Server) handleEditPlan(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 402, "quota_exceeded", err.Error())
 			return
 		}
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	var body struct {
 		Instruction string `json:"instruction"`
 		Message     string `json:"message"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	_ = decodeJSONBody(w, r, &body)
 	instruction := strings.TrimSpace(body.Instruction)
 	if instruction == "" {
 		instruction = strings.TrimSpace(body.Message)
@@ -208,7 +237,7 @@ func (s *Server) handleEditPlan(w http.ResponseWriter, r *http.Request) {
 		SkipQueue: true,
 	})
 	if err != nil {
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	_ = s.billing.Increment(r.Context(), p.Org.ID, "generate_2d")
@@ -305,7 +334,7 @@ func (s *Server) handleAdaptPlan(w http.ResponseWriter, r *http.Request) {
 		SetbackM     *float64       `json:"setback_m"`
 		Rules        map[string]any `json:"rules"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	_ = decodeJSONBody(w, r, &body)
 	parcel := map[string]any{}
 	if body.ParcelWidthM != nil {
 		parcel["width_m"] = *body.ParcelWidthM
@@ -322,7 +351,7 @@ func (s *Server) handleAdaptPlan(w http.ResponseWriter, r *http.Request) {
 		SkipQueue: true,
 	})
 	if err != nil {
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	go s.processAdaptPlan(job.ID, id, p.User.ID, rev.PlanDocument, parcel, body.Rules)
@@ -416,7 +445,7 @@ func (s *Server) handleGenerateDevis(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 402, "quota_exceeded", err.Error())
 			return
 		}
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	var specRaw, planRaw json.RawMessage
@@ -433,7 +462,7 @@ func (s *Server) handleGenerateDevis(w http.ResponseWriter, r *http.Request) {
 		SkipQueue: true,
 	})
 	if err != nil {
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	_ = s.billing.Increment(r.Context(), p.Org.ID, "generate_devis")
@@ -505,6 +534,10 @@ func (s *Server) handleGenerate3D(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 402, "quota_exceeded", err.Error())
 			return
 		}
+		// Fail closed: a quota-check error (e.g. DB hiccup) must not silently
+		// let the job through unmetered.
+		s.internalError(w, r, err)
+		return
 	}
 	rev, err := s.projects.GetRevision(r.Context(), *proj.CurrentRevisionID)
 	if err != nil {
@@ -520,7 +553,7 @@ func (s *Server) handleGenerate3D(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	if err != nil {
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	_ = s.billing.Increment(r.Context(), p.Org.ID, "generate_3d")
@@ -546,7 +579,7 @@ func (s *Server) handleSavePlan(w http.ResponseWriter, r *http.Request) {
 		PlanDocument   json.RawMessage `json:"plan_document"`
 		BaseRevisionID *uuid.UUID      `json:"base_revision_id"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.PlanDocument) == 0 {
+	if err := decodeJSONBody(w, r, &body); err != nil || len(body.PlanDocument) == 0 {
 		writeErr(w, 400, "invalid_json", "plan_document required")
 		return
 	}
@@ -560,7 +593,7 @@ func (s *Server) handleSavePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, 200, rev)
@@ -579,7 +612,7 @@ func (s *Server) handleListRevisions(w http.ResponseWriter, r *http.Request) {
 	}
 	list, err := s.projects.ListRevisions(r.Context(), id)
 	if err != nil {
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, 200, map[string]any{"revisions": list})
@@ -617,12 +650,16 @@ func (s *Server) handleProjectPreview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetRevision(w http.ResponseWriter, r *http.Request) {
+	p := principal(r)
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		writeErr(w, 404, "not_found", "revision not found")
 		return
 	}
-	rev, err := s.projects.GetRevision(r.Context(), id)
+	// GetRevisionForOrg (not GetRevision): the revision id comes straight from
+	// the URL, so without the org filter any authenticated user could read
+	// another org's plan by guessing/enumerating a UUID (IDOR).
+	rev, err := s.projects.GetRevisionForOrg(r.Context(), p.Org.ID, id)
 	if err != nil {
 		writeErr(w, 404, "not_found", "revision not found")
 		return
@@ -644,7 +681,7 @@ func (s *Server) handleListArtifacts(w http.ResponseWriter, r *http.Request) {
 	kind := r.URL.Query().Get("kind")
 	list, err := s.artifacts.ListByProject(r.Context(), id, kind)
 	if err != nil {
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, 200, map[string]any{"artifacts": list})
@@ -663,7 +700,7 @@ func (s *Server) handleArtifactContent(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 404, "not_found", "artifact not found")
 			return
 		}
-		writeErr(w, 500, "internal", err.Error())
+		s.internalError(w, r, err)
 		return
 	}
 	if _, err := s.projects.Get(r.Context(), p.Org.ID, art.ProjectID); err != nil {
@@ -672,7 +709,7 @@ func (s *Server) handleArtifactContent(w http.ResponseWriter, r *http.Request) {
 	}
 	data, ct, err := s.storage.Get(r.Context(), art.StorageKey)
 	if err != nil {
-		writeErr(w, 502, "storage", err.Error())
+		s.upstreamError(w, r, err)
 		return
 	}
 	if ct == "" {
@@ -685,12 +722,17 @@ func (s *Server) handleArtifactContent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
+	p := principal(r)
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		writeErr(w, 404, "not_found", "job not found")
 		return
 	}
-	j, err := s.jobs.Get(r.Context(), id)
+	// GetForOrg (not Get): the job id comes straight from the URL, so without
+	// the org filter any authenticated user could read another org's job
+	// status/output (including instructions, revision ids, etc.) by
+	// guessing/enumerating a UUID (IDOR).
+	j, err := s.jobs.GetForOrg(r.Context(), p.Org.ID, id)
 	if err != nil {
 		writeErr(w, 404, "not_found", "job not found")
 		return
@@ -714,8 +756,15 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 402, "quota_exceeded", err.Error())
 			return
 		}
+		// Fail closed: a quota-check error (e.g. DB hiccup) must not silently
+		// let the export through unmetered.
+		s.internalError(w, r, err)
+		return
 	}
-	rev, err := s.projects.GetRevision(r.Context(), id)
+	// GetRevisionForOrg (not GetRevision): the revision id comes straight from
+	// the URL, so without the org filter any authenticated user could export
+	// another org's plan by guessing/enumerating a UUID (IDOR).
+	rev, err := s.projects.GetRevisionForOrg(r.Context(), p.Org.ID, id)
 	if err != nil {
 		writeErr(w, 404, "not_found", "revision not found")
 		return
@@ -723,7 +772,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Format string `json:"format"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	_ = decodeJSONBody(w, r, &body)
 	if body.Format == "" {
 		body.Format = "svg"
 	}
@@ -740,7 +789,11 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	_ = s.billing.Increment(r.Context(), p.Org.ID, "export")
 	sum := sha256.Sum256(res.Data)
 	key := s.storage.Key(rev.ProjectID, "export-"+body.Format, extFor(body.Format))
-	_ = s.storage.Put(r.Context(), key, res.ContentType, res.Data)
+	if err := s.storage.Put(r.Context(), key, res.ContentType, res.Data); err != nil {
+		// Best-effort cache of the export in object storage: the download
+		// below still succeeds, so just log and move on.
+		s.log.Warn("export storage put failed", "revision_id", rev.ID, "err", err)
+	}
 
 	w.Header().Set("Content-Type", res.ContentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, res.Filename))
@@ -781,7 +834,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Plan string `json:"plan"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	_ = decodeJSONBody(w, r, &body)
 	if body.Plan == "" {
 		body.Plan = "pro"
 	}
@@ -793,7 +846,10 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
-	_, _ = io.ReadAll(r.Body)
+	// Unauthenticated endpoint (webhook signature verification isn't wired up
+	// yet): bound the read so a caller can't force us to buffer an unbounded
+	// body.
+	_, _ = io.Copy(io.Discard, io.LimitReader(r.Body, maxJSONBodyBytes))
 	// Stub: acknowledge webhooks when Stripe is wired.
 	writeJSON(w, 200, map[string]string{"received": "ok"})
 }

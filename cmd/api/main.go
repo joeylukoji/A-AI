@@ -74,7 +74,7 @@ func main() {
 	}
 
 	projects := project.NewService(db.SQL)
-	jobsSvc := jobs.NewService(db.SQL, rdb, cfg.AIBaseURL, log)
+	jobsSvc := jobs.NewService(db.SQL, rdb, cfg.AIBaseURL, cfg.InternalToken, log)
 	billingSvc := billing.NewService(db.SQL, cfg.StripeSecretKey, cfg.StripePricePro, cfg.StripePriceBur)
 	artifacts := artifact.NewService(db.SQL)
 	storeClient, err := storage.New(cfg)

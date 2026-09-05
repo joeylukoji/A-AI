@@ -99,8 +99,9 @@ func (s *Service) SetStatus(ctx context.Context, projectID uuid.UUID, status str
 }
 
 func (s *Service) LatestRevision(ctx context.Context, projectID uuid.UUID) (*domain.PlanRevision, error) {
-	r, err := scanRevision(s.db.QueryRowContext(ctx, revisionSelect+`
-		FROM plan_revisions WHERE project_id=$1 ORDER BY version DESC LIMIT 1
+	r, err := scanRevision(s.db.QueryRowContext(ctx, `
+		SELECT `+revisionColumns+`
+		FROM plan_revisions r WHERE r.project_id=$1 ORDER BY r.version DESC LIMIT 1
 	`, projectID).Scan)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -108,9 +109,17 @@ func (s *Service) LatestRevision(ctx context.Context, projectID uuid.UUID) (*dom
 	return r, err
 }
 
+// GetRevision loads a revision by id with no ownership check. Only call this
+// after the caller has already established (elsewhere) that the revision's
+// project belongs to the right org/user — e.g. because it was reached via
+// proj.CurrentRevisionID on an org-scoped project.Get. Handlers that accept a
+// bare revision id from the client (URL path, request body) MUST use
+// GetRevisionForOrg instead, or any authenticated user could read another
+// org's revisions by guessing/enumerating UUIDs (IDOR).
 func (s *Service) GetRevision(ctx context.Context, revisionID uuid.UUID) (*domain.PlanRevision, error) {
-	r, err := scanRevision(s.db.QueryRowContext(ctx, revisionSelect+`
-		FROM plan_revisions WHERE id=$1
+	r, err := scanRevision(s.db.QueryRowContext(ctx, `
+		SELECT `+revisionColumns+`
+		FROM plan_revisions r WHERE r.id=$1
 	`, revisionID).Scan)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -118,9 +127,27 @@ func (s *Service) GetRevision(ctx context.Context, revisionID uuid.UUID) (*domai
 	return r, err
 }
 
+// GetRevisionForOrg loads a revision only when it belongs to a project owned
+// by orgID. Use this (not GetRevision) whenever the revision id comes
+// directly from an untrusted request rather than from an already org-scoped
+// project lookup.
+func (s *Service) GetRevisionForOrg(ctx context.Context, orgID, revisionID uuid.UUID) (*domain.PlanRevision, error) {
+	r, err := scanRevision(s.db.QueryRowContext(ctx, `
+		SELECT `+revisionColumns+`
+		FROM plan_revisions r
+		JOIN projects p ON p.id = r.project_id
+		WHERE r.id=$1 AND p.org_id=$2
+	`, revisionID, orgID).Scan)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	return r, err
+}
+
 func (s *Service) ListRevisions(ctx context.Context, projectID uuid.UUID) ([]domain.PlanRevision, error) {
-	rows, err := s.db.QueryContext(ctx, revisionSelect+`
-		FROM plan_revisions WHERE project_id=$1 ORDER BY version DESC
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT `+revisionColumns+`
+		FROM plan_revisions r WHERE r.project_id=$1 ORDER BY r.version DESC
 	`, projectID)
 	if err != nil {
 		return nil, err
@@ -179,9 +206,7 @@ func (s *Service) SaveRevision(ctx context.Context, projectID, userID uuid.UUID,
 	return r, nil
 }
 
-const revisionSelect = `
-		SELECT id, project_id, version, source, plan_document, building_spec, COALESCE(preview_key,''), compliance, created_by, created_at
-`
+const revisionColumns = `r.id, r.project_id, r.version, r.source, r.plan_document, r.building_spec, COALESCE(r.preview_key,''), r.compliance, r.created_by, r.created_at`
 
 func scanRevision(scan func(dest ...any) error) (*domain.PlanRevision, error) {
 	var r domain.PlanRevision

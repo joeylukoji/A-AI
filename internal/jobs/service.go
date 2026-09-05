@@ -28,23 +28,45 @@ const (
 var ErrNotFound = errors.New("job not found")
 
 type Service struct {
-	db     *sql.DB
-	rdb    *redis.Client
-	hub    *Hub
-	aiURL  string
-	logger *slog.Logger
-	http   *http.Client
+	db            *sql.DB
+	rdb           *redis.Client
+	hub           *Hub
+	aiURL         string
+	internalToken string
+	logger        *slog.Logger
+	http          *http.Client
 }
 
-func NewService(db *sql.DB, rdb *redis.Client, aiURL string, logger *slog.Logger) *Service {
+func NewService(db *sql.DB, rdb *redis.Client, aiURL, internalToken string, logger *slog.Logger) *Service {
 	return &Service{
-		db:     db,
-		rdb:    rdb,
-		hub:    NewHub(),
-		aiURL:  aiURL,
-		logger: logger,
-		http:   &http.Client{Timeout: 420 * time.Second}, // 2× FLUX + vérif VLM peuvent dépasser 5 min
+		db:            db,
+		rdb:           rdb,
+		hub:           NewHub(),
+		aiURL:         aiURL,
+		internalToken: internalToken,
+		logger:        logger,
+		http:          &http.Client{Timeout: 420 * time.Second}, // 2× FLUX + vérif VLM peuvent dépasser 5 min
 	}
+}
+
+// postAI sends a JSON POST to the AI/worker service, authenticated the same
+// way the AI service authenticates callbacks into the Go API: a shared
+// X-Internal-Token header. The AI service's /v1/* endpoints have no auth of
+// their own, and (in the docker-compose deployment) its port is reachable
+// directly from the host — without this header anyone who can reach that
+// port could drive the pipeline directly, bypassing the Go API's
+// authentication, per-org quotas and rate limiting (and running up the
+// Together API / GPU bill on the account's dime).
+func (s *Service) postAI(ctx context.Context, path string, body []byte) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.aiURL+path, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if s.internalToken != "" {
+		req.Header.Set("X-Internal-Token", s.internalToken)
+	}
+	return s.http.Do(req)
 }
 
 type EnqueueInput struct {
@@ -105,12 +127,33 @@ func queueFor(t string) string {
 	}
 }
 
+// Get loads a job by id with no ownership check. Only call this from trusted,
+// non-end-user-facing code paths (internal worker callbacks authenticated by
+// the internal token). Handlers that accept a bare job id from an end user
+// MUST use GetForOrg instead, or any authenticated user could read another
+// org's job status/output by guessing/enumerating UUIDs (IDOR).
 func (s *Service) Get(ctx context.Context, id uuid.UUID) (*domain.Job, error) {
 	var j domain.Job
 	err := s.db.QueryRowContext(ctx, `
 		SELECT id, org_id, project_id, type, status, input, output, COALESCE(error,''), created_at, started_at, finished_at
 		FROM jobs WHERE id=$1
 	`, id).Scan(
+		&j.ID, &j.OrgID, &j.ProjectID, &j.Type, &j.Status, &j.Input, &j.Output, &j.Error, &j.CreatedAt, &j.StartedAt, &j.FinishedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	return &j, err
+}
+
+// GetForOrg loads a job only when it belongs to orgID. Use this from
+// end-user-facing handlers instead of Get.
+func (s *Service) GetForOrg(ctx context.Context, orgID, id uuid.UUID) (*domain.Job, error) {
+	var j domain.Job
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, org_id, project_id, type, status, input, output, COALESCE(error,''), created_at, started_at, finished_at
+		FROM jobs WHERE id=$1 AND org_id=$2
+	`, id, orgID).Scan(
 		&j.ID, &j.OrgID, &j.ProjectID, &j.Type, &j.Status, &j.Input, &j.Output, &j.Error, &j.CreatedAt, &j.StartedAt, &j.FinishedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -251,7 +294,7 @@ func (s *Service) RunInlineGenerate2D(ctx context.Context, jobID uuid.UUID, brie
 		"constraints": constraints,
 		"job_id":      jobID.String(),
 	})
-	resp, err := s.http.Post(s.aiURL+"/v1/pipeline", "application/json", bytes.NewReader(body))
+	resp, err := s.postAI(ctx, "/v1/pipeline", body)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +331,7 @@ func (s *Service) RunInlineEdit(ctx context.Context, jobID uuid.UUID, instructio
 		"constraints":   constraints,
 		"job_id":        jobID.String(),
 	})
-	resp, err := s.http.Post(s.aiURL+"/v1/edit", "application/json", bytes.NewReader(body))
+	resp, err := s.postAI(ctx, "/v1/edit", body)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +365,7 @@ func (s *Service) RunInlineDevis(ctx context.Context, jobID uuid.UUID, brief str
 		"plan_document": plan,
 		"constraints":   constraints,
 	})
-	resp, err := s.http.Post(s.aiURL+"/v1/devis", "application/json", bytes.NewReader(body))
+	resp, err := s.postAI(ctx, "/v1/devis", body)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +394,7 @@ func (s *Service) RunInlineAdapt(ctx context.Context, jobID uuid.UUID, plan json
 		return nil, err
 	}
 	body, _ := json.Marshal(map[string]any{"plan_document": doc, "parcel": parcel, "rules": rules})
-	resp, err := s.http.Post(s.aiURL+"/v1/adapt", "application/json", bytes.NewReader(body))
+	resp, err := s.postAI(ctx, "/v1/adapt", body)
 	if err != nil {
 		return nil, err
 	}

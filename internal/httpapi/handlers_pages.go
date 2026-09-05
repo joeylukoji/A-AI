@@ -1,15 +1,42 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"net/http"
 
+	"github.com/a-ai/a-ai/internal/auth"
 	"github.com/a-ai/a-ai/internal/billing"
 	"github.com/a-ai/a-ai/internal/domain"
 	"github.com/a-ai/a-ai/internal/plan"
 	"github.com/google/uuid"
 )
+
+// safeScriptJSON marks raw JSON as safe to inline verbatim inside a
+// <script type="application/json">...</script> block, after neutralizing the
+// byte sequences that could otherwise break out of it: "<", ">", "&",
+// U+2028 and U+2029 are rewritten to their \uXXXX escapes — the exact
+// transform encoding/json applies by default when marshaling, done here
+// explicitly because raw is not produced by json.Marshal.
+//
+// This matters because raw is untrusted: it is the client-submitted
+// plan_document (PUT /api/v1/projects/{id}/plan → handleSavePlan) stored
+// verbatim as json.RawMessage and later rendered back into project.html and
+// editor.html. Without this escaping, any org member able to edit a plan
+// could store a room/name field containing e.g. `</script><script>...` and
+// run arbitrary JS in the browser of every teammate (including owners) who
+// opens the project — a stored XSS with privilege escalation. Passing the
+// value through html/template's normal auto-escaping is not an option either:
+// the whole point of the <script type="application/json"> block is that the
+// browser must see the *unescaped* JSON, only shielded from the surrounding
+// HTML/script parsing.
+func safeScriptJSON(raw string) template.JS {
+	var buf bytes.Buffer
+	json.HTMLEscape(&buf, []byte(raw))
+	return template.JS(buf.String())
+}
 
 func (s *Server) render(w http.ResponseWriter, name string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -37,7 +64,13 @@ func (s *Server) handleRegisterPage(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "register.html", map[string]any{"Title": "Inscription"})
 }
 
+// maxFormBodyBytes caps HTML form submissions for the same reason
+// maxJSONBodyBytes caps JSON bodies: r.ParseForm reads the whole body into
+// memory with no size limit of its own.
+const maxFormBodyBytes = 1 << 20 // 1 MiB
+
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxFormBodyBytes)
 	_ = r.ParseForm()
 	token, err := s.auth.Login(r.Context(), r.FormValue("email"), r.FormValue("password"))
 	if err != nil {
@@ -49,12 +82,25 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxFormBodyBytes)
 	_ = r.ParseForm()
 	_, _, token, err := s.auth.Register(r.Context(),
 		r.FormValue("email"), r.FormValue("password"), r.FormValue("name"), r.FormValue("org_name"),
 	)
 	if err != nil {
-		s.render(w, "register.html", map[string]any{"Title": "Inscription", "Error": err.Error()})
+		// auth.Register can also surface raw DB errors (e.g. on the org/
+		// membership inserts) — never show those to the client; only the
+		// known, safe sentinel gets its own message.
+		msg := "Inscription impossible, réessayez."
+		switch {
+		case errors.Is(err, auth.ErrEmailTaken):
+			msg = "Cet email est déjà utilisé."
+		case err.Error() == "invalid registration payload":
+			msg = "Merci de renseigner un email, un nom et un mot de passe d’au moins 8 caractères."
+		default:
+			s.log.Error("register failed", "err", err)
+		}
+		s.render(w, "register.html", map[string]any{"Title": "Inscription", "Error": msg})
 		return
 	}
 	s.setSessionCookie(w, token)
@@ -73,7 +119,8 @@ func (s *Server) handleProjectsPage(w http.ResponseWriter, r *http.Request) {
 	p := principal(r)
 	list, err := s.projects.List(r.Context(), p.Org.ID)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		s.log.Error("list projects failed", "org_id", p.Org.ID, "err", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	s.render(w, "projects.html", map[string]any{
@@ -87,10 +134,12 @@ func (s *Server) handleCreateProjectForm(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxFormBodyBytes)
 	_ = r.ParseForm()
 	proj, err := s.projects.Create(r.Context(), p.Org.ID, p.User.ID, r.FormValue("name"), r.FormValue("brief"))
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		s.log.Error("create project failed", "org_id", p.Org.ID, "err", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	http.Redirect(w, r, "/projects/"+proj.ID.String(), http.StatusSeeOther)
@@ -129,7 +178,7 @@ func (s *Server) handleProjectPage(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, "project.html", map[string]any{
 		"Title": proj.Name, "User": p.User, "Org": p.Org, "Project": proj, "Revision": rev, "Role": p.Role,
-		"HasPreview": hasPreview, "PlanJSON": template.JS(planJSON), "Compliance": compliance, "Nav": "plan2d",
+		"HasPreview": hasPreview, "PlanJSON": safeScriptJSON(planJSON), "Compliance": compliance, "Nav": "plan2d",
 	})
 }
 
@@ -181,7 +230,7 @@ func (s *Server) handleEditorPage(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, "editor.html", map[string]any{
 		"Title": "Éditeur", "User": p.User, "Org": p.Org, "Project": proj,
-		"PlanJSON": template.JS(planJSON), "RevisionID": revisionID, "CanEdit": p.Role.CanEdit(),
+		"PlanJSON": safeScriptJSON(planJSON), "RevisionID": revisionID, "CanEdit": p.Role.CanEdit(),
 		"Nav": "editor",
 	})
 }

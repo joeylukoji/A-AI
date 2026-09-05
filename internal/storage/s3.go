@@ -78,6 +78,26 @@ func (c *Client) Get(ctx context.Context, key string) ([]byte, string, error) {
 	return b, ct, nil
 }
 
+// Key builds a storage object key scoped to a single project. kind and ext
+// are always literals supplied by call sites in this codebase today, never
+// raw user input — but the sanitization below keeps it that way structurally:
+// neither can contain a path separator or ".." traversal sequence, so no
+// future caller can accidentally (or maliciously, via a compromised upstream)
+// make a key escape "projects/<project-id>/".
 func (c *Client) Key(projectID uuid.UUID, kind, ext string) string {
+	kind = sanitizeKeySegment(kind)
+	ext = sanitizeKeySegment(ext)
 	return path.Join("projects", projectID.String(), fmt.Sprintf("%s-%s.%s", kind, uuid.NewString()[:8], ext))
+}
+
+// sanitizeKeySegment neutralizes path separators and traversal sequences in a
+// single key component.
+func sanitizeKeySegment(s string) string {
+	s = strings.ReplaceAll(s, `\`, "_")
+	s = strings.ReplaceAll(s, "/", "_")
+	s = strings.ReplaceAll(s, "..", "_")
+	if s == "" {
+		return "x"
+	}
+	return s
 }
