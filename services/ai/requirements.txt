@@ -1,8 +1,23 @@
-fastapi==0.115.6
+fastapi==0.128.0
+# starlette isn't a direct dependency of this service, but fastapi 0.128.0
+# alone permits the vulnerable 0.41.3 pip already had resolved (pip won't
+# upgrade an already-satisfying transitive dep on its own) — pin explicitly
+# to clear known CVEs (PYSEC-2026-1941/1942) fixed in 0.47.2/0.49.1.
+# Residual starlette CVEs only fixed in >=1.0 (PYSEC-2026-161/248/249/2280/
+# 2281) require a much newer fastapi (>=0.13x) outside this pass's scope —
+# see docs/production.md.
+starlette>=0.49.1,<0.51.0
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
 redis==5.2.1
 httpx==0.28.1
-Pillow==11.0.0
+Pillow>=12.3.0
 fpdf2==2.8.2
 boto3==1.35.76
+# app/housediff.py imports numpy unconditionally at module level. It wasn't
+# declared here — masked in ad hoc/dev environments where numpy is already
+# present globally (e.g. from the root requirements.txt used for research),
+# but `pip install -r services/ai/requirements.txt` alone (what
+# services/ai/Dockerfile and CI actually do) would fail to import it, and a
+# clean-venv test run confirmed the ModuleNotFoundError.
+numpy>=1.24.0
