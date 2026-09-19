@@ -14,6 +14,8 @@ Règles sanitaires / distribution (RSD type, décret logement décent, usage cou
 """
 from __future__ import annotations
 
+import re
+from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Any
 
@@ -353,16 +355,96 @@ def _all(items: list[dict[str, Any]], typ: str) -> list[dict[str, Any]]:
     return [it for it in items if it.get("type") == typ]
 
 
+# --- Variantes de pavage ("partis") -----------------------------------------
+# Un parti est une façon d'arranger les grandes zones d'un plan. Le gabarit
+# actuel (nuit au nord, couloir, jour au sud) est le parti « classic » ; c'est le
+# comportement par défaut et il n'est jamais désigné explicitement dans un plan.
+# Les autres partis se déclarent avec `register_parti` (module `layout_partis`).
+#
+# Le descripteur d'une variante est un petit dictionnaire JSON,
+# ``{"parti": "central-hall", "seed": 3}``. Il est écrit dans le plan
+# (`plan_document["layout"]`) pour que `plan_adapt` et la retouche re-pavent
+# avec le MÊME parti : sans cela, `adapt` refait tout depuis les types et les
+# aires et efface la topologie choisie à la génération.
+CLASSIC = "classic"
+_PARTI_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+_MAX_SEED = 2**31 - 1
+
+
+class UnknownParti(ValueError):
+    """Le descripteur nomme un parti qui n'est pas enregistré.
+
+    Sous-classe de `ValueError` : les endpoints `/v1/*` traduisent déjà cette
+    erreur en HTTP 422 (`main._run_stage`) au lieu d'un 500.
+    """
+
+
+PartiFn = Callable[
+    [list[dict[str, Any]], float, float, float, float, dict[str, Any]],
+    list[dict[str, Any]],
+]
+_PARTIS: dict[str, PartiFn] = {}
+
+
+def register_parti(name: str) -> Callable[[PartiFn], PartiFn]:
+    """Décorateur : déclare `fn(rooms, width, depth, grid, min_side, variant)` comme parti `name`."""
+    if name == CLASSIC or not _PARTI_NAME.match(name):
+        raise ValueError(f"nom de parti invalide: {name!r}")
+
+    def deco(fn: PartiFn) -> PartiFn:
+        _PARTIS[name] = fn
+        return fn
+
+    return deco
+
+
+def normalize_variant(variant: Any) -> dict[str, Any] | None:
+    """Descripteur validé, ou None pour le gabarit classique.
+
+    `None`, `{}` et `{"parti": "classic"}` désignent le comportement par défaut :
+    on renvoie None, de sorte que le plan produit n'a **pas** de champ `layout`
+    et reste identique octet pour octet à celui d'avant cette fonctionnalité.
+
+    Le descripteur vient de documents libres (`/v1/adapt`) : type, nom et graine
+    sont validés, une valeur aberrante lève `ValueError`.
+    """
+    if variant is None:
+        return None
+    if not isinstance(variant, dict):
+        raise ValueError("layout: objet attendu")
+    parti = variant.get("parti", CLASSIC)
+    if not isinstance(parti, str) or not (parti == CLASSIC or _PARTI_NAME.match(parti)):
+        raise ValueError("layout.parti: nom invalide")
+    seed = variant.get("seed", 0)
+    # bool est un sous-type de int : `True` passerait pour la graine 1.
+    if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed <= _MAX_SEED:
+        raise ValueError("layout.seed: entier entre 0 et 2^31-1 attendu")
+    if parti == CLASSIC:
+        return None
+    return {"parti": parti, "seed": seed}
+
+
 def pack_house(
     rooms: list[dict[str, Any]],
     width: float,
     depth: float,
     grid: float = GRID,
     min_side: float = MIN_SIDE,
+    variant: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Pavé orthogonal jointif : nuit au nord, couloir, jour au sud."""
+    """Pavé orthogonal jointif : nuit au nord, couloir, jour au sud.
+
+    `variant` choisit un autre parti d'aménagement (cf. `normalize_variant`) ;
+    sans lui, c'est le gabarit classique, inchangé.
+    """
     if not rooms:
         return []
+    chosen = normalize_variant(variant)
+    if chosen is not None:
+        fn = _PARTIS.get(chosen["parti"])
+        if fn is None:
+            raise UnknownParti(f"parti inconnu: {chosen['parti']!r}")
+        return fn(rooms, width, depth, grid, min_side, chosen)
     width = _snap(max(width, min_side * 2), grid)
     depth = _snap(max(depth, min_side * 2), grid)
     items: list[dict[str, Any]] = []
@@ -767,10 +849,11 @@ def optimize_rooms(
     spec: dict[str, Any] | None = None,
     grid: float = GRID,
     min_side: float = MIN_SIDE,
+    variant: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Réarrange les pièces en plan orthogonal jointif (topologie maison)."""
     _ = spec
-    return pack_house(rooms, width, depth, grid=grid, min_side=min_side)
+    return pack_house(rooms, width, depth, grid=grid, min_side=min_side, variant=variant)
 
 
 def _on_facade(poly: list[dict[str, float]], width: float, depth: float, tol: float = 0.15) -> bool:

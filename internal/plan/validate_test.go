@@ -36,3 +36,26 @@ func TestValidateRejectsUnknownWall(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+// Le service IA écrit `layout` (le parti d'aménagement choisi) dans le plan pour
+// que l'adaptation et la retouche re-pavent avec le même parti. L'éditeur
+// renvoie le plan entier à l'enregistrement : si Validate refusait les clés
+// inconnues, tout plan à variante deviendrait impossible à sauvegarder.
+func TestValidateToleratesTheLayoutDescriptor(t *testing.T) {
+	raw := []byte(`{
+	  "version":"1.0","units":"m",
+	  "floor":{"level":0,"height_m":2.7,"bounds":{"width":10,"depth":8}},
+	  "walls":[
+	    {"id":"w1","a":{"x":0,"y":0},"b":{"x":10,"y":0},"thickness_m":0.2},
+	    {"id":"w2","a":{"x":10,"y":0},"b":{"x":10,"y":8},"thickness_m":0.2},
+	    {"id":"w3","a":{"x":10,"y":8},"b":{"x":0,"y":8},"thickness_m":0.2},
+	    {"id":"w4","a":{"x":0,"y":8},"b":{"x":0,"y":0},"thickness_m":0.2}
+	  ],
+	  "rooms":[{"id":"r1","type":"living","polygon":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4}]}],
+	  "openings":[],
+	  "layout":{"parti":"central-hall","seed":3}
+	}`)
+	if err := Validate(raw); err != nil {
+		t.Fatalf("un plan avec un descripteur de variante doit rester valide : %v", err)
+	}
+}

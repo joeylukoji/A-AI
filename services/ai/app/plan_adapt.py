@@ -6,7 +6,7 @@ from typing import Any
 from . import compliance
 from .diffusion import default_openings, perimeter_and_internal_walls
 from .furnish import furnish
-from .layout_opt import optimize_rooms
+from .layout_opt import normalize_variant, optimize_rooms
 
 DEFAULT_RULES: dict[str, Any] = {
     "height_m": 2.70,
@@ -151,7 +151,15 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
         work.append(item)
         spec_rooms.append({"type": typ, "area_m2": area, "count": 1})
 
-    packed = optimize_rooms(work, house_w, house_d, {"rooms": spec_rooms}, grid=grid, min_side=min_side)
+    # `optimize_rooms` re-pave tout depuis les types et les aires : il ignore les
+    # polygones du plan reçu. Sans le descripteur de variante, l'adaptation
+    # effacerait donc le parti choisi à la génération. Il est relu ici, validé
+    # (le document vient d'un appelant libre), et réécrit dans le plan produit.
+    variant = normalize_variant(plan.get("layout"))
+    packed = optimize_rooms(
+        work, house_w, house_d, {"rooms": spec_rooms},
+        grid=grid, min_side=min_side, variant=variant,
+    )
     walls = perimeter_and_internal_walls(packed, house_w, house_d)
     openings = default_openings(walls, house_w, house_d, packed)
     openings = apply_opening_rules(openings, rules, house_w, house_d)
@@ -179,6 +187,10 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
         # utilisent exactement les mêmes instances catalog_id/position/rotation.
         "furniture": furnish(packed),
     }
+    if variant is not None:
+        # Absent pour le gabarit classique : le plan reste identique à celui
+        # d'avant cette fonctionnalité.
+        doc["layout"] = variant
     dimensions = [_dimension_row(r) for r in doc["rooms"]]
     return {
         "plan_document": doc,

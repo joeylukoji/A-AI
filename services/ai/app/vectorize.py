@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .furnish import furnish
+from .layout_opt import normalize_variant
 
 
 def _obj(value: Any) -> dict[str, Any]:
@@ -59,4 +60,9 @@ def vectorize(payload: dict[str, Any]) -> dict[str, Any]:
         "openings": openings,
         "furniture": furnish(rooms),
     }
+    # Le parti choisi à l'implantation voyage avec le plan, pour que l'adaptation
+    # et la retouche re-pavent avec le même (cf. `plan_adapt.adapt`).
+    variant = normalize_variant(layout.get("variant"))
+    if variant is not None:
+        plan["layout"] = variant
     return {"plan_document": plan}

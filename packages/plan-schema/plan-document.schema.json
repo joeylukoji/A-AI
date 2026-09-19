@@ -79,6 +79,16 @@
       "default": [],
       "description": "Instances du catalogue 3D (chaises, lits, tables…). Blender les pose sans modèle génératif.",
       "items": { "$ref": "#/$defs/furniture_instance" }
+    },
+    "layout": {
+      "type": "object",
+      "description": "Parti d'aménagement choisi à la génération. Absent pour le gabarit classique. L'adaptation et la retouche re-pavent avec le même parti.",
+      "required": ["parti"],
+      "additionalProperties": false,
+      "properties": {
+        "parti": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$" },
+        "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647, "default": 0 }
+      }
     }
   },
   "$defs": {
