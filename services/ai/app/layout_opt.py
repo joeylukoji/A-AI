@@ -19,14 +19,24 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Any
 
+from .layout_rules import (
+    HABITABLE_TYPES,
+    RULES,
+    WET_TYPES,
+    ForbiddenPair,
+    NeedsHall,
+    forbidden_pairs,
+    types_needing_hall,
+)
 
 GRID = 0.5
 MIN_SIDE = 2.0
 _EPS = 1e-6
-HABITABLE = {"living", "bedroom", "dining", "office"}
-WET = {"bathroom", "wc", "laundry", "storage"}
+# Dérivés de `layout_rules` : les règles sont déclarées une fois, là-bas.
+HABITABLE = set(HABITABLE_TYPES)
+WET = set(WET_TYPES)
 # Types dont `sanitary_violations` exige un bord partagé avec le couloir.
-_NEEDS_CIRCULATION = {"bedroom", "wc"}
+_NEEDS_CIRCULATION = types_needing_hall()
 # Autorise le découpage d'une bande en plusieurs colonnes. `pack_house` le
 # coupe le temps d'un second essai quand le premier introduit un écart
 # sanitaire : `_band_score` ne voit que sa propre bande, pas les adjacences
@@ -35,13 +45,8 @@ _NEEDS_CIRCULATION = {"bedroom", "wc"}
 # course.
 _ALLOW_COLUMNS: ContextVar[bool] = ContextVar("layout_allow_columns", default=True)
 
-# Paires dont `sanitary_violations` interdit le mur commun, déclarées une fois.
-_FORBIDDEN_ADJACENCY = (
-    ({"wc"}, {"kitchen", "dining"}),
-    ({"bathroom"}, {"kitchen", "dining"}),
-    ({"bedroom"}, {"living"}),
-    ({"wc"}, {"bedroom"}),
-)
+# Paires dont `sanitary_violations` interdit le mur commun.
+_FORBIDDEN_ADJACENCY = forbidden_pairs()
 
 
 def _snap(v: float, grid: float = GRID) -> float:
@@ -909,40 +914,27 @@ def share_edge(a: dict[str, Any], b: dict[str, Any], *, tol: float = 0.15, min_s
 
 
 def sanitary_violations(rooms: list[dict[str, Any]]) -> list[str]:
-    """Écarts de distribution (cuisine/WC, chambres/séjour, accès couloir)."""
+    """Écarts de distribution (cuisine/WC, chambres/séjour, accès couloir).
+
+    Interprète `layout_rules.RULES`, dans l'ordre de la déclaration : l'ordre et
+    le comptage des écarts sont ceux du contrôleur d'origine, dont
+    `tests/test_layout_rules.py` conserve une copie comme oracle.
+    """
     issues: list[str] = []
-    beds = [r for r in rooms if r.get("type") == "bedroom"]
     halls = [r for r in rooms if r.get("type") == "hallway"]
-    kitchens = [r for r in rooms if r.get("type") in {"kitchen", "dining"}]
-    baths = [r for r in rooms if r.get("type") == "bathroom"]
-    wcs = [r for r in rooms if r.get("type") == "wc"]
-    livings = [r for r in rooms if r.get("type") == "living"]
-    for wet in wcs:
-        for food in kitchens:
-            if share_edge(wet, food):
-                issues.append("wc_kitchen")
-                break
-    for bath in baths:
-        for food in kitchens:
-            if share_edge(bath, food):
-                issues.append("kitchen_bath")
-                break
-    for bed in beds:
-        for living in livings:
-            if share_edge(bed, living):
-                issues.append("bedroom_living")
-                break
-    if halls:
-        for bed in beds:
-            if not any(share_edge(bed, hall) for hall in halls):
-                issues.append("bedroom_hall")
-                break
-        for wet in wcs:
-            if not any(share_edge(wet, hall) for hall in halls):
-                issues.append("wc_hall")
-                break
-    for wet in wcs:
-        if any(share_edge(wet, bed) for bed in beds):
-            issues.append("wc_bedroom")
-            break
+    for rule in RULES:
+        if isinstance(rule, ForbiddenPair):
+            rights = [r for r in rooms if r.get("type") in rule.right]
+            for left in (r for r in rooms if r.get("type") in rule.left):
+                if any(share_edge(left, right) for right in rights):
+                    issues.append(rule.name)
+                    if not rule.per_room:
+                        break
+        elif isinstance(rule, NeedsHall):
+            if not halls:
+                continue
+            for room in (r for r in rooms if r.get("type") in rule.types):
+                if not any(share_edge(room, hall) for hall in halls):
+                    issues.append(rule.name)
+                    break
     return issues
