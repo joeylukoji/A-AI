@@ -8,11 +8,13 @@ Convention du dessin (origine en haut à gauche, y vers le sud) :
 
 Règles sanitaires / distribution (RSD type, décret logement décent, usage courant) :
   - le WC ne partage pas de mur avec cuisine ni salle à manger ;
+  - la salle de bain ne partage pas de mur avec cuisine ni salle à manger ;
   - les chambres ne donnent pas sur le séjour : un couloir les sépare ;
   - chaque chambre et chaque WC s'ouvrent sur la circulation, pas l'un dans l'autre.
 """
 from __future__ import annotations
 
+from contextvars import ContextVar
 from typing import Any
 
 
@@ -21,6 +23,23 @@ MIN_SIDE = 2.0
 _EPS = 1e-6
 HABITABLE = {"living", "bedroom", "dining", "office"}
 WET = {"bathroom", "wc", "laundry", "storage"}
+# Types dont `sanitary_violations` exige un bord partagé avec le couloir.
+_NEEDS_CIRCULATION = {"bedroom", "wc"}
+# Autorise le découpage d'une bande en plusieurs colonnes. `pack_house` le
+# coupe le temps d'un second essai quand le premier introduit un écart
+# sanitaire : `_band_score` ne voit que sa propre bande, pas les adjacences
+# entre bandes voisines. `ContextVar` et non une globale : le service sert des
+# requêtes concurrentes (fil de travail + handlers), une globale serait une
+# course.
+_ALLOW_COLUMNS: ContextVar[bool] = ContextVar("layout_allow_columns", default=True)
+
+# Paires dont `sanitary_violations` interdit le mur commun, déclarées une fois.
+_FORBIDDEN_ADJACENCY = (
+    ({"wc"}, {"kitchen", "dining"}),
+    ({"bathroom"}, {"kitchen", "dining"}),
+    ({"bedroom"}, {"living"}),
+    ({"wc"}, {"bedroom"}),
+)
 
 
 def _snap(v: float, grid: float = GRID) -> float:
@@ -200,6 +219,132 @@ def _row(
     ]
 
 
+def _split_consecutive(items: list[dict[str, Any]], k: int) -> list[list[dict[str, Any]]]:
+    """`k` groupes consécutifs, équilibrés en aire, dans l'ordre reçu.
+
+    L'ordre porte la sémantique de zonage (`_day_sequence`, `_night_private`,
+    `_food_off_east`) : on ne regroupe donc que des voisins, jamais en
+    réordonnant.
+    """
+    n = len(items)
+    k = max(1, min(k, n))
+    if k == 1:
+        return [list(items)]
+    weights = _weights(items)
+    total = sum(weights) or float(n)
+    groups: list[list[dict[str, Any]]] = [[]]
+    cum = 0.0
+    for i, item in enumerate(items):
+        groups[-1].append(item)
+        cum += weights[i]
+        need_open = k - len(groups)
+        remaining = n - i - 1
+        # On ferme le groupe quand sa part d'aire est servie, ou quand il faut
+        # réserver une pièce à chacun des groupes encore à ouvrir.
+        if need_open > 0 and (remaining <= need_open or cum >= total * len(groups) / k - _EPS):
+            groups.append([])
+    return [g for g in groups if g]
+
+
+def _forbidden_count(rooms: list[dict[str, Any]]) -> int:
+    """Nombre d'adjacences interdites réalisées dans un lot de pièces.
+
+    Mêmes paires que `sanitary_violations`, déclarées une fois dans
+    `_FORBIDDEN_ADJACENCY`. En une seule rangée, `_food_off_east` suffisait à
+    les éviter ; dès qu'une bande peut passer en colonnes, il faut les compter.
+    """
+    total = 0
+    for left, right in _FORBIDDEN_ADJACENCY:
+        a = [r for r in rooms if str(r.get("type") or "") in left]
+        b = [r for r in rooms if str(r.get("type") or "") in right]
+        for ra in a:
+            for rb in b:
+                if ra is not rb and share_edge(ra, rb):
+                    total += 1
+    return total
+
+
+def _band_score(rooms: list[dict[str, Any]], default_min: float) -> tuple[int, int, float]:
+    """(adjacences interdites, pièces sous le côté minimal, pire allongement).
+
+    Ordre lexicographique : une règle sanitaire ne se négocie pas, un côté
+    minimal est un plancher d'habitabilité, l'allongement n'est qu'une
+    préférence de proportion.
+    """
+    violations = 0
+    worst = 1.0
+    for room in rooms:
+        box = _room_bbox(room)
+        if box is None:
+            continue
+        x0, y0, x1, y1 = box
+        short, long = min(x1 - x0, y1 - y0), max(x1 - x0, y1 - y0)
+        if short + _EPS < _min_side(str(room.get("type") or ""), default_min):
+            violations += 1
+        if short > _EPS:
+            worst = max(worst, long / short)
+    return _forbidden_count(rooms), violations, worst
+
+
+def _pack_band(
+    items: list[dict[str, Any]],
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+    grid: float,
+    default_min: float,
+) -> list[dict[str, Any]]:
+    """Pave une bande en colonnes empilées, le nombre de colonnes étant choisi.
+
+    `_row` ne découpait la bande que dans la largeur : quatre chambres
+    donnaient quatre colonnes en peigne, et sur une bande étroite plus aucun
+    côté minimal ne tenait — 920 des 925 violations mesurées portaient sur la
+    largeur. On essaie donc toutes les répartitions en `k` colonnes, chacune
+    empilée par `_stack`, et on garde la meilleure.
+
+    `k = len(items)` reproduit exactement l'ancien comportement de `_row` :
+    cette disposition est toujours dans les candidats, donc la recherche ne
+    peut pas faire moins bien qu'avant.
+    """
+    if not items:
+        return []
+    if len(items) == 1:
+        return [_place(items[0], x0, y0, x1, y1, grid)]
+
+    # Les chambres et les WC doivent s'ouvrir sur la circulation, qui borde la
+    # bande — une seule rangée touche ce bord. Empiler mettrait les pièces du
+    # fond hors d'atteinte du couloir (`bedroom_hall`, `wc_hall`). Les mettre
+    # en deux rangées demanderait de faire passer le couloir entre elles, donc
+    # de changer la topologie : c'est le travail de dualisation, pas celui-ci.
+    if not _ALLOW_COLUMNS.get():
+        return _row(items, x0, y0, x1, y1, grid, default_min)
+    if any(str(it.get("type") or "") in _NEEDS_CIRCULATION for it in items):
+        return _row(items, x0, y0, x1, y1, grid, default_min)
+
+    best: list[dict[str, Any]] | None = None
+    best_score: tuple[int, int, float] | None = None
+    for k in range(1, len(items) + 1):
+        groups = _split_consecutive(items, k)
+        if len(groups) != k:
+            continue  # k inatteignable sans groupe vide
+        weights = [sum(_weights(g)) for g in groups]
+        mins = [
+            max(_min_side(str(it.get("type") or ""), default_min) for it in g)
+            for g in groups
+        ]
+        pos = _splits(x1 - x0, weights, mins, grid)
+        out: list[dict[str, Any]] = []
+        for j, group in enumerate(groups):
+            out.extend(
+                _stack(group, x0 + pos[j], y0, x0 + pos[j + 1], y1, grid, default_min)
+            )
+        score = _band_score(out, default_min)
+        if best_score is None or score < best_score:
+            best_score, best = score, out
+    return best if best is not None else _row(items, x0, y0, x1, y1, grid, default_min)
+
+
 def _first(items: list[dict[str, Any]], typ: str) -> dict[str, Any] | None:
     return next((it for it in items if it.get("type") == typ), None)
 
@@ -258,11 +403,24 @@ def pack_house(
     ensuite = baths[-1] if len(baths) >= 2 and beds else None
     day_baths = baths[:-1] if ensuite else baths
     hallways = _ensure_hallway(hallways, beds, living, kitchen, wcs, dinings)
-    packed = _pack_zoned(
+    args = (
         beds, day_baths, ensuite, wcs, laundries, storages, offices, dinings,
         hallways, leftovers, living, kitchen, garage,
         width, depth, grid, min_side,
     )
+    packed = _pack_zoned(*args)
+    issues = sanitary_violations(packed)
+    if issues:
+        # Le découpage en colonnes a pu créer une adjacence interdite entre
+        # deux bandes. On réessaie en une seule rangée par bande — l'ancien
+        # comportement — et on garde le meilleur des deux.
+        token = _ALLOW_COLUMNS.set(False)
+        try:
+            single = _pack_zoned(*args)
+        finally:
+            _ALLOW_COLUMNS.reset(token)
+        if len(sanitary_violations(single)) < len(issues):
+            packed = single
     return _clip_footprint(packed, width, depth)
 
 
@@ -397,7 +555,7 @@ def _pack_zoned(
         hall_x1 = inner_w - wet_w if wet_w else inner_w
         night_priv = _night_private(beds, offices, ensuite) + list(day_baths)
         if night_priv:
-            out.extend(_row(night_priv, 0.0, 0.0, hall_x1, night_d, grid, min_side))
+            out.extend(_pack_band(night_priv, 0.0, 0.0, hall_x1, night_d, grid, min_side))
         if ensuite:
             for room in out:
                 if room.get("id") == ensuite.get("id"):
@@ -409,13 +567,21 @@ def _pack_zoned(
             out.append(_place(stub, hall_x1, 0.0, inner_w, night_d, grid))
         y_hall = night_d
         if hallways and hall_d > 0:
-            out.extend(_row(hallways, 0.0, y_hall, hall_x1, y_hall + hall_d, grid, 1.1))
+            out.extend(_pack_band(hallways, 0.0, y_hall, hall_x1, y_hall + hall_d, grid, 1.1))
             if guest and wet_w:
-                out.extend(_row(guest, hall_x1, y_hall, inner_w, y_hall + hall_d, grid, 1.4))
+                out.extend(_pack_band(guest, hall_x1, y_hall, inner_w, y_hall + hall_d, grid, 1.4))
         y_day = y_hall + hall_d
         if day_seq and depth - y_day > _EPS:
             day_seq = _food_off_east(day_seq, guest if wet_w else [])
-            out.extend(_row(day_seq, 0.0, y_day, inner_w, depth, grid, min_side))
+            # Ne pas allonger la rangée jour sous la bande WC : sinon cuisine
+            # ou séjour collent le sud des toilettes (mur commun interdit).
+            day_x1 = hall_x1 if (wet_w and guest) else inner_w
+            out.extend(_pack_band(day_seq, 0.0, y_day, day_x1, depth, grid, min_side))
+            if wet_w and guest and hallways and day_x1 < inner_w - _EPS:
+                stub = dict(hallways[0])
+                stub["id"] = str(stub.get("id") or "r_hall") + "_s"
+                stub["name"] = stub.get("name") or "Couloir"
+                out.append(_place(stub, day_x1, y_day, inner_w, depth, grid))
         elif not night_priv:
             filler = leftovers or day_baths
             if filler:
@@ -425,23 +591,23 @@ def _pack_zoned(
         main.extend(day_baths)
         main.extend(offices)
         if main and hallways and hall_d > 0:
-            out.extend(_row(_food_off_east(main, guest),
+            out.extend(_pack_band(_food_off_east(main, guest),
                             0.0, 0.0, inner_w, depth - hall_d, grid, min_side))
             if guest:
                 wet_w = _snap(max(1.6, min(inner_w * 0.28, sum(_weights(guest)) / max(hall_d, 1.4))), grid)
                 wet_w = min(max(wet_w, grid), max(grid, inner_w - grid))
                 hall_x1 = inner_w - wet_w
-                out.extend(_row(hallways, 0.0, depth - hall_d, hall_x1, depth, grid, 1.1))
-                out.extend(_row(guest, hall_x1, depth - hall_d, inner_w, depth, grid, 1.4))
+                out.extend(_pack_band(hallways, 0.0, depth - hall_d, hall_x1, depth, grid, 1.1))
+                out.extend(_pack_band(guest, hall_x1, depth - hall_d, inner_w, depth, grid, 1.4))
             else:
-                out.extend(_row(hallways, 0.0, depth - hall_d, inner_w, depth, grid, 1.1))
+                out.extend(_pack_band(hallways, 0.0, depth - hall_d, inner_w, depth, grid, 1.1))
         else:
             # Sans cette branche, un plan sans zone nuit perdait ses couloirs
             # (et ses pièces de service) dès que la bande couloir n'était pas
             # calculée : ils n'étaient rattachés à aucune rangée.
             rest = main + list(hallways) + list(guest)
             if rest:
-                out.extend(_row(rest, 0.0, 0.0, inner_w, depth, grid, min_side))
+                out.extend(_pack_band(rest, 0.0, 0.0, inner_w, depth, grid, min_side))
 
     if garage:
         out.append(_place(garage, inner_w, 0.0, width, depth, grid))
@@ -575,6 +741,8 @@ def _fill_gaps(
     box = _room_bbox(target)
     if box is None:
         return rooms
+    prev_poly = list(target.get("polygon") or [])
+    prev_area = target.get("area_m2")
     x0, y0, x1, y1 = box
     x0 -= _floor_grid(x0 - _free_edge(rooms, target, (x0, y0, x1, y1), "x", "lo", width, depth), grid)
     x1 += _floor_grid(_free_edge(rooms, target, (x0, y0, x1, y1), "x", "hi", width, depth) - x1, grid)
@@ -586,6 +754,9 @@ def _fill_gaps(
         return rooms
     target["polygon"] = _box(round(x0, 2), round(y0, 2), round(x1, 2), round(y1, 2))
     target["area_m2"] = round((x1 - x0) * (y1 - y0), 2)
+    if sanitary_violations(rooms):
+        target["polygon"] = prev_poly
+        target["area_m2"] = prev_area
     return rooms
 
 
@@ -660,12 +831,18 @@ def sanitary_violations(rooms: list[dict[str, Any]]) -> list[str]:
     beds = [r for r in rooms if r.get("type") == "bedroom"]
     halls = [r for r in rooms if r.get("type") == "hallway"]
     kitchens = [r for r in rooms if r.get("type") in {"kitchen", "dining"}]
+    baths = [r for r in rooms if r.get("type") == "bathroom"]
     wcs = [r for r in rooms if r.get("type") == "wc"]
     livings = [r for r in rooms if r.get("type") == "living"]
     for wet in wcs:
         for food in kitchens:
             if share_edge(wet, food):
                 issues.append("wc_kitchen")
+                break
+    for bath in baths:
+        for food in kitchens:
+            if share_edge(bath, food):
+                issues.append("kitchen_bath")
                 break
     for bed in beds:
         for living in livings:
