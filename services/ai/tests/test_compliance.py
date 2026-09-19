@@ -38,7 +38,7 @@ def test_empty_plan_is_low():
     out = evaluate({})
     assert out["score"] < 50
     assert out["grade"] in {"D", "E"}
-    assert out["total"] == 19
+    assert out["total"] == 20
     by_key = {c["key"]: c for c in out["checks"]}
     assert by_key["living"]["ok"] is False
     assert by_key["window"]["ok"] is False
@@ -104,6 +104,6 @@ def test_pipeline_returns_compliance():
     body = res.json()
     assert "compliance" in body
     assert 0 <= body["compliance"]["score"] <= 100
-    assert body["compliance"]["total"] == 19
+    assert body["compliance"]["total"] == 20
     assert "plan_document" in body
     assert "compliance" not in body["plan_document"]

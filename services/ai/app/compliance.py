@@ -209,6 +209,13 @@ def evaluate(plan: dict[str, Any]) -> dict[str, Any]:
         "ok" if "wc_kitchen" not in issues else "mur commun interdit (RSD / logement décent)",
     ))
     checks.append(check(
+        "kitchen_bath",
+        "Salle de bain séparée de la cuisine / salle à manger",
+        "kitchen_bath" not in issues,
+        8,
+        "ok" if "kitchen_bath" not in issues else "mur commun interdit (pièces humides / cuisine)",
+    ))
+    checks.append(check(
         "bedroom_living",
         "Chambres séparées du séjour par un couloir",
         "bedroom_living" not in issues,
@@ -217,7 +224,12 @@ def evaluate(plan: dict[str, Any]) -> dict[str, Any]:
     ))
     need_hall = bool(beds)
     hall_ok = (not need_hall) or (bool(halls) and "bedroom_hall" not in issues and "wc_hall" not in issues)
-    guest_ok = "wc_hall" not in issues and "wc_bedroom" not in issues and "wc_kitchen" not in issues
+    guest_ok = (
+        "wc_hall" not in issues
+        and "wc_bedroom" not in issues
+        and "wc_kitchen" not in issues
+        and "kitchen_bath" not in issues
+    )
     checks.append(check(
         "bedroom_hall",
         "Chambres et WC desservis par le couloir",
