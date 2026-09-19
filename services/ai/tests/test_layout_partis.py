@@ -540,6 +540,37 @@ def test_a_room_the_doors_do_not_link_to_the_entrance_is_inaccessible():
     assert lp.door_issues(plan, 10, 10) == {"exterieure:l", "inaccessible:l"}
 
 
+def test_a_bedroom_reached_only_through_another_bedroom_is_reported():
+    plan = [_r("h", "hallway", 0, 6, 4, 10), _r("b1", "bedroom", 0, 0, 4, 6),
+            _r("b2", "bedroom", 4, 0, 10, 6), _r("l", "living", 4, 6, 10, 10)]
+    assert lp.door_issues(plan, 10, 10) == {"traversee:b2"}
+
+
+def test_a_bedroom_reached_only_through_the_kitchen_is_reported():
+    plan = [_r("h", "hallway", 0, 6, 4, 10), _r("k", "kitchen", 0, 0, 4, 6),
+            _r("b", "bedroom", 4, 0, 10, 6), _r("l", "living", 4, 6, 10, 10)]
+    assert lp.door_issues(plan, 10, 10) == {"traversee:b"}
+
+
+def test_only_bedrooms_are_reported_as_traversed():
+    plan = [_r("h", "hallway", 0, 6, 4, 10), _r("k", "kitchen", 0, 0, 4, 6),
+            _r("st", "storage", 4, 0, 10, 6), _r("l", "living", 4, 6, 10, 10)]
+    assert not any(i.startswith("traversee") for i in lp.door_issues(plan, 10, 10))
+
+
+def test_a_bathroom_reached_through_its_bedroom_is_a_suite_not_a_traversal():
+    plan = [_r("h", "hallway", 0, 6, 4, 10), _r("b", "bedroom", 0, 0, 4, 6), _r("s", "bathroom", 4, 0, 10, 6)]
+    assert not any(i.startswith("traversee") for i in lp.door_issues(plan, 10, 10))
+
+
+def test_a_traversed_bedroom_is_refused_even_when_the_classic_has_the_same_defect():
+    plan = [_r("h", "hallway", 0, 6, 4, 10), _r("b1", "bedroom", 0, 0, 4, 6),
+            _r("b2", "bedroom", 4, 0, 10, 6), _r("l", "living", 4, 6, 10, 10)]
+    failures = lp.compliance_failures(plan, 10, 10)
+    shared = lp.Baseline(failures=failures, doors=lp.door_issues(plan, 10, 10))
+    assert not lp.exact_ok(plan, 10, 10, shared)
+
+
 def test_an_inner_garage_is_reported_as_having_no_door():
     ring = [_r("g", "garage", 3, 3, 7, 7), _r("a", "hallway", 0, 0, 10, 3), _r("b", "living", 0, 7, 10, 10),
             _r("c", "storage", 0, 3, 3, 7), _r("e", "storage", 7, 3, 10, 7)]

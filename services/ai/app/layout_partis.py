@@ -440,6 +440,11 @@ def compliance_regressions(
     return compliance_failures(rooms, width, depth) - baseline
 
 
+# Pièces qu'on peut traverser pour en atteindre une autre ; les chambres ne donnent que sur une salle d'eau.
+_TRANSIT = {"hallway", "living", "dining"}
+_ENSUITE = {"bathroom", "wc"}
+
+
 def door_issues(rooms: list[Room], width: float, depth: float) -> set[str]:
     """Défauts de circulation du plan une fois murs et portes générés.
 
@@ -448,6 +453,8 @@ def door_issues(rooms: list[Room], width: float, depth: float) -> set[str]:
       porte autorisée vers ses voisines : la pièce n'est alors accessible que par
       le jardin ;
     * ``inaccessible:<id>`` — une pièce que les portes ne relient pas à l'entrée ;
+    * ``traversee:<id>`` — une pièce qu'on n'atteint qu'en traversant une chambre, une
+      cuisine ou une autre pièce privée (hors salle d'eau attenante à une chambre) ;
     * ``garage_sans_porte:<id>`` — un garage sans porte extérieure : `default_openings`
       n'en ouvre une que sur une façade assez longue et qui évite l'entrée.
 
@@ -491,6 +498,23 @@ def door_issues(rooms: list[Room], width: float, depth: float) -> set[str]:
                 reached.add(nxt)
                 frontier.append(nxt)
     issues |= {f"inaccessible:{r.get('id')}" for r in rooms if id(r) not in reached}
+    # Traversée : on ne traverse que les pièces de circulation ; une chambre ne mène qu'à sa
+    # salle d'eau (suite). Une pièce atteignable seulement à travers une autre pièce privée
+    # est une pièce qu'on ne peut atteindre qu'en passant par une chambre, une cuisine, etc.
+    # On ne signale que les chambres : ailleurs (couloir atteint par un rangement) c'est bénin.
+    kind = {id(r): r["type"] for r in rooms}
+    open_seen = {id(r) for r in entrance}
+    frontier = list(open_seen)
+    while frontier:
+        cur = frontier.pop()
+        for nxt in links.get(cur, ()):
+            if nxt in open_seen:
+                continue
+            if kind[cur] in _TRANSIT or (kind[cur] == "bedroom" and kind[nxt] in _ENSUITE):
+                open_seen.add(nxt)
+                frontier.append(nxt)
+    issues |= {f"traversee:{r.get('id')}" for r in rooms
+               if r["type"] == "bedroom" and id(r) in reached and id(r) not in open_seen}
     issues |= {f"garage_sans_porte:{r.get('id')}" for r in rooms
                if r["type"] == "garage" and id(r) not in garage_served}
     return issues
@@ -514,5 +538,9 @@ def classic_baseline(rooms: list[Room], width: float, depth: float, *,
 
 def exact_ok(layout: list[Room], width: float, depth: float, baseline: Baseline) -> bool:
     """Second temps du contrôle exact : ni régression de conformité, ni défaut de circulation nouveau."""
-    return (not compliance_regressions(layout, width, depth, baseline.failures)
-            and not door_issues(layout, width, depth) - baseline.doors)
+    if compliance_regressions(layout, width, depth, baseline.failures):
+        return False
+    issues = door_issues(layout, width, depth)
+    # Une chambre à traverser n'est jamais admise, même si le classique l'a : c'est le défaut
+    # qu'un parti doit corriger, pas hériter. Sans parti propre, `adapt` retombe sur le classique.
+    return not issues - baseline.doors and not any(i.startswith("traversee:") for i in issues)

@@ -66,7 +66,7 @@ def _heuristic_parse(brief: str, constraints: dict[str, Any]) -> dict[str, Any]:
     if bedroom_count:
         add("bedroom", 12, count=bedroom_count, adjacent_to=["r1"])
     add("bathroom", 5 if is_studio else 6)
-    if bedroom_count >= 3 or re.search(r"(deux|2)\s+salles?\s+de\s+bain", text):
+    if re.search(r"(deux|2)\s+salles?\s+de\s+bain", text):
         add("bathroom", 5)
     if bedroom_count >= 1:
         add("hallway", 8, adjacent_to=["r1"])
