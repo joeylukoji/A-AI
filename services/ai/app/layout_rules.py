@@ -67,17 +67,20 @@ HABITABLE_TYPES: frozenset[str] = frozenset({"living", "bedroom", "dining", "off
 WET_TYPES: frozenset[str] = frozenset({"bathroom", "wc", "laundry", "storage"})
 
 
-# --- Conventions de façade du dessin -----------------------------------------
-# `diffusion.default_openings` pose l'entrée et la porte de garage à des endroits
-# FIXES, qu'aucun plan ne peut ignorer sans que la porte ouvre sur la mauvaise
-# pièce : l'entrée sur le mur sud, la porte de garage sur le mur est. Un plan qui
-# met des chambres au sud aurait son porche devant elles ; un garage à l'ouest
-# aurait sa porte de garage devant le séjour.
+# --- Convention de façade du dessin ------------------------------------------
+# `diffusion.default_openings` pose l'entrée sur le mur SUD, sans connaître le plan :
+# un plan qui met des chambres au sud aurait son porche devant elles. Les plans
+# retournés nord-sud sont des symétries de plans qui la respectent : mesurée, cette
+# convention ne coûte que 5 % des arrangements distincts, et la généraliser
+# toucherait le porche, le jardin et la 3D. On la garde, et les partis s'y conforment.
 #
-# On les déclare ici plutôt que de généraliser `default_openings` : les partis
-# s'y conforment. Des tests comparent ces déclarations au comportement réel de
-# `default_openings` et échoueront le jour où il sera généralisé, signe qu'il
-# faut alors assouplir ces règles.
+# La porte de garage était l'autre convention (toujours au mur est) ; elle coûtait
+# 32 % des arrangements distincts, concentrés sur les programmes à garage.
+# `diffusion._garage_door` l'ouvre désormais sur le mur extérieur où le garage se
+# trouve : il suffit au garage d'avoir une façade assez longue.
+#
+# Des tests comparent ces déclarations au comportement réel de `default_openings`
+# et échoueront le jour où il changera, signe qu'il faut alors les ajuster.
 
 # Pièces devant lesquelles l'entrée peut s'ouvrir. Tête de `diffusion._ENTRANCE_ORDER`
 # (couloir, séjour, salle à manger) : cuisine, bureau et garage y figurent aussi
@@ -86,18 +89,9 @@ ENTRANCE_TYPES: tuple[str, ...] = ("hallway", "living", "dining")
 # Longueur minimale de mur sud devant une de ces pièces (`_entrance_offset`).
 MIN_ENTRANCE_SPAN = 1.1
 
-
-def garage_door_span(depth: float) -> tuple[float, float]:
-    """Intervalle des ordonnées de la porte de garage sur le mur est.
-
-    Même formule que `diffusion.default_openings`, qui ne pose cette porte que
-    si le mur est fait au moins 2,4 m ; en dessous, aucune porte n'est posée et
-    l'intervalle est vide.
-    """
-    if depth < 2.4:
-        return (0.0, 0.0)
-    offset = max(0.4, min(depth - 2.6, depth * 0.55))
-    return (offset, offset + min(2.4, depth * 0.45))
+# Porte de garage : 2,4 m, avec 0,2 m de part et d'autre dans la façade du garage.
+GARAGE_DOOR_WIDTH = 2.4
+MIN_GARAGE_CONTACT = GARAGE_DOOR_WIDTH + 0.4
 
 
 def forbidden_pairs() -> tuple[tuple[frozenset[str], frozenset[str]], ...]:

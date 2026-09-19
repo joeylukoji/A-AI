@@ -2464,7 +2464,10 @@ def default_openings(
     depth: float,
     rooms: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Porte d'entrée sud + porte de garage est + fenêtres façades + portes internes autorisées."""
+    """Porte d'entrée sud + porte de garage + fenêtres façades + portes internes autorisées.
+
+    La porte de garage s'ouvre sur le mur extérieur où le garage se trouve (`_garage_door`).
+    """
     openings: list[dict[str, Any]] = []
     oid = 1
     internals = [w for w in walls if not str(w.get("id", "")).startswith("w_outer")]
@@ -2489,15 +2492,20 @@ def default_openings(
             "width_m": 0.9,
         })
         oid += 1
-    if east and has_garage:
-        wl = _wall_len(east)
-        if wl >= 2.4:
+    if has_garage:
+        entrance = next((o for o in openings if south and o.get("wall_id") == south["id"]), None)
+        garage_door = _garage_door(
+            (east, west, north, south), room_list,
+            (float(entrance["offset_m"]), float(entrance["width_m"])) if entrance else None,
+        )
+        if garage_door:
+            wall, offset, width_m = garage_door
             openings.append({
                 "id": f"o{oid}",
-                "wall_id": east["id"],
+                "wall_id": wall["id"],
                 "type": "door",
-                "offset_m": max(0.4, min(wl - 2.6, wl * 0.55)),
-                "width_m": min(2.4, wl * 0.45),
+                "offset_m": offset,
+                "width_m": width_m,
             })
             oid += 1
     for wall in (north, west):
@@ -2728,6 +2736,53 @@ def _last_resort_wall(
 
 # Pièces qui peuvent recevoir la porte d'entrée, de la meilleure à la pire.
 _ENTRANCE_ORDER = ("hallway", "living", "dining", "kitchen", "office", "garage")
+
+# Porte de garage : 2,4 m, avec 0,2 m de part et d'autre dans la façade du garage.
+_GARAGE_DOOR_WIDTH = 2.4
+_MIN_GARAGE_CONTACT = _GARAGE_DOOR_WIDTH + 0.4
+
+
+def _garage_door(
+    walls: tuple[dict[str, Any] | None, ...],
+    rooms: list[dict[str, Any]],
+    entrance: tuple[float, float] | None,
+) -> tuple[dict[str, Any], float, float] | None:
+    """Mur, position et largeur de la porte de garage, ou None s'il n'y a pas de façade pour l'ouvrir.
+
+    La porte était toujours posée sur le mur est, à 55 % de sa longueur, où que soit le
+    garage : un garage à l'ouest ou au nord avait sa porte devant une autre pièce. Elle
+    s'ouvre désormais sur le mur extérieur où un garage se trouve.
+
+    1. L'emplacement historique (mur est) est conservé tel quel dès qu'un garage l'occupe :
+       les plans dont le garage tient toute la façade est ne changent pas d'un millimètre.
+    2. Sinon, le mur où un garage a le plus long contact (au moins `_MIN_GARAGE_CONTACT`),
+       préférence est, ouest, nord, sud à contact égal, la porte centrée sur ce contact. Sur
+       le mur sud, elle évite la porte d'entrée (`entrance` : position et largeur).
+    """
+    east, west, north, south = walls
+    garages = [r for r in rooms if r.get("type") == "garage"]
+    if east and _wall_len(east) >= 2.4:
+        wl = _wall_len(east)
+        offset, width_m = max(0.4, min(wl - 2.6, wl * 0.55)), min(2.4, wl * 0.45)
+        for garage in garages:
+            span = _wall_span_for_room(east, garage)
+            if span and span[0] <= offset + 0.05 and span[1] >= offset + width_m - 0.05:
+                return east, offset, width_m
+    best: tuple[tuple[float, int], dict[str, Any], float] | None = None
+    for rank, wall in enumerate(walls):
+        if wall is None:
+            continue
+        for garage in garages:
+            span = _wall_span_for_room(wall, garage)
+            if not span or span[1] - span[0] < _MIN_GARAGE_CONTACT:
+                continue
+            offset = _centred_offset(span, _GARAGE_DOOR_WIDTH, _wall_len(wall))
+            if wall is south and entrance and offset < entrance[0] + entrance[1] and entrance[0] < offset + _GARAGE_DOOR_WIDTH:
+                continue
+            key = (-round(span[1] - span[0], 3), rank)
+            if best is None or key < best[0]:
+                best = (key, wall, offset)
+    return (best[1], best[2], _GARAGE_DOOR_WIDTH) if best else None
 
 
 def _entrance_offset(

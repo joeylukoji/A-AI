@@ -36,8 +36,8 @@ from .layout_rules import (
     ENTRANCE_TYPES,
     HABITABLE_TYPES,
     MIN_ENTRANCE_SPAN,
+    MIN_GARAGE_CONTACT,
     forbidden_pairs,
-    garage_door_span,
     types_needing_hall,
 )
 from .sizing import _effective_mins, _waterfill
@@ -265,6 +265,17 @@ def south_length(r: Rect, depth: float) -> float:
     return r[2] - r[0] if r[3] >= depth - _TOL else 0.0
 
 
+def wall_contact(r: Rect, width: float, depth: float) -> float:
+    """Plus long contact de la zone avec UN mur extérieur (nord, est, sud ou ouest)."""
+    x0, y0, x1, y1 = r
+    best = 0.0
+    if x0 <= _TOL or x1 >= width - _TOL:
+        best = max(best, y1 - y0)
+    if y0 <= _TOL or y1 >= depth - _TOL:
+        best = max(best, x1 - x0)
+    return best
+
+
 def perimeter_length(r: Rect, width: float, depth: float) -> float:
     """Longueur de la zone qui borde le périmètre de l'emprise."""
     x0, y0, x1, y1 = r
@@ -290,7 +301,7 @@ class Constraints:
     perimeter: frozenset[str]                # zones habitables : doivent toucher le périmètre
     forbidden: frozenset[frozenset[str]]     # paires de zones dont des pièces ne doivent pas se toucher
     entrance: frozenset[str]                 # zones dont une pièce peut recevoir l'entrée (mur sud)
-    garage: bool                             # un garage doit porter la porte de garage (mur est)
+    garage: bool                             # un garage doit avoir une façade assez longue pour sa porte
 
 
 def constraints_for(prog: Program) -> Constraints:
@@ -321,7 +332,7 @@ def judge(rects: dict[str, Rect], prog: Program, width: float, depth: float,
     """Applique les conditions à un arrangement dimensionné.
 
     `conventions` ajoute les conventions de façade de `default_openings` (entrée
-    au sud, porte de garage à l'est). Elles ne relèvent pas des règles de
+    au sud, façade assez longue pour la porte de garage). Elles ne relèvent pas des règles de
     distribution : sans elles, on juge les règles seules (`conventions=False`),
     ce qui permet d'établir des résultats indépendants du reste du pipeline.
     """
@@ -340,17 +351,15 @@ def judge(rects: dict[str, Rect], prog: Program, width: float, depth: float,
     for zone in sorted(cons.perimeter):
         if perimeter_length(rects[zone], width, depth) < MIN_PERIMETER:
             reasons.append(f"{zone} ne touche pas le périmètre")
-    # Conventions de façade de `default_openings` : l'entrée est sur le mur sud,
-    # la porte de garage sur le mur est (cf. `layout_rules`).
+    # Conventions de façade de `default_openings` : l'entrée est sur le mur sud ;
+    # la porte de garage s'ouvre sur la façade du garage (cf. `layout_rules`).
     if conventions and cons.entrance and not any(
         south_length(rects[zone], depth) >= MIN_ENTRANCE_SPAN for zone in sorted(cons.entrance)
     ):
         reasons.append("aucune pièce d'accueil sur la façade sud")
     if conventions and cons.garage and GARAGE in rects:
-        lo_y, hi_y = garage_door_span(depth)
-        gx0, gy0, gx1, gy1 = rects[GARAGE]
-        if gx1 < width - _TOL or gy0 > lo_y + _TOL or gy1 < hi_y - _TOL:
-            reasons.append("le garage ne porte pas la porte de garage (mur est)")
+        if wall_contact(rects[GARAGE], width, depth) < MIN_GARAGE_CONTACT:
+            reasons.append("le garage n'a pas de façade assez longue pour sa porte")
     necessary = not reasons
 
     day_ok = True

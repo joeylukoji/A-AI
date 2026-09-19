@@ -196,7 +196,7 @@ def test_every_issue_name_is_one_that_compliance_knows(name):
 # --- Conventions de façade : dérive avec `default_openings` -------------------------
 # Ces tests décrivent le comportement ACTUEL de `diffusion.default_openings`. S'ils
 # échouent, c'est que `default_openings` a été généralisé : il faut alors assouplir
-# `layout_rules.ENTRANCE_TYPES` / `garage_door_span`, pas les tests.
+# `layout_rules.ENTRANCE_TYPES` / `MIN_GARAGE_CONTACT`, pas les tests.
 
 def _door_on(walls, openings, wall_id):
     return next((o for o in openings if o["wall_id"] == wall_id and o["type"] == "door"), None)
@@ -207,30 +207,103 @@ def _rect(rid, typ, x0, y0, x1, y1):
         {"x": x0, "y": y0}, {"x": x1, "y": y0}, {"x": x1, "y": y1}, {"x": x0, "y": y1}]}
 
 
-@pytest.mark.parametrize("w,d", [(10, 8), (12, 9.3), (14, 11), (9, 6.5), (16, 12.7), (11, 2.2)])
-def test_garage_door_span_matches_what_default_openings_places(w, d):
+def _open(rooms, w, d):
     from app.diffusion import default_openings, perimeter_and_internal_walls
 
-    rooms = [_rect("g", "garage", w - 4, 0, w, d), _rect("l", "living", 0, 0, w - 4, d)]
     walls = perimeter_and_internal_walls(rooms, w, d)
-    openings = default_openings(walls, w, d, rooms)
-    door = _door_on(walls, openings, "w_outer_2")
-    span = layout_rules.garage_door_span(d)
-    if span[1] <= span[0]:
-        assert door is None                                # mur est trop court : aucune porte
-        return
-    east = next(x for x in walls if x["id"] == "w_outer_2")
-    y0 = min(east["a"]["y"], east["b"]["y"]) + door["offset_m"]
-    assert abs(y0 - span[0]) < 1e-6 and abs(y0 + door["width_m"] - span[1]) < 1e-6
+    return walls, default_openings(walls, w, d, rooms)
 
 
-def test_the_garage_door_is_on_the_east_wall_wherever_the_garage_is():
-    """La raison d'être de la convention : un garage à l'ouest a sa porte… à l'est."""
-    from app.diffusion import default_openings, perimeter_and_internal_walls
+@pytest.mark.parametrize("w,d", [(10, 8), (12, 9.3), (14, 11), (9, 6.5), (16, 12.7)])
+def test_the_historic_garage_door_is_kept_when_the_garage_holds_the_east_wall(w, d):
+    """Compatibilité : un garage qui tient la façade est garde EXACTEMENT sa porte d'avant.
 
-    rooms = [_rect("g", "garage", 0, 0, 4, 10), _rect("l", "living", 4, 0, 10, 10)]
+    C'est ce qui rend la généralisation invisible pour le gabarit classique.
+    """
+    rooms = [_rect("g", "garage", w - 4, 0, w, d), _rect("l", "living", 0, 0, w - 4, d)]
+    walls, ops = _open(rooms, w, d)
+    door = _door_on(walls, ops, "w_outer_2")
+    assert door is not None
+    assert abs(door["offset_m"] - max(0.4, min(d - 2.6, d * 0.55))) < 1e-9
+    assert abs(door["width_m"] - min(2.4, d * 0.45)) < 1e-9
+
+
+def test_the_garage_door_opens_on_the_garages_own_wall():
+    """La raison d'être de la généralisation : un garage à l'ouest a sa porte à l'ouest."""
+    west = [_rect("g", "garage", 0, 0, 4, 10), _rect("l", "living", 4, 0, 10, 10)]
+    walls, ops = _open(west, 10, 10)
+    door = _door_on(walls, ops, "w_outer_4")
+    assert door is not None and door["width_m"] == layout_rules.GARAGE_DOOR_WIDTH
+    north = [_rect("g", "garage", 0, 0, 10, 4), _rect("l", "living", 0, 4, 10, 10)]
+    walls, ops = _open(north, 10, 10)
+    assert _door_on(walls, ops, "w_outer_1") is not None
+
+
+def test_an_east_garage_off_the_historic_span_gets_a_door_centred_on_its_facade():
+    """Garage à l'angle nord-est d'un mur de 12 m : l'ancien emplacement (y 6,6 à 9,2) est hors garage."""
+    rooms = [_rect("g", "garage", 6, 0, 10, 4), _rect("l", "living", 0, 0, 6, 12), _rect("k", "kitchen", 6, 4, 10, 12)]
+    walls, ops = _open(rooms, 10, 12)
+    door = _door_on(walls, ops, "w_outer_2")
+    assert door is not None and abs(door["offset_m"] - 0.8) < 1e-9       # (4 - 2,4) / 2
+
+
+def test_a_corner_garage_uses_its_longest_facade():
+    tall = [_rect("g", "garage", 7, 0, 10, 8), _rect("l", "living", 0, 0, 7, 10), _rect("k", "kitchen", 7, 8, 10, 10)]
+    walls, ops = _open(tall, 10, 10)
+    assert _door_on(walls, ops, "w_outer_2") is not None and _door_on(walls, ops, "w_outer_1") is None
+    wide = [_rect("g", "garage", 0, 0, 8, 3.2), _rect("l", "living", 0, 3.2, 10, 10), _rect("k", "kitchen", 8, 0, 10, 3.2)]
+    walls, ops = _open(wide, 10, 10)
+    assert _door_on(walls, ops, "w_outer_1") is not None and _door_on(walls, ops, "w_outer_4") is None
+
+
+def test_equal_facades_prefer_east_then_west_then_north_then_south():
+    """À contact égal, l'ordre de préférence est celui de la convention historique : est d'abord."""
+    ne = [_rect("g", "garage", 6, 0, 10, 4), _rect("l", "living", 0, 0, 6, 10), _rect("k", "kitchen", 6, 4, 10, 10)]
+    walls, ops = _open(ne, 10, 10)
+    assert _door_on(walls, ops, "w_outer_2") is not None and _door_on(walls, ops, "w_outer_1") is None
+    nw = [_rect("g", "garage", 0, 0, 4, 4), _rect("l", "living", 4, 0, 10, 10), _rect("k", "kitchen", 0, 4, 4, 10)]
+    walls, ops = _open(nw, 10, 10)
+    assert _door_on(walls, ops, "w_outer_4") is not None and _door_on(walls, ops, "w_outer_1") is None
+
+
+def test_a_garage_with_a_short_facade_gets_no_exterior_door():
+    from app.diffusion import _served_rooms
+
+    rooms = [_rect("g", "garage", 0, 0, 2.5, 2.5), _rect("l", "living", 0, 2.5, 10, 10), _rect("k", "kitchen", 2.5, 0, 10, 2.5)]
+    walls, ops = _open(rooms, 10, 10)
+    by_id = {w["id"]: w for w in walls}
+    exterior = [o for o in ops if o["type"] == "door" and o["wall_id"].startswith("w_outer")]
+    assert not any(any(r["type"] == "garage" for r in _served_rooms(by_id[o["wall_id"]], o, rooms)) for o in exterior)
+
+
+def test_an_inner_garage_gets_no_exterior_door():
+    from app.diffusion import _served_rooms
+
+    rooms = [_rect("g", "garage", 3, 3, 7, 7), _rect("a", "storage", 0, 0, 10, 3), _rect("b", "storage", 0, 7, 10, 10),
+             _rect("c", "storage", 0, 3, 3, 7), _rect("e", "storage", 7, 3, 10, 7)]
+    walls, ops = _open(rooms, 10, 10)
+    by_id = {w["id"]: w for w in walls}
+    exterior = [o for o in ops if o["type"] == "door" and o["wall_id"].startswith("w_outer")]
+    assert not any(any(r["type"] == "garage" for r in _served_rooms(by_id[o["wall_id"]], o, rooms)) for o in exterior)
+
+
+def test_the_garage_door_avoids_the_entrance_on_the_south_wall():
+    from app.diffusion import _garage_door, perimeter_and_internal_walls
+
+    rooms = [_rect("g", "garage", 6, 8, 10, 10), _rect("l", "living", 0, 0, 10, 8)]
     walls = perimeter_and_internal_walls(rooms, 10, 10)
-    assert _door_on(walls, default_openings(walls, 10, 10, rooms), "w_outer_2") is not None
+    by_id = {w["id"]: w for w in walls}
+    quad = (by_id["w_outer_2"], by_id["w_outer_4"], by_id["w_outer_1"], by_id["w_outer_3"])
+    # Le garage ne touche le mur est que sur 2 m : seule la façade sud (4 m) convient.
+    assert _garage_door(quad, rooms, None)[0]["id"] == "w_outer_3"
+    assert _garage_door(quad, rooms, (0.8, 0.9)) is None                    # l'entrée y est déjà
+
+
+def test_the_declared_garage_constants_match_diffusion():
+    from app import diffusion
+
+    assert diffusion._GARAGE_DOOR_WIDTH == layout_rules.GARAGE_DOOR_WIDTH
+    assert diffusion._MIN_GARAGE_CONTACT == layout_rules.MIN_GARAGE_CONTACT
 
 
 def test_the_entrance_is_on_the_south_wall_whatever_the_plan():

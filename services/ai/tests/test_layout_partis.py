@@ -21,7 +21,6 @@ import pytest
 
 from app import layout_opt as lo
 from app import layout_partis as lp
-from app import layout_rules
 from app import layout_zones as z
 from app.layout_signature import follows_classic_template
 from test_layout_golden import canonical_hash
@@ -157,22 +156,24 @@ def test_a_hall_reaching_the_south_wall_receives_the_entrance():
     assert lp.hard_check(plan, 10, 10) is None
 
 
-def test_a_garage_off_the_east_wall_is_rejected():
-    """La porte de garage de `default_openings` est sur le mur est, à ~55 % de sa longueur."""
-    plan = [_r("g", "garage", 0, 0, 4, 10), _r("h", "hallway", 4, 0, 5.3, 10), _r("l", "living", 5.3, 0, 10, 10)]
-    assert lp.hard_check(plan, 10, 10, conventions=False) is None
-    assert lp.hard_check(plan, 10, 10) == "garage"
+def test_a_garage_may_be_on_any_wall_if_its_facade_is_long_enough():
+    """La porte de garage s'ouvre désormais sur la façade du garage, plus toujours à l'est."""
+    west = [_r("g", "garage", 0, 0, 4, 10), _r("h", "hallway", 4, 0, 5.3, 10), _r("l", "living", 5.3, 0, 10, 10)]
+    assert lp.hard_check(west, 10, 10) is None
+    north = [_r("g", "garage", 0, 0, 10, 3), _r("k", "kitchen", 0, 3, 10, 6), _r("l", "living", 0, 6, 10, 10)]
+    assert lp.hard_check(north, 10, 10) is None
 
 
-def test_a_garage_on_the_east_wall_but_off_the_door_span_is_rejected():
-    span = layout_rules.garage_door_span(10.0)
-    assert span[0] > 3                                                    # la porte n'est pas au bord
-    plan = [_r("g", "garage", 6, 0, 10, 3), _r("k", "kitchen", 0, 0, 6, 3), _r("h", "hallway", 0, 3, 10, 4.3),
-            _r("l", "living", 0, 4.3, 10, 10)]
-    assert lp.hard_check(plan, 10, 10, conventions=False) is None
-    assert lp.hard_check(plan, 10, 10) == "garage"
-    plan_ok = [_r("l", "living", 0, 0, 6, 10), _r("g", "garage", 6, 0, 10, 10)]
-    assert lp.hard_check(plan_ok, 10, 10) is None
+def test_a_garage_without_a_facade_long_enough_is_rejected():
+    tiny = [_r("g", "garage", 0, 0, 2.5, 2.5), _r("l", "living", 0, 2.5, 10, 10), _r("k", "kitchen", 2.5, 0, 10, 2.5)]
+    assert lp.hard_check(tiny, 10, 10, conventions=False) is None
+    assert lp.hard_check(tiny, 10, 10) == "garage"
+
+
+def test_an_inner_garage_is_rejected_by_the_hard_check():
+    ring = [_r("g", "garage", 3, 3, 7, 7), _r("a", "hallway", 0, 0, 10, 3), _r("b", "living", 0, 7, 10, 10),
+            _r("c", "storage", 0, 3, 3, 7), _r("e", "storage", 7, 3, 10, 7)]
+    assert lp.hard_check(ring, 10, 10) == "garage"
 
 
 def test_a_hole_in_the_plot_is_rejected():
@@ -537,6 +538,18 @@ def test_a_room_the_doors_do_not_link_to_the_entrance_is_inaccessible():
     """
     plan = [_r("l", "living", 0, 0, 10, 4), _r("b", "bedroom", 0, 4, 10, 10)]
     assert lp.door_issues(plan, 10, 10) == {"exterieure:l", "inaccessible:l"}
+
+
+def test_an_inner_garage_is_reported_as_having_no_door():
+    ring = [_r("g", "garage", 3, 3, 7, 7), _r("a", "hallway", 0, 0, 10, 3), _r("b", "living", 0, 7, 10, 10),
+            _r("c", "storage", 0, 3, 3, 7), _r("e", "storage", 7, 3, 10, 7)]
+    assert "garage_sans_porte:g" in lp.door_issues(ring, 10, 10)
+
+
+def test_a_west_garage_door_is_not_an_extra_exterior_door():
+    plan = [_r("g", "garage", 0, 0, 4, 10), _r("h", "hallway", 4, 0, 5.3, 10), _r("l", "living", 5.3, 0, 10, 10)]
+    issues = lp.door_issues(plan, 10, 10)
+    assert not any(i.startswith(("exterieure", "garage_sans_porte")) for i in issues)
 
 
 def test_the_garage_door_on_the_east_wall_is_not_an_extra_exterior_door():

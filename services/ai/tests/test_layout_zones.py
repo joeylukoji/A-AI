@@ -344,20 +344,35 @@ def test_the_day_zone_or_the_hall_on_the_south_wall_receives_the_entrance():
     assert _conv(spine, BASIC).necessary          # les trois colonnes touchent le mur sud
 
 
-def test_a_garage_must_hold_the_east_wall_where_the_door_is():
-    types = BASIC + ("garage",)
-    east = {z.NIGHT: (0, 0, 6, 4), z.HALL: (0, 4, 6, 5.3), z.DAY: (0, 5.3, 6, 10), z.GARAGE: (6, 0, 10, 10)}
-    assert not any("garage" in r for r in _conv(east, types).reasons)
-    west = {z.NIGHT: (6, 0, 10, 4), z.HALL: (6, 4, 10, 5.3), z.DAY: (6, 5.3, 10, 10), z.GARAGE: (0, 0, 6, 10)}
-    assert any("garage" in r for r in _conv(west, types).reasons)
+def test_wall_contact_is_the_longest_edge_on_one_outer_wall():
+    assert z.wall_contact((0, 0, 10, 10), 10, 10) == 10
+    assert z.wall_contact((6, 0, 10, 4), 10, 10) == 4                       # angle : nord 4, est 4
+    assert z.wall_contact((6, 0, 9, 8), 10, 10) == 3                        # une seule façade : le nord
+    assert z.wall_contact((3, 3, 7, 7), 10, 10) == 0                        # intérieure
 
 
-def test_a_garage_above_the_door_span_fails_and_one_covering_it_passes():
+def test_a_garage_needs_a_facade_long_enough_for_its_door():
     types = BASIC + ("garage",)
-    high = {z.NIGHT: (0, 0, 6, 4), z.HALL: (0, 4, 6, 5.3), z.DAY: (0, 5.3, 6, 10), z.GARAGE: (6, 0, 10, 3)}
-    assert any("garage" in r for r in _conv(high, types).reasons)
-    covering = {z.NIGHT: (0, 0, 6, 4), z.HALL: (0, 4, 6, 5.3), z.DAY: (0, 5.3, 6, 10), z.GARAGE: (6, 0, 10, 10)}
-    assert not any("garage" in r for r in _conv(covering, types).reasons)
+    body = {z.NIGHT: (0, 0, 6, 4), z.HALL: (0, 4, 6, 5.3), z.DAY: (0, 5.3, 6, 10)}
+    ok = _conv({**body, z.GARAGE: (6, 0, 10, 10)}, types)
+    assert not any("garage" in r for r in ok.reasons)
+    short = _conv({**body, z.GARAGE: (6, 0, 8.5, 2.5)}, types)             # 2,5 m : sous les 2,8 m
+    assert any("garage" in r for r in short.reasons)
+
+
+def test_a_garage_may_now_be_on_any_wall():
+    """L'ancienne convention (mur est seulement) est levée : ouest et nord conviennent."""
+    types = BASIC + ("garage",)
+    west = {z.NIGHT: (4, 0, 10, 4), z.HALL: (4, 4, 10, 5.3), z.DAY: (4, 5.3, 10, 10), z.GARAGE: (0, 0, 4, 10)}
+    assert not any("garage" in r for r in _conv(west, types).reasons)
+    north = {z.GARAGE: (0, 0, 10, 3), z.NIGHT: (0, 3, 10, 6), z.HALL: (0, 6, 10, 7.3), z.DAY: (0, 7.3, 10, 10)}
+    assert not any("garage" in r for r in _conv(north, types).reasons)
+
+
+def test_an_inner_garage_is_rejected():
+    types = BASIC + ("garage",)
+    inner = {z.GARAGE: (3, 3, 7, 7), z.NIGHT: (0, 0, 10, 3), z.HALL: (0, 7, 10, 8.3), z.DAY: (0, 8.3, 10, 10)}
+    assert any("garage" in r for r in _conv(inner, types).reasons)
 
 
 def test_without_a_garage_the_garage_convention_asks_nothing():

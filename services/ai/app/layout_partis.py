@@ -31,7 +31,7 @@ from typing import Any
 
 from . import layout_opt as lo
 from . import layout_zones as z
-from .layout_rules import ENTRANCE_TYPES, MIN_ENTRANCE_SPAN, garage_door_span
+from .layout_rules import ENTRANCE_TYPES, MIN_ENTRANCE_SPAN, MIN_GARAGE_CONTACT
 from .sizing import resize_layout
 
 # Une pièce dont le côté court est sous cette fraction de son minimum est
@@ -200,10 +200,9 @@ def hard_check(rooms: list[Room], width: float, depth: float, min_side: float = 
 
     Motifs : « emprise », « couverture » (trou ou recouvrement), « sanitaire »,
     « facade », « trop_fin », « entree » (l'entrée sud ne donne pas sur une pièce
-    d'accueil), « garage » (la porte de garage, à l'est, ne donne pas sur le
-    garage). Le nombre de pièces est vérifié par l'appelant. `conventions=False`
+    d'accueil), « garage » (aucune façade assez longue pour la porte de garage). Le nombre de pièces est vérifié par l'appelant. `conventions=False`
     ne contrôle que les règles de distribution, sans les conventions de façade
-    de `default_openings` (entrée au sud, porte de garage à l'est).
+    de `default_openings` (entrée au sud, façade assez longue pour la porte de garage).
     """
     boxes = [_bbox(r) for r in rooms]
     for x0, y0, x1, y1 in boxes:
@@ -247,14 +246,11 @@ def _entrance_ok(rooms: list[Room], boxes: list[tuple[float, float, float, float
 
 def _garage_door_ok(rooms: list[Room], boxes: list[tuple[float, float, float, float]],
                     width: float, depth: float) -> bool:
-    """Le garage occupe le mur est à l'endroit où `default_openings` pose la porte de garage."""
+    """Un garage a une façade assez longue pour sa porte (`diffusion._garage_door`)."""
     garages = [b for r, b in zip(rooms, boxes, strict=True) if r["type"] == "garage"]
     if not garages:
         return True
-    lo_y, hi_y = garage_door_span(depth)
-    if hi_y <= lo_y:
-        return True  # mur est trop court : aucune porte de garage n'est posée
-    return any(x1 >= width - 0.15 and y0 <= lo_y + 0.05 and y1 >= hi_y - 0.05 for _x0, y0, x1, y1 in garages)
+    return any(z.wall_contact(b, width, depth) >= MIN_GARAGE_CONTACT for b in garages)
 
 
 def _targets(rooms: list[Room]) -> dict[Any, float]:
@@ -437,11 +433,13 @@ def compliance_regressions(
 def door_issues(rooms: list[Room], width: float, depth: float) -> set[str]:
     """Défauts de circulation du plan une fois murs et portes générés.
 
-    * ``exterieure:<id>`` — une porte extérieure autre que l'entrée sud et la porte
-      de garage. `default_openings` en ouvre une pour toute pièce qui n'aurait
-      aucune porte autorisée vers ses voisines : la pièce n'est alors accessible
-      que par le jardin ;
-    * ``inaccessible:<id>`` — une pièce que les portes ne relient pas à l'entrée.
+    * ``exterieure:<id>`` — une porte extérieure autre que l'entrée et la porte de
+      garage. `default_openings` en ouvre une pour toute pièce qui n'aurait aucune
+      porte autorisée vers ses voisines : la pièce n'est alors accessible que par
+      le jardin ;
+    * ``inaccessible:<id>`` — une pièce que les portes ne relient pas à l'entrée ;
+    * ``garage_sans_porte:<id>`` — un garage sans porte extérieure : `default_openings`
+      n'en ouvre une que sur une façade assez longue et qui évite l'entrée.
 
     C'est un contrôle de circulation, que `compliance` ne fait pas : elle ne
     regarde que les murs communs, jamais les portes.
@@ -454,6 +452,8 @@ def door_issues(rooms: list[Room], width: float, depth: float) -> set[str]:
     links: dict[int, set[int]] = {id(r): set() for r in rooms}
     issues: set[str] = set()
     entrance: list[Room] = []
+    entrance_seen = False
+    garage_served: set[int] = set()
     for op in openings:
         if op.get("type") != "door":
             continue
@@ -462,9 +462,12 @@ def door_issues(rooms: list[Room], width: float, depth: float) -> set[str]:
             continue
         served = _served_rooms(wall, op, rooms)
         if str(wall["id"]).startswith("w_outer"):
-            if wall["id"] == "w_outer_3":
+            if wall["id"] == "w_outer_3" and not entrance_seen:
+                entrance_seen = True           # `default_openings` pose l'entrée en premier
                 entrance += served
-            elif not (wall["id"] == "w_outer_2" and any(r["type"] == "garage" for r in served)):
+            elif served and all(r["type"] == "garage" for r in served):
+                garage_served |= {id(r) for r in served}
+            else:
                 issues |= {f"exterieure:{r.get('id')}" for r in served}
         elif len(served) == 2:
             a, b = served
@@ -478,6 +481,8 @@ def door_issues(rooms: list[Room], width: float, depth: float) -> set[str]:
                 reached.add(nxt)
                 frontier.append(nxt)
     issues |= {f"inaccessible:{r.get('id')}" for r in rooms if id(r) not in reached}
+    issues |= {f"garage_sans_porte:{r.get('id')}" for r in rooms
+               if r["type"] == "garage" and id(r) not in garage_served}
     return issues
 
 
