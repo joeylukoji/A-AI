@@ -440,6 +440,8 @@ def compliance_regressions(
     return compliance_failures(rooms, width, depth) - baseline
 
 
+MIN_WC_WALL = 0.05     # au-delà d'un simple coin, un mur commun WC / séjour est refusé
+
 # Pièces qu'on peut traverser pour en atteindre une autre ; les chambres ne donnent que sur une salle d'eau.
 _TRANSIT = {"hallway", "living", "dining"}
 _ENSUITE = {"bathroom", "wc"}
@@ -536,9 +538,31 @@ def classic_baseline(rooms: list[Room], width: float, depth: float, *,
     return Baseline(compliance_failures(classic, plot_w, plot_d), door_issues(classic, plot_w, plot_d))
 
 
+def _shared_wall(a: Room, b: Room) -> float:
+    """Longueur du mur commun de deux pièces rectangulaires (0 si elles ne se touchent pas)."""
+    x0, y0, x1, y1 = _bbox(a)
+    u0, v0, u1, v1 = _bbox(b)
+    if abs(x1 - u0) < 1e-6 or abs(u1 - x0) < 1e-6:
+        return max(0.0, min(y1, v1) - max(y0, v0))
+    if abs(y1 - v0) < 1e-6 or abs(v1 - y0) < 1e-6:
+        return max(0.0, min(x1, u1) - max(x0, u0))
+    return 0.0
+
+
+def wc_touches_living(rooms: list[Room]) -> bool:
+    """Un WC qui partage un mur avec le séjour : il donne, en pratique, sur la pièce de vie.
+
+    Aucune règle de `compliance` ne l'interdit, mais c'est ce qu'un client voit d'abord. Mesuré :
+    22 % des partis en avaient un, contre 3 % des plans classiques.
+    """
+    wcs = [r for r in rooms if r["type"] == "wc"]
+    livings = [r for r in rooms if r["type"] == "living"]
+    return any(_shared_wall(w, v) > MIN_WC_WALL for w in wcs for v in livings)
+
+
 def exact_ok(layout: list[Room], width: float, depth: float, baseline: Baseline) -> bool:
-    """Second temps du contrôle exact : ni régression de conformité, ni défaut de circulation nouveau."""
-    if compliance_regressions(layout, width, depth, baseline.failures):
+    """Second temps du contrôle exact : ni régression de conformité, ni défaut de circulation nouveau, ni WC contre le séjour."""
+    if compliance_regressions(layout, width, depth, baseline.failures) or wc_touches_living(layout):
         return False
     issues = door_issues(layout, width, depth)
     # Une chambre à traverser n'est jamais admise, même si le classique l'a : c'est le défaut

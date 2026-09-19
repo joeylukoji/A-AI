@@ -571,6 +571,39 @@ def test_a_traversed_bedroom_is_refused_even_when_the_classic_has_the_same_defec
     assert not lp.exact_ok(plan, 10, 10, shared)
 
 
+def test_a_wc_sharing_a_wall_with_the_living_room_is_detected():
+    plan = [_r("w", "wc", 0, 0, 2, 3), _r("l", "living", 2, 0, 10, 10), _r("h", "hallway", 0, 3, 2, 10)]
+    assert lp.wc_touches_living(plan)
+
+
+def test_a_wc_meeting_the_living_room_only_at_a_corner_is_not_a_contact():
+    plan = [_r("w", "wc", 0, 0, 2, 3), _r("l", "living", 2, 3, 10, 10), _r("h", "hallway", 0, 3, 2, 10)]
+    assert not lp.wc_touches_living(plan)
+
+
+def test_a_wc_next_to_the_hallway_only_is_fine():
+    plan = [_r("w", "wc", 0, 0, 2, 3), _r("h", "hallway", 2, 0, 4, 10), _r("l", "living", 4, 0, 10, 10)]
+    assert not lp.wc_touches_living(plan)
+
+
+def test_a_plan_without_wc_or_living_never_touches():
+    assert not lp.wc_touches_living([_r("b", "bathroom", 0, 0, 5, 5), _r("l", "living", 5, 0, 10, 5)])
+    assert not lp.wc_touches_living([_r("w", "wc", 0, 0, 5, 5), _r("k", "kitchen", 5, 0, 10, 5)])
+
+
+def test_exact_ok_refuses_a_wc_against_the_living_room_even_if_the_classic_has_it():
+    plan = [_r("w", "wc", 0, 0, 2, 3), _r("l", "living", 2, 0, 10, 10), _r("h", "hallway", 0, 3, 2, 10)]
+    shared = lp.Baseline(failures=lp.compliance_failures(plan, 10, 10), doors=lp.door_issues(plan, 10, 10))
+    assert not lp.exact_ok(plan, 10, 10, shared)
+
+
+def test_no_selectable_parti_puts_the_wc_against_the_living_room():
+    with_wc = [c for c in CORPUS if any(r["type"] == "wc" for r in c["rooms"])][:12]
+    assert with_wc
+    for p in with_wc:
+        assert not any(lp.wc_touches_living(r.rooms) for r in lp.realizations(p["rooms"], p["width"], p["depth"]))
+
+
 def test_an_inner_garage_is_reported_as_having_no_door():
     ring = [_r("g", "garage", 3, 3, 7, 7), _r("a", "hallway", 0, 0, 10, 3), _r("b", "living", 0, 7, 10, 10),
             _r("c", "storage", 0, 3, 3, 7), _r("e", "storage", 7, 3, 10, 7)]
