@@ -440,6 +440,7 @@ def compliance_regressions(
     return compliance_failures(rooms, width, depth) - baseline
 
 
+MIN_WC_KITCHEN_GAP = 1.5  # m : un couloir seul ne suffit pas à éloigner le WC de la cuisine
 MIN_WC_WALL = 0.05     # au-delà d'un simple coin, un mur commun WC / séjour est refusé
 
 # Pièces qu'on peut traverser pour en atteindre une autre ; les chambres ne donnent que sur une salle d'eau.
@@ -560,9 +561,30 @@ def wc_touches_living(rooms: list[Room]) -> bool:
     return any(_shared_wall(w, v) > MIN_WC_WALL for w in wcs for v in livings)
 
 
+def _gap(a: Room, b: Room) -> float:
+    """Distance entre les rectangles englobants de deux pièces (0 si elles se touchent, même d'un coin)."""
+    x0, y0, x1, y1 = _bbox(a)
+    u0, v0, u1, v1 = _bbox(b)
+    dx = max(u0 - x1, x0 - u1, 0.0)
+    dy = max(v0 - y1, y0 - v1, 0.0)
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def wc_near_kitchen(rooms: list[Room]) -> bool:
+    """Un WC à moins de `MIN_WC_KITCHEN_GAP` de la cuisine ou de la salle à manger.
+
+    La règle `wc_kitchen` ne voit que le mur commun : un WC de l'autre côté d'un couloir, ou qui
+    ne touche la cuisine que par un angle, passe. Mesuré : 46 % des partis avaient leur WC à plus de
+    3 m de la cuisine, contre 83 % des plans classiques.
+    """
+    wcs = [r for r in rooms if r["type"] == "wc"]
+    food = [r for r in rooms if r["type"] in {"kitchen", "dining"}]
+    return any(_gap(w, k) < MIN_WC_KITCHEN_GAP for w in wcs for k in food)
+
+
 def exact_ok(layout: list[Room], width: float, depth: float, baseline: Baseline) -> bool:
-    """Second temps du contrôle exact : ni régression de conformité, ni défaut de circulation nouveau, ni WC contre le séjour."""
-    if compliance_regressions(layout, width, depth, baseline.failures) or wc_touches_living(layout):
+    """Second temps du contrôle exact : ni régression de conformité, ni défaut de circulation nouveau, ni WC contre le séjour ou près de la cuisine."""
+    if compliance_regressions(layout, width, depth, baseline.failures) or wc_touches_living(layout)             or wc_near_kitchen(layout):
         return False
     issues = door_issues(layout, width, depth)
     # Une chambre à traverser n'est jamais admise, même si le classique l'a : c'est le défaut

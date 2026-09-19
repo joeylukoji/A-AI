@@ -604,6 +604,45 @@ def test_no_selectable_parti_puts_the_wc_against_the_living_room():
         assert not any(lp.wc_touches_living(r.rooms) for r in lp.realizations(p["rooms"], p["width"], p["depth"]))
 
 
+def test_a_wc_touching_the_kitchen_is_near_it():
+    assert lp.wc_near_kitchen([_r("w", "wc", 0, 0, 2, 3), _r("k", "kitchen", 2, 0, 8, 5)])
+
+
+def test_a_wc_meeting_the_kitchen_only_at_a_corner_is_near_it():
+    assert lp.wc_near_kitchen([_r("w", "wc", 0, 0, 2, 3), _r("k", "kitchen", 2, 3, 8, 8)])
+
+
+def test_a_wc_across_a_narrow_hallway_is_near_the_kitchen():
+    plan = [_r("w", "wc", 0, 0, 2, 3), _r("h", "hallway", 0, 3, 8, 4.2), _r("k", "kitchen", 0, 4.2, 8, 9)]
+    assert lp.wc_near_kitchen(plan)
+
+
+def test_a_wc_near_the_dining_room_counts_too():
+    assert lp.wc_near_kitchen([_r("w", "wc", 0, 0, 2, 3), _r("d", "dining", 2, 0, 6, 4)])
+
+
+def test_a_wc_far_from_the_kitchen_is_fine():
+    plan = [_r("w", "wc", 0, 0, 2, 3), _r("h", "hallway", 0, 3, 10, 4.2), _r("l", "living", 0, 4.2, 10, 10),
+            _r("k", "kitchen", 4.6, 0, 10, 3)]
+    assert not lp.wc_near_kitchen(plan)
+
+
+def test_a_bathroom_next_to_the_kitchen_is_not_a_wc_case():
+    assert not lp.wc_near_kitchen([_r("b", "bathroom", 0, 0, 2, 3), _r("k", "kitchen", 2, 0, 8, 5)])
+
+
+def test_exact_ok_refuses_a_wc_near_the_kitchen_even_if_the_classic_has_it():
+    plan = [_r("w", "wc", 0, 0, 2, 3), _r("h", "hallway", 0, 3, 8, 4.2), _r("k", "kitchen", 0, 4.2, 8, 9)]
+    shared = lp.Baseline(failures=lp.compliance_failures(plan, 10, 10), doors=lp.door_issues(plan, 10, 10))
+    assert not lp.exact_ok(plan, 10, 10, shared)
+
+
+def test_no_selectable_parti_puts_the_wc_near_the_kitchen():
+    with_wc = [c for c in CORPUS if any(r["type"] == "wc" for r in c["rooms"])][:12]
+    for p in with_wc:
+        assert not any(lp.wc_near_kitchen(r.rooms) for r in lp.realizations(p["rooms"], p["width"], p["depth"]))
+
+
 def test_an_inner_garage_is_reported_as_having_no_door():
     ring = [_r("g", "garage", 3, 3, 7, 7), _r("a", "hallway", 0, 0, 10, 3), _r("b", "living", 0, 7, 10, 10),
             _r("c", "storage", 0, 3, 3, 7), _r("e", "storage", 7, 3, 10, 7)]
