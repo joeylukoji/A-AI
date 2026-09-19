@@ -191,3 +191,61 @@ def test_every_issue_name_is_one_that_compliance_knows(name):
     """Le contrat de noms : `compliance` les teste par appartenance."""
     src = open(compliance.__file__, encoding="utf-8").read()
     assert f'"{name}"' in src
+
+
+# --- Conventions de façade : dérive avec `default_openings` -------------------------
+# Ces tests décrivent le comportement ACTUEL de `diffusion.default_openings`. S'ils
+# échouent, c'est que `default_openings` a été généralisé : il faut alors assouplir
+# `layout_rules.ENTRANCE_TYPES` / `garage_door_span`, pas les tests.
+
+def _door_on(walls, openings, wall_id):
+    return next((o for o in openings if o["wall_id"] == wall_id and o["type"] == "door"), None)
+
+
+def _rect(rid, typ, x0, y0, x1, y1):
+    return {"id": rid, "type": typ, "polygon": [
+        {"x": x0, "y": y0}, {"x": x1, "y": y0}, {"x": x1, "y": y1}, {"x": x0, "y": y1}]}
+
+
+@pytest.mark.parametrize("w,d", [(10, 8), (12, 9.3), (14, 11), (9, 6.5), (16, 12.7), (11, 2.2)])
+def test_garage_door_span_matches_what_default_openings_places(w, d):
+    from app.diffusion import default_openings, perimeter_and_internal_walls
+
+    rooms = [_rect("g", "garage", w - 4, 0, w, d), _rect("l", "living", 0, 0, w - 4, d)]
+    walls = perimeter_and_internal_walls(rooms, w, d)
+    openings = default_openings(walls, w, d, rooms)
+    door = _door_on(walls, openings, "w_outer_2")
+    span = layout_rules.garage_door_span(d)
+    if span[1] <= span[0]:
+        assert door is None                                # mur est trop court : aucune porte
+        return
+    east = next(x for x in walls if x["id"] == "w_outer_2")
+    y0 = min(east["a"]["y"], east["b"]["y"]) + door["offset_m"]
+    assert abs(y0 - span[0]) < 1e-6 and abs(y0 + door["width_m"] - span[1]) < 1e-6
+
+
+def test_the_garage_door_is_on_the_east_wall_wherever_the_garage_is():
+    """La raison d'être de la convention : un garage à l'ouest a sa porte… à l'est."""
+    from app.diffusion import default_openings, perimeter_and_internal_walls
+
+    rooms = [_rect("g", "garage", 0, 0, 4, 10), _rect("l", "living", 4, 0, 10, 10)]
+    walls = perimeter_and_internal_walls(rooms, 10, 10)
+    assert _door_on(walls, default_openings(walls, 10, 10, rooms), "w_outer_2") is not None
+
+
+def test_the_entrance_is_on_the_south_wall_whatever_the_plan():
+    from app.diffusion import default_openings, perimeter_and_internal_walls
+
+    rooms = [_rect("l", "living", 0, 0, 10, 4), _rect("b", "bedroom", 0, 4, 10, 10)]      # chambre au sud
+    walls = perimeter_and_internal_walls(rooms, 10, 10)
+    ops = default_openings(walls, 10, 10, rooms)
+    door = _door_on(walls, ops, "w_outer_3")
+    assert door is not None
+    # Elle est bien devant la chambre : c'est ce que `layout_partis` interdit.
+    assert door["offset_m"] + door["width_m"] / 2 < 10
+
+
+def test_entrance_types_are_the_head_of_the_entrance_preference_order():
+    from app.diffusion import _ENTRANCE_ORDER
+
+    assert tuple(_ENTRANCE_ORDER[: len(layout_rules.ENTRANCE_TYPES)]) == layout_rules.ENTRANCE_TYPES

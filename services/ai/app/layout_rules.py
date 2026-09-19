@@ -67,6 +67,39 @@ HABITABLE_TYPES: frozenset[str] = frozenset({"living", "bedroom", "dining", "off
 WET_TYPES: frozenset[str] = frozenset({"bathroom", "wc", "laundry", "storage"})
 
 
+# --- Conventions de façade du dessin -----------------------------------------
+# `diffusion.default_openings` pose l'entrée et la porte de garage à des endroits
+# FIXES, qu'aucun plan ne peut ignorer sans que la porte ouvre sur la mauvaise
+# pièce : l'entrée sur le mur sud, la porte de garage sur le mur est. Un plan qui
+# met des chambres au sud aurait son porche devant elles ; un garage à l'ouest
+# aurait sa porte de garage devant le séjour.
+#
+# On les déclare ici plutôt que de généraliser `default_openings` : les partis
+# s'y conforment. Des tests comparent ces déclarations au comportement réel de
+# `default_openings` et échoueront le jour où il sera généralisé, signe qu'il
+# faut alors assouplir ces règles.
+
+# Pièces devant lesquelles l'entrée peut s'ouvrir. Tête de `diffusion._ENTRANCE_ORDER`
+# (couloir, séjour, salle à manger) : cuisine, bureau et garage y figurent aussi
+# comme dernier recours, mais aucun plan ne veut d'une entrée par la cuisine.
+ENTRANCE_TYPES: tuple[str, ...] = ("hallway", "living", "dining")
+# Longueur minimale de mur sud devant une de ces pièces (`_entrance_offset`).
+MIN_ENTRANCE_SPAN = 1.1
+
+
+def garage_door_span(depth: float) -> tuple[float, float]:
+    """Intervalle des ordonnées de la porte de garage sur le mur est.
+
+    Même formule que `diffusion.default_openings`, qui ne pose cette porte que
+    si le mur est fait au moins 2,4 m ; en dessous, aucune porte n'est posée et
+    l'intervalle est vide.
+    """
+    if depth < 2.4:
+        return (0.0, 0.0)
+    offset = max(0.4, min(depth - 2.6, depth * 0.55))
+    return (offset, offset + min(2.4, depth * 0.45))
+
+
 def forbidden_pairs() -> tuple[tuple[frozenset[str], frozenset[str]], ...]:
     """Les paires (types, types) dont le mur commun est interdit, dans l'ordre des règles."""
     return tuple((r.left, r.right) for r in RULES if isinstance(r, ForbiddenPair))

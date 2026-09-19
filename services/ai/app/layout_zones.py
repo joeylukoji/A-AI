@@ -32,7 +32,14 @@ from functools import lru_cache
 from typing import Any
 
 from .layout_opt import _min_side
-from .layout_rules import HABITABLE_TYPES, forbidden_pairs, types_needing_hall
+from .layout_rules import (
+    ENTRANCE_TYPES,
+    HABITABLE_TYPES,
+    MIN_ENTRANCE_SPAN,
+    forbidden_pairs,
+    garage_door_span,
+    types_needing_hall,
+)
 from .sizing import _effective_mins, _waterfill
 
 NIGHT, HALL, DAY, SVC, GARAGE = "night", "hall", "day", "svc", "garage"
@@ -253,6 +260,11 @@ def contact_length(a: Rect, b: Rect) -> float:
     return length
 
 
+def south_length(r: Rect, depth: float) -> float:
+    """Longueur de la zone qui borde le mur sud (y = profondeur)."""
+    return r[2] - r[0] if r[3] >= depth - _TOL else 0.0
+
+
 def perimeter_length(r: Rect, width: float, depth: float) -> float:
     """Longueur de la zone qui borde le périmètre de l'emprise."""
     x0, y0, x1, y1 = r
@@ -277,6 +289,8 @@ class Constraints:
     needs_hall: frozenset[str]               # zones dont des pièces doivent toucher un couloir
     perimeter: frozenset[str]                # zones habitables : doivent toucher le périmètre
     forbidden: frozenset[frozenset[str]]     # paires de zones dont des pièces ne doivent pas se toucher
+    entrance: frozenset[str]                 # zones dont une pièce peut recevoir l'entrée (mur sud)
+    garage: bool                             # un garage doit porter la porte de garage (mur est)
 
 
 def constraints_for(prog: Program) -> Constraints:
@@ -290,7 +304,8 @@ def constraints_for(prog: Program) -> Constraints:
                 za, zb = zone_of(a), zone_of(b)
                 if za != zb:
                     forbidden.add(frozenset({za, zb}))
-    return Constraints(needs_hall, perimeter, frozenset(forbidden))
+    entrance = frozenset(zone_of(t) for t in ENTRANCE_TYPES if t in present)
+    return Constraints(needs_hall, perimeter, frozenset(forbidden), entrance, "garage" in present)
 
 
 @dataclass(frozen=True)
@@ -302,8 +317,14 @@ class Verdict:
 
 
 def judge(rects: dict[str, Rect], prog: Program, width: float, depth: float,
-          cons: Constraints | None = None) -> Verdict:
-    """Applique les conditions à un arrangement dimensionné."""
+          cons: Constraints | None = None, conventions: bool = True) -> Verdict:
+    """Applique les conditions à un arrangement dimensionné.
+
+    `conventions` ajoute les conventions de façade de `default_openings` (entrée
+    au sud, porte de garage à l'est). Elles ne relèvent pas des règles de
+    distribution : sans elles, on juge les règles seules (`conventions=False`),
+    ce qui permet d'établir des résultats indépendants du reste du pipeline.
+    """
     cons = cons or constraints_for(prog)
     reasons: list[str] = []
 
@@ -312,13 +333,24 @@ def judge(rects: dict[str, Rect], prog: Program, width: float, depth: float,
         w, h = hall[2] - hall[0], hall[3] - hall[1]
         if max(w, h) < HALL_MIN_ASPECT * max(min(w, h), 1e-9):
             reasons.append("couloir trop court pour être une circulation")
-        for zone in cons.needs_hall:
+        for zone in sorted(cons.needs_hall):    # trié : l'ordre d'un frozenset varie d'un processus à l'autre
             if contact_length(rects[zone], hall) < MIN_CONTACT:
                 reasons.append(f"{zone} ne touche pas le couloir")
     # Sans couloir, rien à toucher : `NeedsHall` ne s'applique que s'il en existe un.
-    for zone in cons.perimeter:
+    for zone in sorted(cons.perimeter):
         if perimeter_length(rects[zone], width, depth) < MIN_PERIMETER:
             reasons.append(f"{zone} ne touche pas le périmètre")
+    # Conventions de façade de `default_openings` : l'entrée est sur le mur sud,
+    # la porte de garage sur le mur est (cf. `layout_rules`).
+    if conventions and cons.entrance and not any(
+        south_length(rects[zone], depth) >= MIN_ENTRANCE_SPAN for zone in sorted(cons.entrance)
+    ):
+        reasons.append("aucune pièce d'accueil sur la façade sud")
+    if conventions and cons.garage and GARAGE in rects:
+        lo_y, hi_y = garage_door_span(depth)
+        gx0, gy0, gx1, gy1 = rects[GARAGE]
+        if gx1 < width - _TOL or gy0 > lo_y + _TOL or gy1 < hi_y - _TOL:
+            reasons.append("le garage ne porte pas la porte de garage (mur est)")
     necessary = not reasons
 
     day_ok = True
@@ -345,11 +377,13 @@ class Candidate:
     verdict: Verdict
 
 
-def candidates(rooms: list[dict[str, Any]], width: float, depth: float) -> list[Candidate]:
+def candidates(rooms: list[dict[str, Any]], width: float, depth: float,
+               conventions: bool = True) -> list[Candidate]:
     """Tous les arrangements de zones dimensionnables, chacun avec son verdict.
 
     Ordre déterministe (celui de `enumerate_trees`). Les arrangements dont un
     côté minimal ne peut pas être tenu sont écartés : ils n'ont pas de rectangle.
+    `conventions=False` juge les règles de distribution seules (cf. `judge`).
     """
     prog = program_from_rooms(rooms)
     cons = constraints_for(prog)
@@ -358,7 +392,7 @@ def candidates(rooms: list[dict[str, Any]], width: float, depth: float) -> list[
         rects = size_tree(tree, prog, width, depth)
         if rects is None:
             continue
-        out.append(Candidate(tree, rects, judge(rects, prog, width, depth, cons)))
+        out.append(Candidate(tree, rects, judge(rects, prog, width, depth, cons, conventions)))
     return out
 
 
@@ -382,3 +416,23 @@ def arrangement_code(rects: dict[str, Rect], width: float, depth: float) -> str:
     hall = rects.get(HALL)
     orient = "-" if hall is None else ("H" if (hall[2] - hall[0]) >= (hall[3] - hall[1]) else "V")
     return f"night:{side(rects.get(NIGHT))}|day:{side(rects.get(DAY))}|hall:{orient}|garage:{side(rects.get(GARAGE))}"
+
+
+def canonical_code(code: str) -> str:
+    """Code d'arrangement à un miroir est-ouest près.
+
+    Deux plans symétriques par rapport à l'axe nord-sud sont la même maison
+    retournée : ils ne comptent pas comme deux partis. Le nord et le sud, eux,
+    restent distincts (l'entrée et le jardin sont au sud).
+    """
+    mirrored = code.replace(":W", ":#").replace(":E", ":W").replace(":#", ":E")
+    return min(code, mirrored)
+
+
+def adjacency_graph(rects: dict[str, Rect]) -> frozenset[tuple[str, str]]:
+    """Paires de zones qui se touchent réellement (assez pour une porte), sans métrique."""
+    zones = sorted(rects)
+    return frozenset(
+        (a, b) for a, b in itertools.combinations(zones, 2)
+        if contact_length(rects[a], rects[b]) >= MIN_CONTACT
+    )

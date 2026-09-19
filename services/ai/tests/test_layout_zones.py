@@ -37,8 +37,9 @@ PROG_5 = PROG_4 + _rooms(("garage", 16))
 
 
 @cache
-def _cands(name: str, width: float, depth: float):
-    return z.candidates({"3": PROG_3, "4": PROG_4, "5": PROG_5}[name], width, depth)
+def _cands(name: str, width: float, depth: float, conventions: bool = False):
+    """Par défaut : les règles de distribution SEULES, sans les conventions de façade."""
+    return z.candidates({"3": PROG_3, "4": PROG_4, "5": PROG_5}[name], width, depth, conventions)
 
 
 # --- Énumération -------------------------------------------------------------
@@ -160,6 +161,43 @@ def test_candidates_are_deterministic():
     assert [c.rects for c in a] == [c.rects for c in b]
 
 
+# --- Déterminisme entre processus ---------------------------------------------------
+
+_DETERMINISM_SCRIPT = """
+import sys, hashlib, json
+sys.path.insert(0, {root!r})
+from app import layout_zones as z
+rooms = [{{"id": f"r{{i}}", "type": t, "area_m2": a}} for i, (t, a) in enumerate(
+    [("bedroom", 12), ("bedroom", 11), ("bathroom", 5), ("living", 24), ("kitchen", 10), ("wc", 2), ("garage", 16)])]
+out = []
+for conventions in (False, True):
+    for c in z.candidates(rooms, 14.0, 11.0, conventions):
+        v = c.verdict
+        out.append([repr(c.tree), sorted(c.rects.items()), v.necessary, v.connected, v.strict, list(v.reasons)])
+print(hashlib.sha256(json.dumps(out, default=str).encode()).hexdigest())
+"""
+
+
+def test_candidates_and_verdicts_do_not_depend_on_the_hash_seed():
+    """`frozenset` de chaînes : l'ordre d'itération change à chaque processus (PYTHONHASHSEED).
+
+    Un verdict dont les motifs de rejet sortent dans un ordre variable n'est pas
+    déterministe, même si les arbres et les rectangles le sont.
+    """
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = str(Path(__file__).resolve().parents[1])
+    digests = set()
+    for seed in ("0", "1", "2", "12345"):
+        out = subprocess.run([sys.executable, "-c", _DETERMINISM_SCRIPT.format(root=root)],
+                             env={**os.environ, "PYTHONHASHSEED": seed}, capture_output=True, text=True, check=True)
+        digests.add(out.stdout.strip())
+    assert len(digests) == 1, digests
+
+
 # --- Contacts ------------------------------------------------------------------
 
 def test_contact_length_counts_a_shared_wall_not_a_corner():
@@ -220,9 +258,9 @@ def test_a_needs_hall_rule_added_to_layout_rules_changes_the_constraints(monkeyp
 
 # --- Jugement, cas construits à la main ----------------------------------------
 
-def _judge(rects, types, w=10.0, d=10.0):
+def _judge(rects, types, w=10.0, d=10.0, conventions=False):
     prog = z.program_from_rooms([{"type": t, "area_m2": 10} for t in types])
-    return z.judge(rects, prog, w, d)
+    return z.judge(rects, prog, w, d, conventions=conventions)
 
 
 BASIC = ("bedroom", "living", "kitchen")
@@ -280,6 +318,67 @@ def test_wc_must_touch_the_hall_and_stay_away_from_the_bedroom_in_strict_mode():
     assert _judge(away, types + ("garage",)).strict
 
 
+# --- Conventions de façade (entrée au sud, porte de garage à l'est) ----------------
+
+def _conv(rects, types, w=10.0, d=10.0):
+    return _judge(rects, types, w, d, conventions=True)
+
+
+def test_south_length_is_the_edge_on_the_south_wall():
+    assert z.south_length((0, 5, 10, 10), 10) == 10
+    assert z.south_length((2, 5, 6, 10), 10) == 4
+    assert z.south_length((0, 0, 10, 5), 10) == 0
+
+
+def test_bedrooms_alone_on_the_south_wall_fail_the_entrance_convention():
+    rects = {z.DAY: (0, 0, 10, 4.7), z.HALL: (0, 4.7, 10, 6.0), z.NIGHT: (0, 6.0, 10, 10)}
+    assert _judge(rects, BASIC, conventions=False).necessary
+    v = _conv(rects, BASIC)
+    assert not v.necessary and any("façade sud" in r for r in v.reasons)
+
+
+def test_the_day_zone_or_the_hall_on_the_south_wall_receives_the_entrance():
+    stack = {z.NIGHT: (0, 0, 10, 4), z.HALL: (0, 4, 10, 5.3), z.DAY: (0, 5.3, 10, 10)}
+    assert _conv(stack, BASIC).necessary
+    spine = {z.NIGHT: (0, 0, 4, 10), z.HALL: (4, 0, 5.3, 10), z.DAY: (5.3, 0, 10, 10)}
+    assert _conv(spine, BASIC).necessary          # les trois colonnes touchent le mur sud
+
+
+def test_a_garage_must_hold_the_east_wall_where_the_door_is():
+    types = BASIC + ("garage",)
+    east = {z.NIGHT: (0, 0, 6, 4), z.HALL: (0, 4, 6, 5.3), z.DAY: (0, 5.3, 6, 10), z.GARAGE: (6, 0, 10, 10)}
+    assert not any("garage" in r for r in _conv(east, types).reasons)
+    west = {z.NIGHT: (6, 0, 10, 4), z.HALL: (6, 4, 10, 5.3), z.DAY: (6, 5.3, 10, 10), z.GARAGE: (0, 0, 6, 10)}
+    assert any("garage" in r for r in _conv(west, types).reasons)
+
+
+def test_a_garage_above_the_door_span_fails_and_one_covering_it_passes():
+    types = BASIC + ("garage",)
+    high = {z.NIGHT: (0, 0, 6, 4), z.HALL: (0, 4, 6, 5.3), z.DAY: (0, 5.3, 6, 10), z.GARAGE: (6, 0, 10, 3)}
+    assert any("garage" in r for r in _conv(high, types).reasons)
+    covering = {z.NIGHT: (0, 0, 6, 4), z.HALL: (0, 4, 6, 5.3), z.DAY: (0, 5.3, 6, 10), z.GARAGE: (6, 0, 10, 10)}
+    assert not any("garage" in r for r in _conv(covering, types).reasons)
+
+
+def test_without_a_garage_the_garage_convention_asks_nothing():
+    stack = {z.NIGHT: (0, 0, 10, 4), z.HALL: (0, 4, 10, 5.3), z.DAY: (0, 5.3, 10, 10)}
+    assert not any("garage" in r for r in _conv(stack, BASIC).reasons)
+
+
+def test_conventions_are_off_by_a_flag_and_only_narrow_the_candidates():
+    for name, w, d in (("3", 12.0, 10.0), ("4", 12.0, 10.0), ("5", 14.0, 11.0)):
+        pure = {c.tree for c in _cands(name, w, d) if c.verdict.necessary}
+        conv = {c.tree for c in _cands(name, w, d, True) if c.verdict.necessary}
+        assert conv <= pure, name
+    assert len(conv) < len(pure)                    # elles éliminent bel et bien des arrangements
+
+
+def test_constraints_name_the_entrance_zones_and_the_garage():
+    cons = z.constraints_for(z.program_from_rooms(PROG_5))
+    assert cons.entrance == {z.HALL, z.DAY} and cons.garage
+    assert z.constraints_for(z.program_from_rooms(PROG_4)).garage is False
+
+
 # --- Propriétés sur les candidats ----------------------------------------------
 
 @pytest.mark.parametrize("name,w,d", [("3", 12.0, 10.0), ("4", 12.0, 10.0), ("5", 14.0, 11.0)])
@@ -330,7 +429,7 @@ def test_a_wc_with_a_bedroom_and_no_buffer_zone_has_no_strict_arrangement():
     remplissage exact (une salle de bain ou le séjour contre le WC) peut réussir.
     """
     for w, d in PLOTS:
-        cands = z.candidates(PROG_4, w, d)
+        cands = z.candidates(PROG_4, w, d, conventions=False)
         assert cands, (w, d)
         assert not [c for c in cands if c.verdict.strict], (w, d)
         assert [c for c in cands if c.verdict.connected], (w, d)
@@ -351,7 +450,7 @@ def test_a_service_zone_without_a_wc_creates_no_forbidden_contact():
     laundry = _rooms(("bedroom", 12), ("bedroom", 11), ("bathroom", 5), ("living", 24),
                      ("kitchen", 10), ("laundry", 4))
     for w, d in PLOTS:
-        assert [c for c in z.candidates(laundry, w, d) if c.verdict.strict], (w, d)
+        assert [c for c in z.candidates(laundry, w, d, conventions=False) if c.verdict.strict], (w, d)
 
 
 def test_a_wc_without_a_bedroom_creates_no_star():
@@ -359,7 +458,7 @@ def test_a_wc_without_a_bedroom_creates_no_star():
     no_bed = _rooms(("bathroom", 5), ("living", 24), ("kitchen", 10), ("wc", 2))
     prog = z.program_from_rooms(no_bed)
     assert z.HALL in prog.demand and z.NIGHT in prog.demand     # couloir implicite, salle de bain en nuit
-    assert [c for c in z.candidates(no_bed, 12.0, 10.0) if c.verdict.strict]
+    assert [c for c in z.candidates(no_bed, 12.0, 10.0, conventions=False) if c.verdict.strict]
 
 
 def test_the_classic_arrangement_is_among_the_candidates():
@@ -373,6 +472,32 @@ def test_arrangement_code_describes_side_and_hall_direction():
     assert z.arrangement_code(stack, 10, 10) == "night:N|day:S|hall:H|garage:-"
     spine = {z.NIGHT: (6.3, 0, 10, 10), z.HALL: (5, 0, 6.3, 10), z.DAY: (0, 0, 5, 10), z.GARAGE: (0, 0, 0.01, 0.01)}
     assert z.arrangement_code(spine, 10, 10).startswith("night:E|day:W|hall:V")
+
+
+# --- Outils de comparaison : miroir et graphe d'adjacence ----------------------------
+
+def test_canonical_code_merges_east_west_mirrors_but_not_north_south():
+    a = "night:W|day:E|hall:V|garage:-"
+    b = "night:E|day:W|hall:V|garage:-"
+    assert z.canonical_code(a) == z.canonical_code(b)
+    assert z.canonical_code("night:N|day:S|hall:H|garage:-") != z.canonical_code("night:S|day:N|hall:H|garage:-")
+    assert z.canonical_code(z.canonical_code(a)) == z.canonical_code(a)          # idempotent
+
+
+def test_canonical_code_leaves_the_hall_direction_alone():
+    assert z.canonical_code("night:W|day:E|hall:V|garage:-") != z.canonical_code("night:W|day:E|hall:H|garage:-")
+
+
+def test_adjacency_graph_lists_the_zones_that_really_touch():
+    stack = {z.NIGHT: (0, 0, 10, 4), z.HALL: (0, 4, 10, 5.3), z.DAY: (0, 5.3, 10, 10)}
+    assert z.adjacency_graph(stack) == {(z.HALL, z.NIGHT), (z.DAY, z.HALL)}
+
+
+def test_adjacency_graph_ignores_a_corner_and_a_too_short_contact():
+    corner = {z.NIGHT: (0, 0, 5, 5), z.DAY: (5, 5, 10, 10)}
+    assert z.adjacency_graph(corner) == set()
+    short = {z.NIGHT: (0, 0, 5, 5), z.DAY: (5, 4.5, 10, 10)}       # 0,5 m de mur commun : pas une porte
+    assert z.adjacency_graph(short) == set()
 
 
 # --- Tableau de l'article ---------------------------------------------------------
