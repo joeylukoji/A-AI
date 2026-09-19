@@ -87,7 +87,12 @@
       "additionalProperties": false,
       "properties": {
         "parti": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$" },
-        "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647, "default": 0 }
+        "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647, "default": 0 },
+        "arr": {
+          "type": "string",
+          "description": "Arrangement de zones retenu, pour que la retouche le retrouve.",
+          "pattern": "^night:[NSEWC-]\\|day:[NSEWC-]\\|hall:[HV-]\\|garage:[NSEWC-]$"
+        }
       }
     }
   },

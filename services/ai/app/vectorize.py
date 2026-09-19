@@ -63,6 +63,14 @@ def vectorize(payload: dict[str, Any]) -> dict[str, Any]:
     # Le parti choisi à l'implantation voyage avec le plan, pour que l'adaptation
     # et la retouche re-pavent avec le même (cf. `plan_adapt.adapt`).
     variant = normalize_variant(layout.get("variant"))
+    if variant is None:
+        # Import tardif : `layout_select` charge tout le moteur de partis. Drapeau
+        # `LAYOUT_VARIANTS` éteint par défaut : `choose_variant` rend alors None et
+        # `shadow` ne fait rien, le plan reste celui d'avant.
+        from . import layout_select
+
+        variant = layout_select.choose_variant(constraints)
+        layout_select.shadow(layout, spec)
     if variant is not None:
         plan["layout"] = variant
     return {"plan_document": plan}

@@ -6,7 +6,7 @@ from typing import Any
 from . import compliance
 from .diffusion import default_openings, perimeter_and_internal_walls
 from .furnish import furnish
-from .layout_opt import normalize_variant, optimize_rooms
+from .layout_opt import PartiUnavailable, normalize_variant, optimize_rooms
 
 DEFAULT_RULES: dict[str, Any] = {
     "height_m": 2.70,
@@ -156,10 +156,26 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
     # effacerait donc le parti choisi à la génération. Il est relu ici, validé
     # (le document vient d'un appelant libre), et réécrit dans le plan produit.
     variant = normalize_variant(plan.get("layout"))
-    packed = optimize_rooms(
-        work, house_w, house_d, {"rooms": spec_rooms},
-        grid=grid, min_side=min_side, variant=variant,
-    )
+    try:
+        packed = optimize_rooms(
+            work, house_w, house_d, {"rooms": spec_rooms},
+            grid=grid, min_side=min_side, variant=variant,
+        )
+    except PartiUnavailable:
+        # Le parti demandé ne réalise pas ce plan (parcelle étroite, programme dense) : le
+        # gabarit classique, lui, en réalise toujours un. On l'utilise, et on n'annonce
+        # plus de parti : le plan produit ne prétend pas ce qu'il n'est pas.
+        variant = None
+        packed = optimize_rooms(
+            work, house_w, house_d, {"rooms": spec_rooms}, grid=grid, min_side=min_side,
+        )
+    if variant is not None:
+        # Le parti choisi note l'arrangement retenu : la retouche le retrouvera.
+        arrangement = next((r["_arr"] for r in packed if r.get("_arr")), None)
+        if arrangement:
+            variant = {**variant, "arr": arrangement}
+    for room in packed:
+        room.pop("_arr", None)
     walls = perimeter_and_internal_walls(packed, house_w, house_d)
     openings = default_openings(walls, house_w, house_d, packed)
     openings = apply_opening_rules(openings, rules, house_w, house_d)

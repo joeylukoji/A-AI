@@ -374,6 +374,9 @@ def _all(items: list[dict[str, Any]], typ: str) -> list[dict[str, Any]]:
 CLASSIC = "classic"
 _PARTI_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 _MAX_SEED = 2**31 - 1
+# Arrangement de zones tel que `layout_zones.arrangement_code` l'écrit, mémorisé dans le
+# plan pour que la retouche retrouve le même arrangement.
+_ARRANGEMENT = re.compile(r"^night:[NSEWC-]\|day:[NSEWC-]\|hall:[HV-]\|garage:[NSEWC-]$")
 
 
 class UnknownParti(ValueError):
@@ -381,6 +384,14 @@ class UnknownParti(ValueError):
 
     Sous-classe de `ValueError` : les endpoints `/v1/*` traduisent déjà cette
     erreur en HTTP 422 (`main._run_stage`) au lieu d'un 500.
+    """
+
+
+class PartiUnavailable(Exception):
+    """Le parti demandé ne peut pas réaliser CE plan (parcelle étroite, aucun arrangement valide).
+
+    Ce n'est pas une erreur d'entrée, donc pas une `ValueError` : `plan_adapt` retombe
+    sur le gabarit classique, qui réalise toujours un plan.
     """
 
 
@@ -426,7 +437,22 @@ def normalize_variant(variant: Any) -> dict[str, Any] | None:
         raise ValueError("layout.seed: entier entre 0 et 2^31-1 attendu")
     if parti == CLASSIC:
         return None
-    return {"parti": parti, "seed": seed}
+    out: dict[str, Any] = {"parti": parti, "seed": seed}
+    arr = variant.get("arr")
+    if arr is not None:
+        if not isinstance(arr, str) or not _ARRANGEMENT.match(arr):
+            raise ValueError("layout.arr: arrangement invalide")
+        out["arr"] = arr
+    return out
+
+
+def _load_builtin_partis() -> None:
+    """Importe les partis livrés avec le service : ils s'enregistrent à l'import.
+
+    Import tardif : `layout_select` importe `layout_opt`, un import au chargement serait
+    circulaire.
+    """
+    from . import layout_select  # noqa: F401
 
 
 def pack_house(
@@ -447,6 +473,9 @@ def pack_house(
     chosen = normalize_variant(variant)
     if chosen is not None:
         fn = _PARTIS.get(chosen["parti"])
+        if fn is None:
+            _load_builtin_partis()
+            fn = _PARTIS.get(chosen["parti"])
         if fn is None:
             raise UnknownParti(f"parti inconnu: {chosen['parti']!r}")
         return fn(rooms, width, depth, grid, min_side, chosen)

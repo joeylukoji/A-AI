@@ -288,6 +288,7 @@ class Realization:
     graph: frozenset[tuple[str, str]]           # zones qui se touchent
     thin: int                                   # pièces sous leur côté minimal
     strict: bool = False                        # aucun mur commun entre zones aux pièces incompatibles
+    raw_code: str = ""                          # arrangement tel quel (côtés exacts, sans fusion de miroir)
 
     @property
     def klass(self) -> tuple[str, frozenset[tuple[str, str]]]:
@@ -348,6 +349,7 @@ def iter_realizations(
                 graph=z.adjacency_graph(cand.rects),
                 thin=thin_count(layout, min_side),
                 strict=cand.verdict.strict,
+                raw_code=z.arrangement_code(cand.rects, width, depth),
             )
             break  # une réalisation par arrangement : les ordres ne sont que des essais
 
@@ -367,12 +369,18 @@ def realizations(
     tries_per_class: int = 6,
     conventions: bool = True,
     exact: bool = True,
+    max_classes: int | None = None,
 ) -> list[Realization]:
     """Partis réalisables distincts : `per_class` réalisations par classe (côté/sens, adjacence).
 
     Les arrangements d'une même classe ne diffèrent que par leurs proportions ;
     `tries_per_class` borne les essais avant de déclarer la classe irréalisable,
     puisque la réussite dépend des proportions de la parcelle.
+
+    `max_classes` borne le travail d'un programme riche (jusqu'à une centaine de
+    classes). C'est une borne sur un NOMBRE, pas sur un temps : un délai rendrait
+    le résultat dépendant de la machine. Les classes qui contiennent un
+    arrangement strict passent d'abord, pour que la borne garde les meilleures.
     """
     width, depth = _plot(width, depth, grid, min_side)
     zones, ensuite = zone_items(rooms)
@@ -387,7 +395,8 @@ def realizations(
     expected = len(zone_total(zones))
     targets = _targets(rooms)
     baseline = classic_baseline(rooms, width, depth, grid=grid, min_side=min_side) if exact and conventions else None
-    for key, members in by_class.items():
+    ordered = sorted(by_class.items(), key=lambda kv: not any(c.verdict.strict for c in kv[1]))  # tri stable
+    for key, members in ordered[:max_classes]:
         members.sort(key=lambda c: not c.verdict.strict)
         found = 0
         for cand in members[:tries_per_class]:
@@ -397,7 +406,8 @@ def realizations(
                     if baseline is not None and not exact_ok(layout, width, depth, baseline):
                         continue
                     out.append(Realization(cand.tree, cand.rects, layout, key[0], key[1],
-                                           thin_count(layout, min_side), cand.verdict.strict))
+                                           thin_count(layout, min_side), cand.verdict.strict,
+                                           z.arrangement_code(cand.rects, width, depth)))
                     found += 1
                     break
             if found >= per_class:
