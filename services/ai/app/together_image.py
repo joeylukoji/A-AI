@@ -346,7 +346,16 @@ def _via_eden(
     deadline = time.monotonic() + _image_timeout()
     data = _eden_post(url, key, payload, _remaining(deadline))
     raw = _eden_image_b64(data) if data else None
-    if not raw and data_uri and _remaining(deadline) > 0:
+    if not raw and data_uri and _remaining(deadline) > MIN_EDEN_ATTEMPT_S:
+        # Erreur transitoire : on retente AVEC le plan de référence plutôt que de le perdre.
+        print("[together_image] Eden edit échec — nouvel essai avec le plan de référence", file=sys.stderr)
+        data = _eden_post(url, key, payload, _remaining(deadline))
+        raw = _eden_image_b64(data) if data else None
+    # Sans le plan de référence, Gemini invente un plan : pièces en trop ou manquantes, murs
+    # déplacés. Mieux vaut rendre None (le pipeline garde alors le rendu vectoriel, exact) que de
+    # laisser passer un dessin qui ne suit plus la géométrie. `GEMINI_TEXT_FALLBACK=1` rétablit l'ancien repli.
+    blind_ok = not data_uri or _text_fallback_allowed()
+    if not raw and data_uri and blind_ok and _remaining(deadline) > 0:
         print("[together_image] Eden edit échec — repli génération texte", file=sys.stderr)
         data = _eden_post(
             EDEN_IMAGES_URL,
@@ -361,7 +370,7 @@ def _via_eden(
             _remaining(deadline),
         )
         raw = _eden_image_b64(data) if data else None
-    if not raw and _remaining(deadline) > 0:
+    if not raw and blind_ok and _remaining(deadline) > 0:
         print("[together_image] Eden images échec — repli universal-ai", file=sys.stderr)
         data = _eden_post(
             EDEN_URL,
@@ -381,6 +390,11 @@ def _via_eden(
 
 
 MIN_EDEN_ATTEMPT_S = 5.0
+
+
+def _text_fallback_allowed() -> bool:
+    """Autorise un repli texte seul quand l'appel avec plan de référence échoue (défaut : non)."""
+    return (os.getenv("GEMINI_TEXT_FALLBACK") or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _remaining(deadline: float) -> float:
