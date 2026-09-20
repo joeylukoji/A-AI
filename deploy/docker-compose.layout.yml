@@ -1,8 +1,9 @@
-# Surcouche : active les partis de plan (variété des maisons générées).
+# Surcouche : réglages explicites des partis de plan. Depuis que `on` est le défaut du service, elle n'est
+# plus nécessaire pour les activer ; elle sert à fixer LAYOUT_VARIANTS / LAYOUT_TOLERANCE.
 #   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.layout.yml up -d ai
 # Retour arrière : relancer sans cette surcouche (ou LAYOUT_VARIANTS=off). Voir docs/layout-variants.md.
 services:
   ai:
     environment:
       LAYOUT_VARIANTS: ${LAYOUT_VARIANTS:-on}       # off | shadow | on
-      LAYOUT_TOLERANCE: ${LAYOUT_TOLERANCE:-1.0}    # 0 = toujours le meilleur ; plus haut = plus de variété
+      LAYOUT_TOLERANCE: ${LAYOUT_TOLERANCE:-2.0}    # 0 = toujours le meilleur ; plus haut = plus de variété

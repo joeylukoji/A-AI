@@ -80,6 +80,22 @@
       "description": "Instances du catalogue 3D (chaises, lits, tables…). Blender les pose sans modèle génératif.",
       "items": { "$ref": "#/$defs/furniture_instance" }
     },
+    "program": {
+      "type": "array",
+      "description": "Pièces demandées (une entrée par pièce). L'adaptation re-pave le plan en visant ces surfaces plutôt que celles du premier tracé ; ignoré si les types de pièces du plan ont changé.",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "area_m2"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string" },
+          "name": { "type": "string" },
+          "area_m2": { "type": "number", "exclusiveMinimum": 0, "maximum": 500 }
+        }
+      }
+    },
     "layout": {
       "type": "object",
       "description": "Parti d'aménagement choisi à la génération. Absent pour le gabarit classique. L'adaptation et la retouche re-pavent avec le même parti.",

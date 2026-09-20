@@ -59,3 +59,24 @@ func TestValidateToleratesTheLayoutDescriptor(t *testing.T) {
 		t.Fatalf("un plan avec un descripteur de variante doit rester valide : %v", err)
 	}
 }
+
+// Le service IA écrit aussi `program` (les pièces demandées) : même contrainte que `layout`,
+// l'éditeur renvoie le plan entier à l'enregistrement.
+func TestValidateToleratesTheProgram(t *testing.T) {
+	raw := []byte(`{
+	  "version":"1.0","units":"m",
+	  "floor":{"level":0,"height_m":2.7,"bounds":{"width":10,"depth":8}},
+	  "walls":[
+	    {"id":"w1","a":{"x":0,"y":0},"b":{"x":10,"y":0},"thickness_m":0.2},
+	    {"id":"w2","a":{"x":10,"y":0},"b":{"x":10,"y":8},"thickness_m":0.2},
+	    {"id":"w3","a":{"x":10,"y":8},"b":{"x":0,"y":8},"thickness_m":0.2},
+	    {"id":"w4","a":{"x":0,"y":8},"b":{"x":0,"y":0},"thickness_m":0.2}
+	  ],
+	  "rooms":[{"id":"r1","type":"living","polygon":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4}]}],
+	  "openings":[],
+	  "program":[{"id":"r1","type":"living","name":"Séjour","area_m2":30}]
+	}`)
+	if err := Validate(raw); err != nil {
+		t.Fatalf("un plan qui embarque son programme doit rester valide : %v", err)
+	}
+}

@@ -20,6 +20,26 @@ def _seq(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
+def _program(spec: dict[str, Any]) -> list[dict[str, Any]]:
+    """Pièces DEMANDÉES (type, nombre, surface), une entrée par pièce.
+
+    `plan_adapt` re-pave le plan : sans ce programme il n'a que les polygones du premier tracé,
+    donc reproduit ses déformations (couloir découpé en cinq « pièces » de 30 m², séjour rogné)
+    au lieu de viser les surfaces demandées.
+    """
+    from .diffusion import expand_rooms
+
+    out: list[dict[str, Any]] = []
+    for room in expand_rooms(_seq(spec.get("rooms"))):
+        out.append({
+            "id": str(room["id"]),
+            "type": str(room["type"]),
+            "name": str(room.get("name") or room["type"]),
+            "area_m2": round(float(room["area_m2"]), 1),
+        })
+    return out
+
+
 def vectorize(payload: dict[str, Any]) -> dict[str, Any]:
     payload = _obj(payload)
     layout = _obj(payload.get("layout"))
@@ -60,6 +80,9 @@ def vectorize(payload: dict[str, Any]) -> dict[str, Any]:
         "openings": openings,
         "furniture": furnish(rooms),
     }
+    program = _program(spec)
+    if program:
+        plan["program"] = program
     # Le parti choisi à l'implantation voyage avec le plan, pour que l'adaptation
     # et la retouche re-pavent avec le même (cf. `plan_adapt.adapt`).
     variant = normalize_variant(layout.get("variant"))

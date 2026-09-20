@@ -71,6 +71,58 @@ def _target_area(room: dict[str, Any], rules: dict[str, Any]) -> float:
     return max(current, minimum)
 
 
+# Part maximale du couloir dans la maison quand on n'a que des polygones pour cible.
+HALLWAY_SHARE_CAP = 0.10
+
+
+def _usable_program(plan: dict[str, Any], rooms_in: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Le programme demandé embarqué dans le plan, s'il décrit encore ce plan.
+
+    Un document venu de l'éditeur peut avoir perdu ou gagné des pièces depuis : le programme n'est
+    repris que si les types de pièces (couloirs exclus : le packer les découpe) sont les mêmes.
+    """
+    raw = plan.get("program")
+    if not isinstance(raw, list) or not raw:
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw[:64]:
+        if not isinstance(item, dict) or not isinstance(item.get("type"), str):
+            return []
+        try:
+            area = float(item.get("area_m2"))
+        except (TypeError, ValueError):
+            return []
+        if not 0.5 <= area <= 500:
+            return []
+        out.append({"id": str(item.get("id") or f"p{len(out) + 1}"), "type": item["type"],
+                    "name": str(item.get("name") or item["type"]), "area_m2": area})
+
+    def kinds(rooms: list[dict[str, Any]]) -> list[str]:
+        return sorted(str(r.get("type") or "other") for r in rooms if r.get("type") != "hallway")
+
+    return out if kinds(out) == kinds(rooms_in) else []
+
+
+def _merge_hallways(rooms_in: list[dict[str, Any]], house_area: float) -> list[dict[str, Any]]:
+    """Un seul couloir, de surface bornée, à la place de ses segments.
+
+    Sans programme, chaque segment issu d'un premier tracé devenait une pièce cible : un couloir de
+    31 m² en cinq morceaux.
+    """
+    halls = [r for r in rooms_in if r.get("type") == "hallway"]
+    if len(halls) <= 1:
+        return rooms_in
+    total = sum(float(r.get("area_m2") or _poly_area(r.get("polygon") or [])) for r in halls)
+    merged = {**halls[0], "area_m2": min(total, HALLWAY_SHARE_CAP * house_area), "polygon": []}
+    out: list[dict[str, Any]] = []
+    for room in rooms_in:
+        if room.get("type") != "hallway":
+            out.append(room)
+        elif room is halls[0]:
+            out.append(merged)
+    return out
+
+
 def _dimension_row(room: dict[str, Any]) -> dict[str, Any]:
     poly = room.get("polygon") or []
     if len(poly) < 3:
@@ -135,6 +187,12 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
     rooms_in = [r for r in (plan.get("rooms") or []) if (r.get("polygon") or r.get("type"))]
     if not rooms_in:
         raise ValueError("plan sans pièces : générez un plan avant d’adapter")
+
+    program = _usable_program(plan, rooms_in)
+    if program:
+        rooms_in = program
+    else:
+        rooms_in = _merge_hallways(rooms_in, house_w * house_d)
 
     spec_rooms = []
     work = []
@@ -203,6 +261,8 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
         # utilisent exactement les mêmes instances catalog_id/position/rotation.
         "furniture": furnish(packed),
     }
+    if program:
+        doc["program"] = program
     if variant is not None:
         # Absent pour le gabarit classique : le plan reste identique à celui
         # d'avant cette fonctionnalité.

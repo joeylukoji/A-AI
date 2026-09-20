@@ -26,8 +26,11 @@ pavage : sans `arr`, la graine seule tirerait un autre arrangement et redessiner
 toute la maison. On préfère donc l'arrangement mémorisé s'il existe encore, tant qu'il
 reste à une distance raisonnable du meilleur score.
 
-**Brancher.** `LAYOUT_VARIANTS` vaut `off` (défaut : rien ne change), `shadow` (on calcule
-et on journalise, le plan reste celui d'avant) ou `on` (le plan généré porte un parti).
+**Brancher.** `LAYOUT_VARIANTS` vaut `on` (défaut : le plan généré porte un parti, le classique ne sert
+que si aucun parti n'est réalisable), `shadow` (on calcule et on journalise, le plan reste
+celui du classique) ou `off` (retour arrière : moteur classique seul). Mesuré sur 200 programmes : le
+classique laisse le couloir à 24 % de la maison (partis : 11 %), rate le garage de 80 % (9 %) et donne des
+chambres sous le minimum ; les partis sont le bon défaut.
 La graine est choisie à la GÉNÉRATION seulement : une adaptation ou une retouche relit celle
 du plan, elle n'en tire jamais une nouvelle.
 """
@@ -49,14 +52,16 @@ LOG = logging.getLogger("aai.layout")
 # Poids du score.
 W_THIN = 1.0            # par pièce sous son côté minimal
 W_MAE = 0.25            # par m² d'écart moyen aux aires demandées
-W_ASPECT = 0.6          # par unité d'allongement au-delà de ASPECT_OK
+W_ASPECT = 1.5          # par unité d'allongement au-delà de ASPECT_OK
+W_REL = 4.0             # par unité d'écart relatif de surface de la pire pièce (hors couloir)
 W_CIRCULATION = 2.0     # par tranche de 5 points de circulation au-delà de CIRCULATION_OK
 STRICT_BONUS = 0.25     # un arrangement strict évite les contacts délicats par construction
-ASPECT_OK = 2.5         # rapport grand côté / petit côté toléré pour une pièce d'habitation
+ASPECT_OK = 2.2         # rapport grand côté / petit côté toléré pour une pièce d'habitation
+ASPECT_HARD = 3.0       # au-delà, un parti n'est tiré que si tous les autres le dépassent aussi
 CIRCULATION_OK = 0.12   # part du plan occupée par le couloir : 8 à 12 % dans un plan courant
-TOLERANCE = 1.0         # fenêtre des « quasi-meilleurs » dans laquelle la graine tire (LAYOUT_TOLERANCE)
+TOLERANCE = 2.0         # fenêtre des « quasi-meilleurs » dans laquelle la graine tire (LAYOUT_TOLERANCE)
 MAX_TOLERANCE = 20.0
-PREFER_TOLERANCE = 2.0  # l'arrangement mémorisé est repris s'il est à moins de 2 points du meilleur
+PREFER_TOLERANCE = 4.0  # l'arrangement mémorisé est repris s'il est à moins de 4 points du meilleur (2 x TOLERANCE)
 MAX_CLASSES = 48        # borne sur le travail d'un programme riche (un nombre, pas un délai)
 
 # Pièces où un long boyau est un défaut. Le garage et les pièces d'eau peuvent être allongés.
@@ -83,6 +88,17 @@ def aspect_penalty(rooms: list[dict[str, Any]]) -> float:
     return total
 
 
+def worst_aspect(rooms: list[dict[str, Any]]) -> float:
+    """Plus grand rapport grand côté / petit côté parmi les pièces où un boyau est un défaut."""
+    worst = 1.0
+    for room in rooms:
+        if room["type"] not in _ASPECT_TYPES:
+            continue
+        w, h = _dims(room)
+        worst = max(worst, max(w, h) / max(min(w, h), 0.1))
+    return worst
+
+
 def circulation_penalty(rooms: list[dict[str, Any]]) -> float:
     """Tranches de 5 points de couloir au-delà de `CIRCULATION_OK`."""
     total = hall = 0.0
@@ -100,12 +116,25 @@ def area_error(rooms: list[dict[str, Any]], targets: dict[Any, float]) -> float:
     return sum(errs) / len(errs) if errs else 0.0
 
 
+def relative_error(rooms: list[dict[str, Any]], targets: dict[Any, float]) -> float:
+    """Écart relatif de surface de la PIRE pièce (couloir exclu : sa surface est ce qui reste)."""
+    worst = 0.0
+    for room in rooms:
+        target = targets.get(room.get("id"))
+        if room["type"] == "hallway" or not target:
+            continue
+        w, h = _dims(room)
+        worst = max(worst, abs(w * h - target) / target)
+    return worst
+
+
 def score(real: lp.Realization, targets: dict[Any, float]) -> float:
     """Plus petit est meilleur. Ne contient aucun terme de conformité (cf. docstring du module)."""
     return (
         W_THIN * real.thin
         + W_MAE * area_error(real.rooms, targets)
         + W_ASPECT * aspect_penalty(real.rooms)
+        + W_REL * relative_error(real.rooms, targets)
         + W_CIRCULATION * circulation_penalty(real.rooms)
         - (STRICT_BONUS if real.strict else 0.0)
     )
@@ -139,12 +168,14 @@ def pick(candidates: list[lp.Realization], targets: dict[Any, float], *, seed: i
     """Choisit un parti : l'arrangement mémorisé s'il tient encore, sinon un quasi-meilleur tiré."""
     if not candidates:
         return None
-    scored = sorted(((score(r, targets), i, r) for i, r in enumerate(candidates)), key=lambda t: (t[0], t[1]))
-    best = scored[0][0]
+    scored_all = sorted(((score(r, targets), i, r) for i, r in enumerate(candidates)), key=lambda t: (t[0], t[1]))
     if prefer:
-        for s, _, r in scored:
-            if r.raw_code == prefer and s <= best + PREFER_TOLERANCE:
+        for s, _, r in scored_all:
+            if r.raw_code == prefer and s <= scored_all[0][0] + PREFER_TOLERANCE:
                 return r
+    # Une cuisine de 1,8 m sur 6,8 m est un couloir : on n'en tire pas tant qu'un parti compact existe.
+    scored = [t for t in scored_all if worst_aspect(t[2].rooms) <= ASPECT_HARD] or scored_all
+    best = scored[0][0]
     # On tire parmi les ARRANGEMENTS distincts de la fenêtre, pas parmi les plans : un même
     # arrangement fournit souvent plusieurs plans (adjacences mineures différentes), qui
     # seraient sinon tirés plus souvent et se ressembleraient d'une graine à l'autre.
@@ -180,8 +211,13 @@ def _zoned(rooms: list[dict[str, Any]], width: float, depth: float, grid: float,
 # --- Interrupteur -----------------------------------------------------------------
 
 def mode() -> str:
-    """`off` (défaut), `shadow` ou `on`, lu dans `LAYOUT_VARIANTS`. Toute autre valeur : `off`."""
-    value = (os.getenv("LAYOUT_VARIANTS") or "off").strip().lower()
+    """`on` (défaut), `shadow` ou `off`, lu dans `LAYOUT_VARIANTS`.
+
+    Absente ou vide : `on`. Une valeur inconnue : `off`, par prudence (une faute de frappe ne doit pas
+    activer un mode qu'on n'a pas demandé, mais elle rend le moteur classique, connu).
+    """
+    raw = os.getenv("LAYOUT_VARIANTS")
+    value = "on" if raw is None or not raw.strip() else raw.strip().lower()
     if value in {"on", "1", "true", "yes"}:
         return "on"
     return "shadow" if value == "shadow" else "off"

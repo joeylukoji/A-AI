@@ -192,7 +192,8 @@ def test_vectorize_carries_the_variant_into_the_plan():
     assert out["plan_document"]["layout"] == {"parti": "probe", "seed": 3}
 
 
-def test_vectorize_adds_nothing_without_a_variant():
+def test_vectorize_adds_nothing_without_a_variant(monkeypatch):
+    monkeypatch.setenv("LAYOUT_VARIANTS", "off")
     for variant in (None, {"parti": "classic"}):
         layout = dict(_LAYOUT) if variant is None else {**_LAYOUT, "variant": variant}
         assert "layout" not in vectorize.vectorize({"layout": layout, "building_spec": {}})["plan_document"]
@@ -223,7 +224,8 @@ def test_a_variant_set_at_generation_survives_the_whole_pipeline(monkeypatch, pr
     assert probe and all(c["variant"] == {"parti": "probe", "seed": 7} for c in probe)
 
 
-def test_the_pipeline_output_is_unchanged_for_the_classic_parti():
+def test_the_pipeline_output_is_unchanged_for_the_classic_parti(monkeypatch):
+    monkeypatch.setenv("LAYOUT_VARIANTS", "off")
     result = _pipeline(PipelineRequest(brief="Maison 2 chambres, séjour, cuisine, salle de bain",
                                        constraints={"parcel_width_m": 12, "parcel_depth_m": 9}))
     assert "layout" not in result["plan_document"]

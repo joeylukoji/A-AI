@@ -77,8 +77,53 @@ def _no_paid_calls(monkeypatch):
 def test_aspect_penalty_only_counts_habitable_rooms_beyond_the_tolerance():
     assert sel.aspect_penalty([_r("l", "living", 0, 0, 10, 2)]) == pytest.approx(5 - sel.ASPECT_OK)
     assert sel.aspect_penalty([_r("b", "bedroom", 0, 0, 3, 3)]) == 0
-    assert sel.aspect_penalty([_r("b", "bedroom", 0, 0, 5, 2)]) == 0            # 2,5 : à la limite
+    at_limit = sel.ASPECT_OK * 2                                               # rapport = ASPECT_OK exactement
+    assert sel.aspect_penalty([_r("b", "bedroom", 0, 0, at_limit, 2)]) == 0
     assert sel.aspect_penalty([_r("g", "garage", 0, 0, 10, 2), _r("h", "hallway", 0, 0, 12, 1)]) == 0
+
+
+def test_worst_aspect_covers_habitable_rooms_and_the_kitchen_only():
+    assert sel.worst_aspect([_r("k", "kitchen", 0, 0, 2, 7), _r("g", "garage", 0, 0, 20, 2)]) == pytest.approx(3.5)
+    assert sel.worst_aspect([_r("g", "garage", 0, 0, 20, 2), _r("h", "hallway", 0, 0, 12, 1)]) == 1.0
+
+
+def test_an_elongated_plan_is_never_drawn_while_a_compact_one_exists():
+    # rapport 3,2 : au-dessus du seuil dur, mais sa pénalité (1,5) reste dans la fenêtre de tirage (2,0),
+    # donc sans le filtre il serait tiré : c'est bien lui qu'on teste, pas le score
+    strip = _real(rooms=[_r("k", "kitchen", 0, 0, 1.9, 6.1)], code="A", raw="A")
+    compact = _real(rooms=[_r("k", "kitchen", 0, 0, 3.5, 3.5)], code="B", raw="B")
+    assert sel.worst_aspect(strip.rooms) > sel.ASPECT_HARD
+    assert sel.W_ASPECT * (sel.worst_aspect(strip.rooms) - sel.ASPECT_OK) < sel.TOLERANCE
+    assert {sel.pick([strip, compact], {}, seed=s).code for s in range(60)} == {"B"}
+
+
+def test_an_elongated_plan_is_still_drawn_when_every_candidate_is_elongated():
+    strips = [_real(rooms=[_r("k", "kitchen", 0, 0, 1.8, 6.8)], code=c, raw=c) for c in "AB"]
+    assert {sel.pick(strips, {}, seed=s).code for s in range(60)} == {"A", "B"}
+
+
+def test_the_remembered_arrangement_is_kept_even_if_elongated():
+    """Une retouche ne doit pas redessiner la maison parce qu'un critère de tirage a changé."""
+    strip = _real(rooms=[_r("k", "kitchen", 0, 0, 1.8, 6.8)], code="A", raw="A")
+    compact = _real(rooms=[_r("k", "kitchen", 0, 0, 3.5, 3.5)], code="B", raw="B")
+    assert sel.pick([strip, compact], {}, seed=1, prefer="A").code == "A"
+
+
+def test_relative_error_is_that_of_the_worst_room_and_ignores_the_hallway():
+    rooms = [_r("a", "bedroom", 0, 0, 3, 4), _r("b", "kitchen", 3, 0, 6, 4), _r("h", "hallway", 0, 4, 6, 5)]
+    # a : 12 m² pour 12 demandés (0 %) ; b : 12 m² pour 8 demandés (50 %) ; le couloir n'entre pas en compte
+    assert sel.relative_error(rooms, {"a": 12, "b": 8, "h": 1}) == pytest.approx(0.5)
+
+
+def test_relative_error_is_zero_without_targets():
+    assert sel.relative_error([_r("a", "bedroom", 0, 0, 3, 4)], {}) == 0
+
+
+def test_the_score_grows_with_the_worst_area_error():
+    rooms = [_r("a", "bedroom", 0, 0, 3, 4)]
+    near = sel.score(_real(rooms=rooms), {"a": 12})
+    far = sel.score(_real(rooms=rooms), {"a": 6})
+    assert far - near == pytest.approx(sel.W_REL * 1.0 + sel.W_MAE * 6, abs=1e-6)
 
 
 def test_circulation_penalty_counts_five_point_slices_above_the_norm():
@@ -209,20 +254,31 @@ def test_a_plot_too_small_selects_nothing():
 # --- Interrupteur ----------------------------------------------------------------------------
 
 @pytest.mark.parametrize("value,expected", [
-    (None, "off"), ("", "off"), ("off", "off"), ("banana", "off"), ("  OFF ", "off"),
+    (None, "on"), ("", "on"), ("   ", "on"), ("off", "off"), ("banana", "off"), ("  OFF ", "off"),
     ("on", "on"), ("ON", "on"), ("1", "on"), ("true", "on"), ("yes", "on"), (" on ", "on"),
     ("shadow", "shadow"), ("SHADOW", "shadow"),
 ])
-def test_mode_reads_the_environment_and_defaults_to_off(monkeypatch, value, expected):
+def test_mode_reads_the_environment_and_defaults_to_on(monkeypatch, value, expected):
     if value is not None:
         monkeypatch.setenv("LAYOUT_VARIANTS", value)
     assert sel.mode() == expected
 
 
-def test_no_variant_is_chosen_unless_the_flag_is_on(monkeypatch):
+def test_no_variant_is_chosen_when_the_flag_is_off_or_shadow(monkeypatch):
+    monkeypatch.setenv("LAYOUT_VARIANTS", "off")
     assert sel.choose_variant({}) is None
     monkeypatch.setenv("LAYOUT_VARIANTS", "shadow")
     assert sel.choose_variant({}) is None
+
+
+def test_a_variant_is_chosen_by_default(monkeypatch):
+    monkeypatch.delenv("LAYOUT_VARIANTS", raising=False)
+    assert sel.choose_variant({})["parti"] == "zoned"
+
+
+def test_a_mistyped_flag_falls_back_to_the_classic_engine_not_to_on(monkeypatch):
+    monkeypatch.setenv("LAYOUT_VARIANTS", "onn")
+    assert sel.mode() == "off" and sel.choose_variant({}) is None
 
 
 def test_the_variant_carries_the_zoned_parti_and_a_valid_seed(monkeypatch):
@@ -341,7 +397,8 @@ _LAYOUT = {"width": 12.0, "depth": 10.0, "height_m": 2.7, "walls": [], "openings
                      lo.pack_house([dict(r) for r in RICH["rooms"]], 12.0, 10.0, grid=0.1, min_side=1.6)]}
 
 
-def test_vectorize_adds_nothing_when_the_flag_is_off():
+def test_vectorize_adds_nothing_when_the_flag_is_off(monkeypatch):
+    monkeypatch.setenv("LAYOUT_VARIANTS", "off")
     assert "layout" not in vectorize({"layout": _LAYOUT, "building_spec": {}})["plan_document"]
 
 
@@ -377,6 +434,7 @@ def test_shadow_mode_never_breaks_a_generation(monkeypatch, caplog):
 
 
 def test_shadow_and_off_leave_the_plan_byte_identical(monkeypatch):
+    monkeypatch.setenv("LAYOUT_VARIANTS", "off")
     baseline = vectorize({"layout": _LAYOUT, "building_spec": {}})
     monkeypatch.setenv("LAYOUT_VARIANTS", "shadow")
     assert vectorize({"layout": _LAYOUT, "building_spec": {}}) == baseline
@@ -486,7 +544,10 @@ def test_normalize_variant_keeps_a_valid_arrangement_and_refuses_a_bad_one():
 def test_the_annotation_is_the_raw_code_so_that_a_retouch_reproduces_the_same_house():
     """`_arr` est le code brut (avec orientation), pas le code canonique : sinon un plan miroir serait perdu."""
     pool = _diverse_pool()
-    mirrored = [r for r in pool if r.raw_code != r.code]
+    targets = lp._targets(DIVERSE["rooms"])
+    best = min(sel.score(r, targets) for r in pool)
+    # un arrangement retouché reste repris tant qu'il est dans la fenêtre de préférence
+    mirrored = [r for r in pool if r.raw_code != r.code and sel.score(r, targets) <= best + sel.PREFER_TOLERANCE]
     assert mirrored, "le corpus doit contenir un arrangement dont le code brut diffère du canonique"
     target = mirrored[0].raw_code
     out = lo.pack_house([dict(r) for r in DIVERSE["rooms"]], DIVERSE["width"], DIVERSE["depth"], grid=0.1,
