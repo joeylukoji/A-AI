@@ -1,0 +1,16 @@
+# Surcouche : worker 3D avec la bibliothèque homekit3d (meubles CC0 en instances, styliste assisté par un LLM).
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.3d.yml up -d --build blender-worker
+# Sans elle, le worker garde l'ancien constructeur. Le repli est aussi automatique si la bibliothèque échoue.
+services:
+  blender-worker:
+    build:
+      context: ..
+      dockerfile: services/blender/Dockerfile.homekit
+    environment:
+      HOMEKIT3D: ${HOMEKIT3D:-1}
+      # Style et décor par LLM (un appel texte court, 12 s au plus, repli à règles) : coupé si HOMEKIT_LLM=0.
+      HOMEKIT_LLM: ${HOMEKIT_LLM:-1}
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
+      # Murs coupés à cette hauteur (m) : on voit l'intérieur d'emblée ; 0 = murs entiers. Style imposé : HOMEKIT_STYLE.
+      HOMEKIT_CUTAWAY: ${HOMEKIT_CUTAWAY:-1.2}
+      HOMEKIT_STYLE: ${HOMEKIT_STYLE:-}

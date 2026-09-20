@@ -1,0 +1,48 @@
+# Worker Blender avec la bibliothèque homekit3d (libs/homekit3d). Contexte de build : la racine du dépôt.
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.3d.yml build blender-worker
+# Les premières couches sont identiques à services/blender/Dockerfile : Docker réutilise son cache (Blender n'est pas retéléchargé).
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    BLENDER_VERSION=4.2.5 \
+    AI_STUB=0 \
+    BLENDER_BIN=/usr/local/bin/blender \
+    LANG=C.UTF-8
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl xz-utils python3 python3-pip \
+    libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 \
+    libgl1 libxkbcommon0 libsm6 libice6 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN for base in \
+      "https://mirror.clarkson.edu/blender" \
+      "https://mirrors.ocf.berkeley.edu/blender" \
+      "https://ftp.halifax.rwth-aachen.de/blender" \
+      "https://download.blender.org"; do \
+      curl -fsSL --retry 2 \
+        "$base/release/Blender4.2/blender-${BLENDER_VERSION}-linux-x64.tar.xz" \
+        -o /tmp/blender.tar.xz && break; \
+    done \
+ && test -s /tmp/blender.tar.xz \
+ && mkdir -p /opt/blender \
+ && tar -xJf /tmp/blender.tar.xz -C /opt/blender --strip-components=1 \
+ && rm /tmp/blender.tar.xz \
+ && ln -sf /opt/blender/blender /usr/local/bin/blender \
+ && blender --version
+
+WORKDIR /app
+COPY services/blender/requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
+COPY services/blender/worker.py services/blender/s3util.py services/blender/openings.py services/blender/homekit_build.py ./
+COPY services/blender/scripts ./scripts
+COPY services/blender/catalog ./catalog
+# La bibliothèque : un projet autonome, copié tel quel (paquet + modèles CC0 + catalogue).
+COPY libs/homekit3d/homekit3d /opt/homekit3d/homekit3d
+
+RUN useradd --create-home --shell /usr/sbin/nologin aai \
+    && chown -R aai:aai /app
+USER aai
+ENV HOME=/home/aai HOMEKIT_DIR=/opt/homekit3d
+
+CMD ["python3", "-u", "worker.py"]

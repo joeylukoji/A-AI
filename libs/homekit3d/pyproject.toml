@@ -1,0 +1,25 @@
+[project]
+name = "homekit3d"
+version = "0.1.0"
+description = "Composants 3D réutilisables pour construire des maisons : murs, sols, ouvertures, catalogue de meubles CC0, ameublement et style assistés par IA."
+requires-python = ">=3.10"
+license = { text = "MIT" }
+readme = "README.md"
+
+[project.scripts]
+homekit3d = "homekit3d.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = ["blender: nécessite un exécutable Blender (ignoré sinon)"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["homekit3d*"]
+
+[tool.setuptools.package-data]
+homekit3d = ["catalog/manifest.json", "assets/**/*"]

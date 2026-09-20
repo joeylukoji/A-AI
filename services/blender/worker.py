@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 import redis
 
+import homekit_build
 from s3util import upload_file
 
 QUEUE = "queue:generate_3d"
@@ -151,6 +152,15 @@ def _build(plan: dict[str, Any], plan_path: Path, obj_path: Path, glb_path: Path
         print("using stub build")
         _stub_build(plan, obj_path, glb_path)
         return
+    if homekit_build.enabled():
+        try:
+            stats = homekit_build.build(plan_path, obj_path, glb_path, blender_bin=blender_bin, timeout=BLENDER_TIMEOUT_S)
+            print("homekit3d", stats[:400])
+            return
+        except Exception as exc:  # noqa: BLE001 - la bibliothèque ne doit jamais empêcher de rendre un modèle
+            print("homekit3d failed, falling back to the legacy builder:", str(exc)[-600:])
+            for leftover in (obj_path, glb_path):
+                leftover.unlink(missing_ok=True)
     print("running blender", blender_bin)
     # subprocess.run() lit stdout/stderr via communicate() : contrairement à
     # check_call (basé sur wait()), il ne peut pas se bloquer si Blender

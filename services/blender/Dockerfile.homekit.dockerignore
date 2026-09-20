@@ -1,0 +1,12 @@
+# Contexte = racine du dépôt : on n'envoie que ce dont l'image a besoin.
+*
+!services/blender/requirements.txt
+!services/blender/worker.py
+!services/blender/s3util.py
+!services/blender/openings.py
+!services/blender/homekit_build.py
+!services/blender/scripts
+!services/blender/catalog
+!libs/homekit3d/homekit3d
+**/__pycache__
+**/*.pyc
