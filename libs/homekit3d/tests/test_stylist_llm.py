@@ -225,7 +225,7 @@ def test_the_llm_may_choose_the_heavy_style_and_is_warned_about_its_weight(catal
 
 
 # --- réalisme par défaut ------------------------------------------------------------------------------
-REALISTIC_PACKS = {"sh3d-b", "sh3d-c", "polyhaven"}
+REALISTIC_PACKS = {"sh3d-b", "sh3d-c", "polyhaven", "sh3d-scopia", "sh3d-kator", "sh3d-bby", "sh3d-luca", "vehicles"}
 
 
 def test_the_default_styles_furnish_with_realistic_models_not_toys(catalog, blank):

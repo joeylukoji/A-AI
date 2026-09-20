@@ -100,9 +100,33 @@ class Frame:
         return (-self.uy, self.ux)
 
 
+def planar_uvs(mesh: Mesh, tile: float) -> list[tuple[float, float]]:
+    """Coordonnées de texture par sommet de face (dans l'ordre des faces), en projection plane sur l'axe dominant de la
+    normale ; `tile` mètres = une répétition. Les murs et les sols étant droits, c'est exact et sans couture visible."""
+    uvs: list[tuple[float, float]] = []
+    for face in mesh.faces:
+        pts = [mesh.verts[i] for i in face]
+        nx = ny = nz = 0.0
+        for k, a in enumerate(pts):                                    # normale de Newell
+            b = pts[(k + 1) % len(pts)]
+            nx += (a[1] - b[1]) * (a[2] + b[2])
+            ny += (a[2] - b[2]) * (a[0] + b[0])
+            nz += (a[0] - b[0]) * (a[1] + b[1])
+        ax, ay, az = abs(nx), abs(ny), abs(nz)
+        for x, y, z in pts:
+            if az >= ax and az >= ay:
+                uvs.append((x / tile, y / tile))
+            elif ax >= ay:
+                uvs.append((y / tile, z / tile))
+            else:
+                uvs.append((x / tile, z / tile))
+    return uvs
+
+
 # -- matériaux ------------------------------------------------------------------------------------
-WALL_EXT, WALL_INT, TRIM, DOOR, GLASS, GARAGE, SLAB, HANDLE = ("wall_ext", "wall_int", "trim", "door", "glass",
-                                                                "garage", "slab", "handle")
+WALL_EXT, WALL_INT, TRIM, DOOR, GLASS, GARAGE, SLAB, HANDLE, PLINTH = ("wall_ext", "wall_int", "trim", "door", "glass",
+                                                                       "garage", "slab", "handle", "plinth")
+BASEBOARD_H, BASEBOARD_T, CROWN_H, CROWN_T, PLINTH_H = 0.10, 0.014, 0.07, 0.02, 0.25
 
 
 def floor_material(room_type: str) -> str:
@@ -110,14 +134,15 @@ def floor_material(room_type: str) -> str:
 
 
 # -- coque -----------------------------------------------------------------------------------------
-def build_shell(plan: Plan, *, extend_ends: bool = True, floors: bool = True, slab: bool = True) -> Shell:
+def build_shell(plan: Plan, *, extend_ends: bool = True, floors: bool = True, slab: bool = True,
+                mouldings: bool = True) -> Shell:
     shell = Shell()
     centre = (plan.width / 2, -plan.depth / 2)
     by_wall: dict[str, list[Opening]] = {}
     for op in plan.openings:
         by_wall.setdefault(op.wall_id, []).append(op)
     for wall in plan.walls:
-        _wall(shell, plan, wall, sorted(by_wall.get(wall.id, []), key=lambda o: o.offset), centre, extend_ends)
+        _wall(shell, plan, wall, sorted(by_wall.get(wall.id, []), key=lambda o: o.offset), centre, extend_ends, mouldings)
     if floors:
         for room in plan.rooms:
             shell.polygon_top(room.polygon, 0.0, floor_material(room.type))
@@ -129,7 +154,7 @@ def build_shell(plan: Plan, *, extend_ends: bool = True, floors: bool = True, sl
 
 
 def _wall(shell: Shell, plan: Plan, wall: Wall, openings: list[Opening], centre: tuple[float, float],
-          extend_ends: bool) -> None:
+          extend_ends: bool, mouldings: bool = True) -> None:
     frame = Frame.of(wall)
     length, th, height = wall.length, wall.thickness, plan.wall_height
     half = th / 2
@@ -164,6 +189,35 @@ def _wall(shell: Shell, plan: Plan, wall: Wall, openings: list[Opening], centre:
             _opening_fittings(shell, frame, wall, op, o0, o1, top)
         cursor = o1
     solid(cursor, s_hi, 0.0, height)
+    if mouldings:
+        _mouldings(shell, frame, wall, openings, s_lo, s_hi, height, inward_is_back)
+
+
+def _mouldings(shell: Shell, frame: Frame, wall: Wall, openings: list[Opening], s_lo: float, s_hi: float, height: float,
+               inward_is_back: bool) -> None:
+    """Plinthes au pied des murs, corniche sous le plafond, soubassement à l'extérieur : ce qui fait un mur fini."""
+    half = wall.thickness / 2
+    inner = [1.0 if inward_is_back else -1.0] if wall.exterior else [-1.0, 1.0]
+    gaps = sorted((max(s_lo, o.offset), min(s_hi, o.offset + o.width)) for o in openings if o.kind != "window")
+    runs, cursor = [], s_lo
+    for g0, g1 in gaps:                                     # la plinthe s'arrête aux portes
+        if g0 > cursor:
+            runs.append((cursor, g0))
+        cursor = max(cursor, g1)
+    if s_hi > cursor:
+        runs.append((cursor, s_hi))
+    for sign in inner:
+        t0, t1 = (half, half + BASEBOARD_T) if sign > 0 else (-half - BASEBOARD_T, -half)
+        for a, b in runs:
+            shell.box(frame, a, b, t0, t1, 0.0, BASEBOARD_H, TRIM)
+        if height >= 2.3:                                   # pas de corniche sur un mur coupé pour l'aperçu
+            c0, c1 = (half, half + CROWN_T) if sign > 0 else (-half - CROWN_T, -half)
+            shell.box(frame, s_lo, s_hi, c0, c1, height - CROWN_H, height, TRIM)
+    if wall.exterior:
+        out = -inner[0]
+        p0, p1 = (half, half + 0.012) if out > 0 else (-half - 0.012, -half)
+        for a, b in runs:
+            shell.box(frame, a, b, p0, p1, 0.0, PLINTH_H, PLINTH)
 
 
 def _opening_fittings(shell: Shell, frame: Frame, wall: Wall, op: Opening, s0: float, s1: float, top: float) -> None:
@@ -191,6 +245,10 @@ def _opening_fittings(shell: Shell, frame: Frame, wall: Wall, op: Opening, s0: f
     shell.box(frame, s1 - tw, s1, -trim_t, trim_t, 0.0, top, TRIM)
     shell.box(frame, s0 + tw, s1 - tw, -trim_t, trim_t, top - tw, top, TRIM)
     shell.box(frame, s0 + tw, s1 - tw, -0.02, 0.02, 0.0, top - tw, DOOR)                          # vantail fermé
+    for z0, z1 in ((0.12, 1.02), (1.22, top - tw - 0.12)):                                        # panneaux en relief
+        if z1 - z0 > 0.2 and (s1 - s0) > 0.5:
+            shell.box(frame, s0 + tw + 0.07, s1 - tw - 0.07, 0.02, 0.028, z0, z1, DOOR)
+            shell.box(frame, s0 + tw + 0.07, s1 - tw - 0.07, -0.028, -0.02, z0, z1, DOOR)
     shell.box(frame, s1 - tw - 0.11, s1 - tw - 0.07, -0.05, 0.05, 1.0, 1.04, HANDLE)              # poignée
 
 

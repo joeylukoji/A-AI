@@ -122,6 +122,7 @@ class Plan:
     items: list[Item] = field(default_factory=list)
     style: Style = field(default_factory=Style)
     seed: int = 0
+    textured: bool = True                 # murs et sols en textures PBR (styles réalistes seulement) ; False = couleurs unies, plus léger
     cutaway: float | None = None          # hauteur de coupe des murs (m) pour un aperçu « maison de poupée » ; None = murs entiers
     _ids: itertools.count = field(default_factory=lambda: itertools.count(1), repr=False, compare=False)
 
@@ -264,7 +265,7 @@ class Plan:
     def to_dict(self) -> dict[str, Any]:
         return {
             "version": 1, "width": self.width, "depth": self.depth, "height": self.height, "seed": self.seed,
-            "cutaway": self.cutaway,
+            "cutaway": self.cutaway, "textured": self.textured,
             "walls": [asdict(w) for w in self.walls], "rooms": [asdict(r) for r in self.rooms],
             "openings": [asdict(o) for o in self.openings], "items": [asdict(i) for i in self.items],
             "style": asdict(self.style),
@@ -274,6 +275,7 @@ class Plan:
     def from_dict(cls, data: dict[str, Any]) -> "Plan":
         plan = cls(float(data["width"]), float(data["depth"]), float(data.get("height", 2.7)), seed=int(data.get("seed", 0)))
         plan.cutaway = float(data["cutaway"]) if data.get("cutaway") else None
+        plan.textured = bool(data.get("textured", True))
         plan.walls = [Wall(w["id"], tuple(w["a"]), tuple(w["b"]), float(w.get("thickness", 0.15)), bool(w.get("exterior")))
                       for w in data.get("walls", [])]
         plan.rooms = [Room(r["id"], r["type"], [tuple(p) for p in r["polygon"]], r.get("name", r["type"]))

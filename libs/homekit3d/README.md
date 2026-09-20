@@ -58,10 +58,14 @@ dossiers usuels.
 
 ## Comment ça marche
 
-1. **Coque** (`geometry.py`). Chaque mur est découpé en boîtes autour de ses ouvertures : plein, allège sous une
-   fenêtre, linteau au-dessus. Pas d'opération booléenne (lente et fragile) : le volume est exact et testé. Les
-   chambranles, vantaux, poignées, vitrages (translucides) et sols (un matériau par type de pièce) suivent. La face
-   intérieure et la face extérieure d'un mur reçoivent chacune leur peinture, quel que soit le sens de tracé.
+1. **Coque** (`geometry.py`, `surfaces.py`). Chaque mur est découpé en boîtes autour de ses ouvertures : plein, allège
+   sous une fenêtre, linteau au-dessus. Pas d'opération booléenne (lente et fragile) : le volume est exact et testé. Les
+   chambranles, vantaux à panneaux, poignées, vitrages (translucides) et sols (un matériau par type de pièce) suivent,
+   puis les finitions : **plinthes** (arrêtées aux portes), **corniche** sous le plafond, **soubassement** à l'extérieur.
+   La face intérieure et la face extérieure d'un mur reçoivent chacune leur peinture, quel que soit le sens de tracé.
+   En style réaliste, murs et sols portent de vraies **textures PBR** (Poly Haven, couleur + relief, à l'échelle réelle :
+   crépi, parquet clair ou foncé selon le style, carrelage, béton de garage). Les murs et les carreaux ne gardent que le
+   *grain* de la texture et prennent la couleur de la palette du style.
 2. **Catalogue** (`catalog.py`, `tools/build_manifest.py`). Chaque modèle a un *rôle* (`bed.double`, `sofa`,
    `kitchen.stove`…). Les packs low-poly n'ont pas la même échelle : un canapé Kenney fait 0,98 m, celui de KayKit
    3,0 m. Le manifeste les ramène à une **taille réelle** par rôle (`ROLE_FIT`), après application de la hiérarchie de
@@ -121,6 +125,14 @@ listés dans `EXPLICIT["sh3d-b"]` de `build_manifest.py` : la table de rôles es
 de https://github.com/YoannDev90/SweetHome3D-Packs (`Furnitures/*.sh3f`). Regarder chaque planche-contact avant de
 garder un modèle : plusieurs ont été écartés (texture cassée, style gothique, dimensions incohérentes).
 
+## Voiture et salle à manger
+
+La voiture du garage est un vrai modèle de sport (Ferrari 458 ou coupé noir du catalogue Scopia) dans les styles réalistes,
+et la voiture construite par code dans les styles low-poly. La salle à manger est composée : buffet contre un mur
+(avec cadre et plante), table dans l'axe de la pièce, chaises **du même modèle et du même pack que la table** glissées
+sous le plateau, tapis, lustre (styles réalistes) ; chaque chaise est vérifiée contre les murs, les portes et les autres
+meubles, et le buffet n'est posé que si la pièce est assez profonde pour lui *et* pour les chaises.
+
 ## Styles
 
 `moderne`, `scandinave`, `chaleureux`, `classique` : modèles réalistes (ils diffèrent par les couleurs des murs et des
@@ -143,5 +155,6 @@ la même licence les œuvres qui en dérivent (copyleft). [ATTRIBUTION.md](ATTRI
 * Tous les rôles n'ont pas de modèle réaliste : portemanteau, poubelle, escalier, îlot de cuisine, bancs et la voiture du
   garage (construite par code) restent d'aspect low-poly ou schématique. Les modèles Sweet Home 3D sont de qualité
   inégale (certains sont peu texturés) et n'ont ni PBR ni normal maps ; seuls les scans Poly Haven en ont.
+* Les textures ne portent que la couleur et le relief (pas de rugosité par pixel) ; la coque reste faite de murs droits.
 * Le viewer web éclaire fort : les textures claires « brûlent » à `exposure="1"`, A-AI règle `0.6`.
 * Les portes sont dessinées fermées ; un utilisateur ne peut pas encore choisir un modèle de porte du catalogue.

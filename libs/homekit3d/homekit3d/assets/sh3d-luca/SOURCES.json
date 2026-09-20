@@ -1,0 +1,22 @@
+{
+ "comoCiliegio": {
+  "category": "Bedroom",
+  "model": "/lucapresidente/comoCiliegio/comoCiliegio.obj",
+  "name": "Dresser cherry"
+ },
+ "credenza": {
+  "category": "Living room",
+  "model": "/lucapresidente/credenza/credenza.obj",
+  "name": "Sideboard"
+ },
+ "sedia": {
+  "category": "Living room",
+  "model": "/lucapresidente/sedia/sedia.obj",
+  "name": "Chair"
+ },
+ "tavolo": {
+  "category": "Living room",
+  "model": "/lucapresidente/tavolo/tavolo.obj",
+  "name": "Table"
+ }
+}

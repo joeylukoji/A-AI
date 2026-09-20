@@ -41,6 +41,27 @@ PACKS = {
         "author": "Sweet Home 3D contributors (Contributions catalog 1.9.3)", "license": "Free Art License 1.3",
         "style": ["realistic", "hd"], "source": "https://www.sweethome3d.com/freeModels.jsp", "real_size": True,
     },
+    "sh3d-scopia": {
+        "author": "Scopia (Sweet Home 3D catalog 1.9.3)", "license": "CC-BY-4.0",
+        "style": ["realistic", "hd"], "source": "https://www.sweethome3d.com/freeModels.jsp", "real_size": True,
+    },
+    "sh3d-kator": {
+        "author": "Kator Legaz (Sweet Home 3D catalog 1.9.3)", "license": "CC-BY-4.0",
+        "style": ["realistic", "hd"], "source": "https://www.sweethome3d.com/freeModels.jsp", "real_size": True,
+    },
+    "sh3d-bby": {
+        "author": "Blend Swap contributors (CC-BY set of the Sweet Home 3D catalog)", "license": "CC-BY-4.0",
+        "style": ["realistic", "hd"], "source": "https://github.com/YoannDev90/SweetHome3D-Packs", "real_size": True,
+    },
+    "sh3d-luca": {
+        "author": "Luca Presidente (Sweet Home 3D catalog 1.9.3)", "license": "Free Art License 1.3",
+        "style": ["realistic", "hd"], "source": "https://www.sweethome3d.com/freeModels.jsp", "real_size": True,
+    },
+    # Voitures de sport réalistes (Ferrari 458 : exemples de three.js ; coupé noir : catalogue Scopia).
+    "vehicles": {
+        "author": "vicent091036 (Ferrari 458 Italia, via three.js examples)", "license": "CC-BY-4.0 (Sketchfab, non revérifiée)",
+        "style": ["realistic", "hd"], "source": "https://github.com/mrdoob/three.js/tree/dev/examples/models/gltf", "real_size": True,
+    },
     "kaykit-restaurant": {
         "author": "Kay Lousberg (www.kaylousberg.com)", "license": "CC0-1.0", "style": ["kitchen", "restaurant"],
         "source": "https://kaylousberg.itch.io/restaurant-bits",
@@ -64,7 +85,9 @@ RULES: list[Rule] = [
     (r"^drawer_cabinet|^vintage_cabinet", "wardrobe", [BED, HALL], ["storage", "tall"]),
     (r"^wooden_bookshelf|^shelf_01", "bookcase", [LIV, OFF], ["storage"]),
     (r"^metal_office_desk", "desk", [OFF], ["table"]),
-    (r"^chandelier|^modern_ceiling_lamp", "lamp.ceiling", [LIV, BED, DIN, HALL], ["lamp", "ceiling"]),
+    (r"^chandelier_01", "lamp.ceiling", [LIV, DIN, HALL], ["lamp", "ceiling", "chandelier"]),
+    (r"^modern_ceiling_lamp", "lamp.ceiling", [LIV, BED, DIN, HALL], ["lamp", "ceiling"]),
+    (r"^ferrari", "car", ["garage"], ["vehicle"]),
     (r"^desk_lamp", "lamp.table", [BED, LIV, OFF], ["lamp"]),
     (r"^potted_plant_04", "plant.small", [LIV, BED, KIT, OFF, DIN], ["plant", "decor", "small"]),
     (r"^potted_plant|^calathea", "plant", [LIV, BED, HALL, OFF, DIN], ["plant", "decor"]),
@@ -175,6 +198,31 @@ EXPLICIT: dict[str, dict[str, tuple[str, list[str], list[str]]]] = {
         "decorativePlant": ("plant", PLANT_ROOMS, PLT), "plant": ("plant", PLANT_ROOMS, PLT),
         "orchids": ("plant.small", SMALL_PLANT_ROOMS, PLT + ["small"]),
         "littlePlant": ("plant.small", SMALL_PLANT_ROOMS, PLT + ["small"]),
+    },
+    "sh3d-scopia": {
+        "chair": ("chair.dining", [DIN, KIT], SEAT), "white_kitchen_chair": ("chair.dining", [DIN, KIT], SEAT),
+        "tubular_chair": ("chair.dining", [DIN, KIT], SEAT), "round-table": ("table.dining", [DIN, KIT], ["table"]),
+        "chandelier-lamp": ("lamp.ceiling", [LIV, DIN, HALL], LMP + ["ceiling", "chandelier"]),
+        "saloon_lamp": ("lamp.ceiling", [LIV, DIN, KIT], LMP + ["ceiling"]),
+        "sportive": ("car", ["garage"], ["vehicle"]), "sofa_white_beige": ("sofa", [LIV], SEAT), "beige_sofa": ("sofa", [LIV], SEAT), "burlap_sofa": ("sofa", [LIV], SEAT),
+        "armchair": ("armchair", [LIV, BED], SEAT), "armchair2": ("armchair", [LIV, BED], SEAT),
+        "bed1": ("bed.double", [BED], ["bed"]), "iron_bed": ("bed.single", [BED], ["bed"]),
+        "wardrobe1": ("wardrobe", [BED, HALL], STO + ["tall"]),
+        "coffee-table2": ("table.coffee", [LIV], ["table"]), "table_wood_and_iron": ("table.coffee", [LIV], ["table"]),
+    },
+    "sh3d-kator": {
+        "dining-chair": ("chair.dining", [DIN, KIT], SEAT), "glass-dining-table": ("table.dining", [DIN, KIT], ["table"]),
+        "mid-century-chair": ("armchair", [LIV, BED], SEAT), "mid-century-sofa": ("sofa", [LIV], SEAT),
+        "mid-century-bench-sofa": ("sofa.long", [LIV], SEAT),
+    },
+    "sh3d-bby": {
+        "table": ("table.dining", [DIN, KIT], ["table"]), "ella_chair_f": ("chair.dining", [DIN, KIT], SEAT),
+        "kitchenChair": ("chair.dining", [DIN, KIT], SEAT), "dresserWithDrawers": ("sideboard", [DIN, LIV, HALL], STO),
+        "sofa3": ("sofa", [LIV], SEAT),
+    },
+    "sh3d-luca": {
+        "tavolo": ("table.dining", [DIN, KIT], ["table"]), "sedia": ("chair.dining", [DIN, KIT], SEAT),
+        "credenza": ("sideboard", [DIN, LIV, HALL], STO), "comoCiliegio": ("sideboard", [DIN, LIV, HALL, BED], STO),
     },
     "sh3d-c": {
         "captainsBed": ("bed.single", [BED], ["bed", "kids"]), "childBed": ("bed.single", [BED], ["bed", "kids"]),

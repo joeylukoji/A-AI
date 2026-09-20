@@ -14,16 +14,18 @@ from typing import Any
 
 from .assemble import Assembly, Placed, assemble
 from .catalog import Catalog
-from .geometry import Mesh, build_shell
+from .geometry import Mesh, build_shell, planar_uvs
 from .plan import Plan
 from .procedural import PROCEDURAL_COLORS
 from .procedural import build as build_procedural
+from .surfaces import Surface, surface_for, textures_available
 
 # (couleur, rugosité, métal, opacité)
 BASE_MATERIALS = {
     "trim": ((0.97, 0.97, 0.96), 0.6, 0.0, 1.0), "door": ((0.58, 0.42, 0.30), 0.55, 0.0, 1.0),
     "handle": ((0.75, 0.72, 0.65), 0.3, 0.9, 1.0), "glass": ((0.70, 0.86, 0.95), 0.05, 0.0, 0.32),
     "garage": ((0.82, 0.83, 0.85), 0.5, 0.2, 1.0), "slab": ((0.50, 0.50, 0.50), 0.95, 0.0, 1.0),
+    "plinth": ((0.42, 0.42, 0.41), 0.92, 0.0, 1.0),
 }
 
 
@@ -41,6 +43,10 @@ def build_scene(plan: Plan, catalog: Catalog, out_path: str | Path, *, assembly:
 
     def material(name: str):
         if name in mats:
+            return mats[name]
+        surface = surface_for(name, plan.style) if _textured(plan) else None
+        if surface and textures_available(surface):
+            mats[name] = _make_textured_material(bpy, name, surface)
             return mats[name]
         if name == "wall_ext":
             spec = (plan.style.wall_exterior, 0.85, 0.0, 1.0)
@@ -60,7 +66,9 @@ def build_scene(plan: Plan, catalog: Catalog, out_path: str | Path, *, assembly:
 
     shell = build_shell(plan)
     for mesh in shell.meshes.values():
-        _add_mesh_object(bpy, scene, f"shell.{mesh.material}", mesh, material(mesh.material))
+        surface = surface_for(mesh.material, plan.style) if _textured(plan) else None
+        tile = surface.tile if surface and textures_available(surface) else None
+        _add_mesh_object(bpy, scene, f"shell.{mesh.material}", mesh, material(mesh.material), uv_tile=tile)
     t_shell = time.perf_counter()
 
     templates = _import_templates(bpy, sorted(assembly.asset_ids), catalog)
@@ -98,6 +106,11 @@ def build_scene(plan: Plan, catalog: Catalog, out_path: str | Path, *, assembly:
     return stats
 
 
+def _textured(plan: Plan) -> bool:
+    """Textures de murs et de sols : styles réalistes seulement (les styles low-poly restent légers)."""
+    return plan.textured and "realistic" in plan.style.tags
+
+
 def srgb_to_linear(c: float) -> float:
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 
@@ -119,10 +132,57 @@ def _make_material(bpy, name: str, color: tuple[float, float, float], rough: flo
     return mat
 
 
-def _add_mesh_object(bpy, scene, name: str, mesh: Mesh, mat):
+def _tinted_image(bpy, path: Path, tint: tuple[float, float, float], name: str):
+    """Le grain d'une texture (sa lumière relative) avec la couleur `tint` : la texture ne fixe plus la couleur du mur."""
+    import numpy as np  # fourni avec Blender
+
+    src = bpy.data.images.load(str(path), check_existing=True)
+    width, height = src.size
+    px = np.empty(width * height * 4, dtype=np.float32)
+    src.pixels.foreach_get(px)
+    px = px.reshape(-1, 4)
+    luma = px[:, 0] * 0.2126 + px[:, 1] * 0.7152 + px[:, 2] * 0.0722
+    detail = (luma / max(float(luma.mean()), 1e-4))[:, None]
+    px[:, :3] = np.clip(detail * np.asarray(tint, dtype=np.float32)[None, :], 0.0, 1.0)
+    px[:, 3] = 1.0
+    out = bpy.data.images.new(name, width, height)
+    out.pixels.foreach_set(px.reshape(-1))
+    out.file_format = "JPEG"
+    out.pack()
+    return out
+
+
+def _make_textured_material(bpy, name: str, surface: Surface):
+    """Principled BSDF avec couleur + relief : deux images, exportées telles quelles dans le GLB."""
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    nodes, links = mat.node_tree.nodes, mat.node_tree.links
+    bsdf = nodes.get("Principled BSDF")
+    bsdf.inputs["Roughness"].default_value = surface.roughness
+    bsdf.inputs["Metallic"].default_value = 0.0
+    colour = nodes.new("ShaderNodeTexImage")
+    if surface.tint is not None:
+        colour.image = _tinted_image(bpy, surface.file("color"), surface.tint, f"{name}.tint")
+    else:
+        colour.image = bpy.data.images.load(str(surface.file("color")), check_existing=True)
+    links.new(colour.outputs["Color"], bsdf.inputs["Base Color"])
+    relief = nodes.new("ShaderNodeTexImage")
+    relief.image = bpy.data.images.load(str(surface.file("normal")), check_existing=True)
+    relief.image.colorspace_settings.name = "Non-Color"
+    normal = nodes.new("ShaderNodeNormalMap")
+    links.new(relief.outputs["Color"], normal.inputs["Color"])
+    links.new(normal.outputs["Normal"], bsdf.inputs["Normal"])
+    mat.diffuse_color = (*(surface.tint or (0.7, 0.7, 0.7)), 1.0)
+    return mat
+
+
+def _add_mesh_object(bpy, scene, name: str, mesh: Mesh, mat, uv_tile: float | None = None):
     data = bpy.data.meshes.new(name)
     data.from_pydata(mesh.verts, [], [list(f) for f in mesh.faces])
     data.update()
+    if uv_tile:
+        layer = data.uv_layers.new(name="UVMap")
+        layer.data.foreach_set("uv", [c for uv in planar_uvs(mesh, uv_tile) for c in uv])
     data.materials.append(mat)
     obj = bpy.data.objects.new(name, data)
     scene.collection.objects.link(obj)

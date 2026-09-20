@@ -58,6 +58,8 @@ def run_in_blender(args: argparse.Namespace) -> int:
     cut = args.cutaway if args.cutaway is not None else _env_float("HOMEKIT_CUTAWAY")
     if cut:
         plan.cutaway = cut
+    if os.environ.get("HOMEKIT_TEXTURES", "1").strip().lower() in ("0", "off", "false", "no"):
+        plan.textured = False
     catalog = Catalog.load()
     stylist = Stylist(catalog, llm=None if args.no_ai else _default_llm())
     report = stylist.style(plan, furnish=not args.keep_furniture, style=args.style or os.environ.get("HOMEKIT_STYLE") or None)

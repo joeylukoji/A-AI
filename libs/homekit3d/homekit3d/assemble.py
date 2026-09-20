@@ -16,6 +16,8 @@ from .procedural import PROCEDURAL_ROLES
 DEFAULT_ELEVATION = {"picture": 1.45, "mirror": 1.25, "lamp.wall": 1.85, "kitchen.upper": 1.45, "shelf.wall": 1.5}
 # Rôles étirés à la taille demandée (plats : l'épaisseur ne bouge pas).
 STRETCH_ROLES = {"rug"}
+# Rôles dont la longueur est selon x dans le plan A-AI et selon la profondeur dans le modèle : tournés d'un quart de tour.
+LENGTHWISE_ROLES = {"car"}
 # Rôles portés par un autre meuble (posés sur lui) : la hauteur vient de l'objet porteur.
 FIT_MIN, FIT_MAX = 0.7, 1.25
 
@@ -59,11 +61,18 @@ def assemble(plan: Plan, catalog: Catalog) -> Assembly:
         if item.role == "kitchen.run":
             out.placed.extend(_kitchen_run(item, plan, catalog, room_type, runs))
             continue
+        size = _catalog_size(item)
         if item.role in PROCEDURAL_ROLES and not item.asset:
-            out.placed.append(_procedural(item))
+            # Un modèle du catalogue si le style est réaliste et en a un (la Ferrari) ; sinon la pièce construite par code.
+            pick = catalog.pick_fit(item.role, size, room=room_type, style=style_tags, seed=f"{plan.seed}:{item.id}",
+                                    prefer_pack=plan.style.prefer_pack)
+            if pick is None or not set(style_tags) & set(pick.tags):
+                out.placed.append(_procedural(item))
+                continue
+            out.placed.append(_place_asset(item, pick, plan))
             continue
         asset = catalog.get(item.asset) if item.asset else catalog.pick_fit(
-            item.role, item.size, room=room_type, style=style_tags, seed=f"{plan.seed}:{item.id}",
+            item.role, size, room=room_type, style=style_tags, seed=f"{plan.seed}:{item.id}",
             prefer_pack=plan.style.prefer_pack)
         if asset is None:
             out.skipped.append(item.role)
@@ -72,10 +81,21 @@ def assemble(plan: Plan, catalog: Catalog) -> Assembly:
     return out
 
 
+def _catalog_size(item: Item) -> tuple[float, float] | None:
+    """A-AI donne la voiture couchée selon x ; les modèles du catalogue ont leur longueur selon la profondeur."""
+    if item.size and item.role in LENGTHWISE_ROLES:
+        return item.size[1], item.size[0]
+    return item.size
+
+
 def _place_asset(item: Item, asset: Asset, plan: Plan) -> Placed:
     s = asset.scale
     sx = sy = sz = s
     aw, ad = asset.footprint
+    if item.size and item.role in LENGTHWISE_ROLES:
+        k = min(FIT_MAX, max(FIT_MIN, item.size[0] / max(ad, 1e-6)))      # une voiture se cale sur sa longueur, pas ses rétroviseurs
+        return Placed("asset", item.role, item.x, item.y, item.elevation, item.rot + 90.0, (s * k,) * 3, asset,
+                      item_id=item.id, room=item.room)
     if item.size:
         w, d = item.size
         if item.role in STRETCH_ROLES:

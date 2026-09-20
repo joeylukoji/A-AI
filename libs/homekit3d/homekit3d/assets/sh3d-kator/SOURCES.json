@@ -1,0 +1,27 @@
+{
+ "dining-chair": {
+  "category": "Living room",
+  "model": "/katorlegaz/dining-chair/dining-chair.obj",
+  "name": "Chair"
+ },
+ "glass-dining-table": {
+  "category": "Living room",
+  "model": "/katorlegaz/glass-dining-table/glass-dining-table.obj",
+  "name": "Glass table"
+ },
+ "mid-century-bench-sofa": {
+  "category": "Living room",
+  "model": "/katorlegaz/mid-century-bench-sofa/mid-century-bench-sofa.obj",
+  "name": "Sofa"
+ },
+ "mid-century-chair": {
+  "category": "Living room",
+  "model": "/katorlegaz/mid-century-chair/mid-century-chair.obj",
+  "name": "Armchair"
+ },
+ "mid-century-sofa": {
+  "category": "Living room",
+  "model": "/katorlegaz/mid-century-sofa/mid-century-sofa.obj",
+  "name": "Sofa"
+ }
+}

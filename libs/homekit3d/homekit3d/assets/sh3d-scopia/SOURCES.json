@@ -1,0 +1,92 @@
+{
+ "armchair": {
+  "category": "Living room",
+  "model": "/scopia/armchair/armchair.obj",
+  "name": "Armchair"
+ },
+ "armchair2": {
+  "category": "Living room",
+  "model": "/scopia/armchair2/armchair2.obj",
+  "name": "Armchair"
+ },
+ "bed1": {
+  "category": "Bedroom",
+  "model": "/scopia/bed1/bed1.obj",
+  "name": "Bed"
+ },
+ "beige_sofa": {
+  "category": "Living room",
+  "model": "/scopia/beige_sofa/beige_sofa.obj",
+  "name": "Sofa 3 seats"
+ },
+ "burlap_sofa": {
+  "category": "Living room",
+  "model": "/scopia/burlap_sofa/burlap_sofa.obj",
+  "name": "Burlap sofa"
+ },
+ "chair": {
+  "category": "Living room",
+  "model": "/scopia/chair/chair.obj",
+  "name": "Chair"
+ },
+ "chandelier-lamp": {
+  "category": "Lights",
+  "model": "/scopia/chandelier-lamp/chandelier-lamp.obj",
+  "name": "Chandelier lamp"
+ },
+ "coffee-table2": {
+  "category": "Living room",
+  "model": "/scopia/coffee-table2/coffee-table2.obj",
+  "name": "Coffee table"
+ },
+ "iron_bed": {
+  "category": "Bedroom",
+  "model": "/scopia/iron_bed/iron_bed.obj",
+  "name": "Iron bed"
+ },
+ "modern_armchair": {
+  "category": "Living room",
+  "model": "/scopia/modern_armchair/modern_armchair.obj",
+  "name": "Modern armchair"
+ },
+ "round-table": {
+  "category": "Living room",
+  "model": "/scopia/round-table/round-table.obj",
+  "name": "Round table"
+ },
+ "saloon_lamp": {
+  "category": "Lights",
+  "model": "/scopia/saloon_lamp/saloon_lamp.obj",
+  "name": "Pendant lamp"
+ },
+ "sofa_white_beige": {
+  "category": "Living room",
+  "model": "/scopia/sofa_white_beige/sofa_white_beige.obj",
+  "name": "Sofa"
+ },
+ "sportive": {
+  "category": "Vehicles",
+  "model": "/scopia/sportive/sportive.obj",
+  "name": "Sports car"
+ },
+ "table_wood_and_iron": {
+  "category": "Living room",
+  "model": "/scopia/table_wood_and_iron/table_wood_and_iron.obj",
+  "name": "Coffee table"
+ },
+ "tubular_chair": {
+  "category": "Living room",
+  "model": "/scopia/tubular_chair/tubular_chair.obj",
+  "name": "Chair"
+ },
+ "wardrobe1": {
+  "category": "Bedroom",
+  "model": "/scopia/wardrobe1/wardrobe1.obj",
+  "name": "Wardrobe"
+ },
+ "white_kitchen_chair": {
+  "category": "Living room",
+  "model": "/scopia/white_kitchen_chair/white_kitchen_chair.obj",
+  "name": "Chair"
+ }
+}

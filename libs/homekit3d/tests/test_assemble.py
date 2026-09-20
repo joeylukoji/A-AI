@@ -140,3 +140,26 @@ def test_a_cutaway_drops_what_hangs_above_the_cut(catalog):
     plan.cutaway = 1.2
     cut = {p.role for p in assemble(plan, catalog).placed}
     assert {"sofa", "picture", "lamp.ceiling"} <= full and cut == {"sofa"}
+
+
+# --- voiture de sport réaliste --------------------------------------------------------------------------
+def garage_plan(tags, pack):
+    plan = Plan(8, 6, seed=1)
+    plan.rect_room("garage", 0, 0, 8, 6)
+    plan.style.tags, plan.style.prefer_pack = tags, pack
+    plan.place("car", 4.0, 3.0, 0.0, size=(4.3, 1.8))
+    return plan
+
+
+def test_a_realistic_style_parks_a_real_sports_car_lengthwise(catalog):
+    p = assemble(garage_plan(["realistic"], "sh3d-b"), catalog).placed[0]
+    assert p.kind == "asset" and p.asset.role == "car" and p.asset.pack in ("vehicles", "sh3d-scopia")
+    assert p.rot == 90.0                                              # couchée selon x comme la voiture par code
+    length = p.asset.footprint[1] * p.scale[2] / p.asset.scale
+    assert length == pytest.approx(4.3, abs=0.6)                       # calée sur sa longueur, pas sur ses rétroviseurs
+    assert p.scale[0] == p.scale[1] == p.scale[2]
+
+
+def test_a_low_poly_style_keeps_the_light_procedural_car(catalog):
+    placed = assemble(garage_plan(["modern"], "kenney-furniture"), catalog).placed
+    assert [p.kind for p in placed] == ["procedural"]

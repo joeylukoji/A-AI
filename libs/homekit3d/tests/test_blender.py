@@ -119,3 +119,48 @@ def test_an_invalid_plan_fails_cleanly(tmp_path):
     proc = subprocess.run([sys.executable, "-m", "homekit3d", "build", str(src), str(tmp_path / "x.glb"), "--no-ai"],
                           capture_output=True, text=True, timeout=120, cwd=Path(__file__).resolve().parent.parent)
     assert proc.returncode != 0 and not (tmp_path / "x.glb").exists()
+
+
+# --- murs et sols texturés ------------------------------------------------------------------------------
+def small_house() -> Plan:
+    plan = Plan(8.0, 5.0, seed=4)
+    plan.rect_room("living", 0, 0, 5, 5)
+    plan.rect_room("bathroom", 5, 0, 8, 5)
+    plan.outline()
+    plan.walls_from_rooms()
+    plan.door(plan.wall_at(5.0, 2.0), 0.5)
+    return plan
+
+
+def shell_materials(gltf: dict) -> dict[str, dict]:
+    return {m["name"]: m for m in gltf["materials"]}
+
+
+def test_a_realistic_house_has_textured_walls_and_floors_with_relief_and_uvs(tmp_path):
+    gltf, _, _ = build(tmp_path, small_house(), "--style", "moderne")
+    mats = shell_materials(gltf)
+    for name in ("wall_int", "wall_ext", "floor:living", "floor:bathroom"):
+        pbr = mats[name]["pbrMetallicRoughness"]
+        assert "baseColorTexture" in pbr and "normalTexture" in mats[name], name
+    shell_prims = [p for m in gltf["meshes"] if m["name"].startswith("shell.") for p in m["primitives"]]
+    textured = {gltf["materials"][p["material"]]["name"]: p for p in shell_prims}
+    assert "TEXCOORD_0" in textured["wall_int"]["attributes"] and "TEXCOORD_0" in textured["floor:living"]["attributes"]
+    assert len(gltf["images"]) >= 6
+
+
+def test_a_low_poly_house_stays_untextured_and_light(tmp_path):
+    gltf, stats, _ = build(tmp_path, small_house(), "--style", "lowpoly")
+    assert "baseColorTexture" not in shell_materials(gltf)["wall_int"]["pbrMetallicRoughness"]
+    assert stats["bytes"] < 3_000_000
+
+
+def test_textures_can_be_switched_off_by_the_environment(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOMEKIT_TEXTURES", "0")
+    gltf, _, _ = build(tmp_path, small_house(), "--style", "moderne")
+    assert "baseColorTexture" not in shell_materials(gltf)["wall_int"]["pbrMetallicRoughness"]
+
+
+def test_the_wall_texture_is_embedded_in_the_glb_as_an_image(tmp_path):
+    gltf, _, _ = build(tmp_path, small_house(), "--style", "chaleureux")
+    tex = shell_materials(gltf)["wall_int"]["pbrMetallicRoughness"]["baseColorTexture"]["index"]
+    assert gltf["images"][gltf["textures"][tex]["source"]]["mimeType"] in ("image/jpeg", "image/png")

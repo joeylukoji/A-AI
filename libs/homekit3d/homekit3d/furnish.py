@@ -19,9 +19,11 @@ class _Ctx:
         self.plan, self.catalog, self.room, self.occ = plan, catalog, room, occ
         self.box: Rect = room_box(room)
 
-    def asset(self, role: str, size: tuple[float, float] | None = None) -> Asset | None:
-        return self.catalog.pick_fit(role, size, room=self.room.type, style=self.plan.style.tags,
-                                     seed=f"{self.plan.seed}:{self.room.id}", prefer_pack=self.plan.style.prefer_pack)
+    def asset(self, role: str, size: tuple[float, float] | None = None, *, pack: str | None = None) -> Asset | None:
+        """Un modèle du rôle ; `pack` impose le pack (un jeu de salle à manger assorti) s'il a ce rôle."""
+        found = self.catalog.pick_fit(role, size, room=self.room.type, style=self.plan.style.tags,
+                                      seed=f"{self.plan.seed}:{self.room.id}", prefer_pack=pack or self.plan.style.prefer_pack)
+        return found if not pack or (found and found.pack == pack) else None
 
     def put(self, role: str, x: float, y: float, rot: float, size: tuple[float, float], *, asset: Asset | None = None,
             elevation: float = 0.0, footprint: bool = True, **meta) -> str:
@@ -163,25 +165,78 @@ def _wall_side_of(rot: float) -> str:
 
 
 def _dining(ctx: _Ctx) -> None:
+    """Table dans l'axe de la pièce, chaises assorties (même pack que la table), tapis, lustre, buffet et cadre au mur.
+
+    Rien ne dépasse : le buffet n'est posé que si la pièce est assez profonde pour le buffet ET les chaises, et chaque
+    chaise est vérifiée contre les murs, les portes et les autres meubles avant d'être posée.
+    """
     table = ctx.asset("table.dining")
-    chair = ctx.asset("chair.dining")
     if table is None:
         return
+    chair = ctx.asset("chair.dining", pack=table.pack) or ctx.asset("chair.dining")
     tw, td = table.footprint
-    if tw < td:
-        tw, td = td, tw
-    cx, cy = (ctx.box[0] + ctx.box[2]) / 2, (ctx.box[1] + ctx.box[3]) / 2
-    ctx.put("table.dining", cx, cy, 0.0, (tw, td), asset=table)
-    if chair is None:
-        return
-    cw, cd = chair.footprint
-    for k, dx in enumerate((-0.45, 0.45)):
-        for sign in (-1, 1):
-            y = cy + sign * (td / 2 + cd / 2 + 0.05)
-            ctx.put("chair.dining", cx + dx, y, 0.0 if sign < 0 else 180.0, (cw, cd), asset=chair)
-    if tw >= 1.6:
-        for sign in (-1, 1):
-            ctx.put("chair.dining", cx + sign * (tw / 2 + cd / 2 + 0.05), cy, 270.0 if sign < 0 else 90.0, (cw, cd), asset=chair)
+    rot = 0.0
+    if tw < td:                                   # la longueur du plateau selon x local
+        tw, td, rot = td, tw, 90.0
+    x0, y0, x1, y1 = ctx.box
+    if (y1 - y0) > (x1 - x0) + 0.5:               # pièce plus haute que large : la table suit la pièce
+        rot += 90.0
+    along_x = rot % 180 == 0
+    cw, cd = chair.footprint if chair else (0.0, 0.4)
+    across = (y1 - y0) if along_x else (x1 - x0)
+    need = td + 2 * (cd - 0.08) + 0.2             # la table et ses chaises, en travers
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    side = None
+    if across >= need + 0.75:                     # de quoi loger un buffet le long du mur parallèle à la table
+        side = ctx.against("sideboard", "NS" if along_x else "EW", centre=True)
+    if side is not None:
+        sx, sy, srot, (sw, sd) = side
+        tx, ty = in_front(sx, sy, srot, 1.0)
+        shift = (sd + 0.1) / 2                     # la table se recentre dans ce qui reste
+        cx, cy = cx + (tx - sx) * shift, cy + (ty - sy) * shift
+        picture = ctx.asset("picture")
+        if picture:
+            px, py = in_front(sx, sy, srot, -(sd / 2 - 0.03))
+            ctx.put("picture", px, py, srot, (min(0.9, sw * 0.6), picture.footprint[1]), asset=picture, elevation=1.3, footprint=False)
+        plant = ctx.asset("plant")
+        if plant:
+            ux, uy = math.cos(math.radians(srot)), math.sin(math.radians(srot))
+            pw, pd = plant.footprint
+            for sign in (1, -1):
+                qx, qy = sx + ux * sign * (sw / 2 + pw / 2 + 0.1), sy + uy * sign * (sw / 2 + pw / 2 + 0.1)
+                if ctx.occ.free(rect_of(qx, qy, pw, pd, srot), ctx.box, margin=0.0):
+                    ctx.put("plant", qx, qy, srot, (pw, pd), asset=plant)
+                    break
+
+    def local(a: float, b: float) -> tuple[float, float]:
+        """(a le long de la table, b en travers) -> plan, la table tournée de `rot`."""
+        r = math.radians(rot)
+        return cx + a * math.cos(r) - b * math.sin(r), cy + a * math.sin(r) + b * math.cos(r)
+
+    reach = td / 2 + cd / 2 - 0.08                 # les chaises sont à moitié glissées sous le plateau
+    seats: list[tuple[float, float, float]] = []
+    if chair is not None:
+        per_side = max(2, min(4, int(tw / 0.62)))
+        step = tw / per_side
+        for k in range(per_side):
+            for sign in (-1, 1):
+                x, y = local(-tw / 2 + step * (k + 0.5), sign * reach)
+                seats.append((x, y, rot + (0.0 if sign < 0 else 180.0)))
+        if tw >= 1.6:                              # une chaise à chaque bout
+            for sign in (-1, 1):
+                x, y = local(sign * (tw / 2 + cd / 2 - 0.08), 0.0)
+                seats.append((x, y, rot + (270.0 if sign < 0 else 90.0)))
+        seats = [c for c in seats if ctx.occ.free(rect_of(c[0], c[1], cw, cd, c[2]), ctx.box, margin=0.0)]
+    rug = ctx.asset("rug")
+    if rug and ctx.room.area >= 12 and len(seats) >= 4:
+        ctx.put("rug", cx, cy, rot, (tw + 1.0, td + 1.0), asset=rug, footprint=False)
+    ctx.put("table.dining", cx, cy, rot, (tw, td), asset=table)
+    lamp = ctx.catalog.pick("lamp.ceiling", room="dining", tags=["chandelier"], style=ctx.plan.style.tags,
+                            seed=f"{ctx.plan.seed}:{ctx.room.id}:chandelier", prefer_pack=table.pack)
+    if lamp and "realistic" in ctx.plan.style.tags:
+        ctx.put("lamp.ceiling", cx, cy, 0.0, (min(lamp.footprint[0], td), min(lamp.footprint[1], td)), asset=lamp, footprint=False)
+    for x, y, r in seats:
+        ctx.put("chair.dining", x, y, r, (cw, cd), asset=chair)
 
 
 def _kitchen(ctx: _Ctx) -> None:

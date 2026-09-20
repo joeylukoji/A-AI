@@ -187,3 +187,65 @@ def test_bedside_tables_stand_at_the_head_of_the_bed_against_the_wall(catalog):
         sx = rect_of(s.x, s.y, s.size[0], s.size[1], s.rot)
         # même mur que le lit : les deux boîtes touchent le même côté de la pièce
         assert min(sx[0], sx[1], 5 - sx[2], 4 - sx[3]) == pytest.approx(min(bx[0], bx[1], 5 - bx[2], 4 - bx[3]), abs=0.02)
+
+
+# --- salle à manger -------------------------------------------------------------------------------------
+def dining_plan(w: float, d: float, seed: int = 1) -> Plan:
+    plan = Plan(w, d, seed=seed)
+    plan.rect_room("dining", 0, 0, w, d)
+    plan.outline()
+    plan.walls_from_rooms()
+    plan.style.tags = ["realistic"]
+    return plan
+
+
+@pytest.mark.parametrize("w,d", [(6.0, 5.0), (5.0, 3.6), (4.0, 6.0), (6.0, 2.0), (3.2, 3.2)])
+@pytest.mark.parametrize("seed", range(6))
+def test_everything_in_a_dining_room_stays_inside_it_and_chairs_never_hit_the_sideboard(catalog, w, d, seed):
+    plan = dining_plan(w, d, seed)
+    autofurnish(plan, catalog)
+    box = (0.0, 0.0, w, d)
+    standing = [i for i in plan.items if i.role not in ("picture", "rug", "lamp.ceiling")]
+    rects = {i.id: rect_of(i.x, i.y, *i.size, i.rot) for i in standing}
+    for i in standing:
+        assert inside(rects[i.id], box), (seed, i.role, rects[i.id])
+    for chair in (i for i in standing if i.role == "chair.dining"):
+        for other in (i for i in standing if i.role in ("sideboard", "plant")):
+            assert not overlaps(rects[chair.id], rects[other.id], 0.0), (seed, chair.id, other.role)
+
+
+def test_the_chairs_come_from_the_pack_of_the_table_and_face_it(catalog):
+    for seed in range(8):
+        plan = dining_plan(6.0, 5.0, seed)
+        autofurnish(plan, catalog)
+        table = next(i for i in plan.items if i.role == "table.dining")
+        chairs = [i for i in plan.items if i.role == "chair.dining"]
+        assert len(chairs) >= 4
+        assert len({catalog.get(c.asset).id for c in chairs}) == 1              # un seul modèle de chaise : un vrai jeu
+        for c in chairs:                                                       # chaque chaise regarde la table
+            fx, fy = in_front(c.x, c.y, c.rot, 0.5)
+            assert (fx - table.x) ** 2 + (fy - table.y) ** 2 < (c.x - table.x) ** 2 + (c.y - table.y) ** 2
+
+
+def test_a_wide_dining_room_gets_a_sideboard_a_rug_and_a_chandelier_a_narrow_one_only_the_table(catalog):
+    roles = {i.role for i in (lambda p: (autofurnish(p, catalog), p.items)[1])(dining_plan(6.0, 5.0, 3))}
+    assert {"table.dining", "chair.dining", "rug", "lamp.ceiling"} <= roles
+    narrow = {i.role for i in (lambda p: (autofurnish(p, catalog), p.items)[1])(dining_plan(6.0, 2.0, 3))}
+    assert "table.dining" in narrow and "sideboard" not in narrow
+
+
+def test_the_dining_table_follows_the_long_axis_of_the_room(catalog):
+    wide = dining_plan(7.0, 4.0)
+    tall = dining_plan(4.0, 7.0)
+    autofurnish(wide, catalog)
+    autofurnish(tall, catalog)
+    assert next(i for i in wide.items if i.role == "table.dining").rot % 180 == 0
+    assert next(i for i in tall.items if i.role == "table.dining").rot % 180 == 90
+
+
+def test_low_poly_styles_get_no_chandelier(catalog):
+    plan = dining_plan(6.0, 5.0)
+    plan.style.tags = ["modern"]
+    plan.style.prefer_pack = "kenney-furniture"
+    autofurnish(plan, catalog)
+    assert "lamp.ceiling" not in {i.role for i in plan.items}

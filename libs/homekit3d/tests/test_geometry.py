@@ -5,7 +5,7 @@ import math
 import pytest
 
 from homekit3d import Plan
-from homekit3d.geometry import Frame, Mesh, Shell, build_shell, triangulate
+from homekit3d.geometry import BASEBOARD_H, Frame, Mesh, Shell, build_shell, planar_uvs, triangulate
 
 
 def total_volume(shell: Shell) -> float:
@@ -24,6 +24,7 @@ def one_wall(length=4.0, thickness=0.2, height=2.7) -> Plan:
 
 
 def bare(plan: Plan, **kw) -> Shell:
+    kw.setdefault("mouldings", False)                 # les volumes se comptent sur les murs seuls
     return build_shell(plan, floors=False, slab=False, **kw)
 
 
@@ -211,3 +212,72 @@ def test_the_cutaway_is_validated_and_round_trips():
     plan.cutaway = 1.2
     assert Plan.from_dict(plan.to_dict()).cutaway == 1.2 and Plan.from_dict(one_wall().to_dict()).cutaway is None
     assert plan.wall_height == 1.2 and one_wall().wall_height == 2.7
+
+
+# --- finitions : plinthes, corniche, soubassement, panneaux de porte, coordonnées de texture -----------------
+def finished(plan: Plan, **kw) -> Shell:
+    return build_shell(plan, floors=False, slab=False, extend_ends=False, mouldings=True, **kw)
+
+
+def z_extent(mesh: Mesh) -> tuple[float, float]:
+    zs = [v[2] for v in mesh.verts]
+    return min(zs), max(zs)
+
+
+def test_interior_walls_get_a_baseboard_on_both_faces_and_a_crown():
+    trim = finished(one_wall()).meshes["trim"]
+    boxes = len(trim.faces) // 6
+    assert boxes == 4                                                # 2 plinthes + 2 corniches
+    assert z_extent(trim) == pytest.approx((0.0, 2.7))
+
+
+def test_the_baseboard_stops_at_a_door_but_runs_under_a_window():
+    door = one_wall()
+    door.door("w", 1.0, width=0.9)
+    window = one_wall()
+    window.window("w", 1.0, width=1.2, sill=0.9, height=1.2)
+    plain = len(finished(one_wall()).meshes["trim"].faces)
+    with_door = finished(door).meshes["trim"]
+    with_window = finished(window).meshes["trim"]
+    assert len(with_door.faces) > plain                              # plinthes coupées en deux : plus de boîtes
+    # aucune face de plinthe (dont le haut est à 0,10 m) ne s'étend dans le vide de la porte (x de 1,0 à 1,9)
+    base = [f for f in with_door.faces if max(with_door.verts[i][2] for i in f) == pytest.approx(BASEBOARD_H)]
+    assert base and not any(1.0 + 1e-6 < with_door.verts[i][0] < 1.9 - 1e-6 for f in base for i in f)
+    assert len(with_window.faces) > plain                            # la fenêtre ajoute ses chambranles, pas de coupure
+
+
+def test_an_exterior_wall_has_its_plinth_outside_and_its_baseboard_inside_only():
+    plan = Plan(6.0, 4.0)
+    plan.rect_room("living", 0, 0, 6, 4)
+    plan.outline()
+    shell = build_shell(plan, floors=False, slab=False, mouldings=True)
+    plinth = shell.meshes["plinth"]
+    inside = lambda v: 0.0 < v[0] < 6.0 and -4.0 < v[1] < 0.0                 # noqa: E731 - coordonnées Blender : y = -y du plan
+    assert plinth.faces and not any(inside(v) for v in plinth.verts)
+    trim = shell.meshes["trim"]
+    assert all(inside((v[0], v[1], v[2])) or abs(v[0]) < 0.3 or abs(v[0] - 6) < 0.3 or abs(v[1]) < 0.3 or abs(v[1] + 4) < 0.3
+               for v in trim.verts)
+
+
+def test_no_crown_on_a_cut_wall():
+    plan = one_wall()
+    plan.cutaway = 1.2
+    trim = finished(plan).meshes["trim"]
+    assert z_extent(trim)[1] <= 0.1 + 1e-9                           # il ne reste que les plinthes
+
+
+def test_planar_uvs_follow_the_dominant_axis_at_the_requested_scale():
+    m = Mesh("m")
+    m.add_face([(0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (2.0, 4.0, 0.0), (0.0, 4.0, 0.0)])     # sol : (x, y)
+    m.add_face([(0.0, 1.0, 0.0), (2.0, 1.0, 0.0), (2.0, 1.0, 3.0), (0.0, 1.0, 3.0)])     # mur selon x : (x, z)
+    m.add_face([(1.0, 0.0, 0.0), (1.0, 4.0, 0.0), (1.0, 4.0, 3.0), (1.0, 0.0, 3.0)])     # mur selon y : (y, z)
+    uvs = planar_uvs(m, 2.0)
+    assert len(uvs) == 12
+    assert uvs[2] == (1.0, 2.0) and uvs[6] == (1.0, 1.5) and uvs[10] == (2.0, 1.5)
+
+
+def test_a_door_leaf_has_raised_panels():
+    plan = one_wall()
+    plan.door("w", 1.0, width=0.9)
+    door = finished(plan).meshes["door"]
+    assert len(door.faces) == 6 * 5                                  # le vantail et quatre panneaux (deux par face)

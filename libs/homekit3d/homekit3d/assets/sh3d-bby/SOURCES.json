@@ -1,0 +1,27 @@
+{
+ "dresserWithDrawers": {
+  "category": "Living room",
+  "model": "/blendswap-cc-by/dresserWithDrawers/dresserWithDrawers.obj",
+  "name": "Dresser with drawers"
+ },
+ "ella_chair_f": {
+  "category": "Living room",
+  "model": "/blendswap-cc-by/ella_chair_f/ella_chair_f.obj",
+  "name": "Chair"
+ },
+ "kitchenChair": {
+  "category": "Living room",
+  "model": "/blendswap-cc-by/kitchenChair/kitchenChair.obj",
+  "name": "Chair"
+ },
+ "sofa3": {
+  "category": "Living room",
+  "model": "/blendswap-cc-by/sofa3/sofa3.obj",
+  "name": "Sofa"
+ },
+ "table": {
+  "category": "Living room",
+  "model": "/blendswap-cc-by/table/table.obj",
+  "name": "Table"
+ }
+}

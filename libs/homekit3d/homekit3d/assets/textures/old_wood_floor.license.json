@@ -1,0 +1,12 @@
+{
+ "id": "old_wood_floor",
+ "name": "Old Wood Floor",
+ "authors": "Guillaume Monsergent",
+ "license": "CC0-1.0",
+ "source": "https://polyhaven.com/a/old_wood_floor",
+ "resolution": "1k",
+ "size_mm": [
+  3000,
+  3000
+ ]
+}
