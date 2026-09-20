@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/a-ai/a-ai/internal/config"
@@ -117,6 +118,29 @@ func TestSecurityHeadersSet(t *testing.T) {
 		if rr.Header().Get(header) == "" {
 			t.Errorf("expected header %s to be set", header)
 		}
+	}
+}
+
+// <model-viewer> charge le GLB par fetch() sur une URL blob: ; sans blob: (et data: pour les textures embarquées)
+// dans connect-src le navigateur refuse la connexion et la maquette 3D ne s'affiche pas.
+func TestCSPLetsTheModelViewerLoadItsGLB(t *testing.T) {
+	s := &Server{cfg: testConfig()}
+	h := s.securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }))
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/", nil))
+	var connect string
+	for _, directive := range strings.Split(rr.Header().Get("Content-Security-Policy"), ";") {
+		if d := strings.TrimSpace(directive); strings.HasPrefix(d, "connect-src ") {
+			connect = d
+		}
+	}
+	for _, source := range []string{"'self'", "blob:", "data:", "https://unpkg.com"} {
+		if !strings.Contains(connect, source) {
+			t.Errorf("connect-src %q should allow %s", connect, source)
+		}
+	}
+	if strings.Contains(connect, "*") || strings.Contains(connect, "http:") {
+		t.Errorf("connect-src %q is too permissive", connect)
 	}
 }
 

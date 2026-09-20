@@ -21,7 +21,9 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 		"img-src 'self' data: blob: https:",
 		"font-src 'self' https://fonts.gstatic.com data:",
-		"connect-src 'self' https://unpkg.com",
+		// blob: et data: — <model-viewer> charge le GLB (et ses textures embarquées) par fetch() sur une URL
+		// blob: ; sans eux le navigateur refuse la connexion et le modèle 3D ne s'affiche pas.
+		"connect-src 'self' blob: data: https://unpkg.com",
 		"worker-src 'self' blob:",
 		"frame-ancestors 'none'",
 		"base-uri 'self'",
