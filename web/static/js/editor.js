@@ -251,7 +251,8 @@
     if (style && style.drawPorch) style.drawPorch(ctx, plan.openings, plan.walls, bd, toScreen);
 
     if (style && style.drawWalls) {
-      style.drawWalls(ctx, plan.walls, toScreen, scale);
+      const open = Edit.hallwayOnlyWalls(plan);
+      style.drawWalls(ctx, open.size ? plan.walls.filter((w) => !open.has(w.id)) : plan.walls, toScreen, scale);
     } else {
       (plan.walls || []).forEach((wall) => {
         const a = toScreen(wall.a);

@@ -60,6 +60,25 @@
     return b.x0 >= -EPS && b.y0 >= -EPS && b.x1 <= w + EPS && b.y1 <= d + EPS;
   }
 
+  // Murs qui ne séparent que des segments d'un même couloir : un couloir est ouvert. Les plans
+  // enregistrés avant que le générateur ne les supprime en ont encore ; on ne les dessine pas.
+  function hallwayOnlyWalls(plan) {
+    const hall = [];
+    const other = [];
+    (plan.rooms || []).forEach((room) => {
+      const bucket = room.type === 'hallway' ? hall : other;
+      edgesOf(room.polygon || []).forEach((e) => bucket.push(e));
+    });
+    const out = new Set();
+    (plan.walls || []).forEach((wall) => {
+      if (String(wall.id || '').startsWith('w_outer')) return;
+      const onHall = hall.filter(([a, b]) => sameEdge(a, b, wall.a, wall.b)).length;
+      const onOther = other.some(([a, b]) => sameEdge(a, b, wall.a, wall.b));
+      if (onHall >= 2 && !onOther) out.add(wall.id);
+    });
+    return out;
+  }
+
   // Un déplacement est valide s'il ne chevauche aucune pièce et reste dans la maison.
   function canMove(plan, ri, dx, dy) {
     return insideHouse(plan, ri, dx, dy) && maxOverlap(plan, ri, dx, dy).area <= MIN_OVERLAP;
@@ -197,7 +216,7 @@
 
   const api = {
     EPS, MIN_OVERLAP, samePt, sameEdge, bboxOf, overlapArea, maxOverlap, insideHouse, canMove,
-    snapMove, translateRoom, swapRooms, roomAt, resolveDrop, polyArea,
+    snapMove, translateRoom, swapRooms, roomAt, resolveDrop, polyArea, hallwayOnlyWalls,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PlanEdit = api;

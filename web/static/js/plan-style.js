@@ -60,27 +60,25 @@ window.PlanStyle = (() => {
     }
   }
 
+  // Mobilier « plan d'architecte » : aplats clairs et trait fin uniforme, sans ombres ni reflets.
+  // Toutes les couleurs des symboles passent par `paint` : on les éclaircit ici, une fois.
+  function soft(color) {
+    const m = /^#([0-9a-f]{6})$/i.exec(color || '');
+    if (!m) return color;
+    const n = parseInt(m[1], 16);
+    const mix = (c) => Math.round(c + (255 - c) * 0.55);
+    return `rgb(${mix((n >> 16) & 255)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`;
+  }
+  const LINE = '#77746e';
+
   function paint(ctx, fillStyle, stroke, lw) {
-    if (fillStyle) { ctx.fillStyle = fillStyle; ctx.fill(); }
-    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 0.022; ctx.stroke(); }
+    if (fillStyle) { ctx.fillStyle = soft(fillStyle); ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = LINE; ctx.lineWidth = Math.max(lw || 0.022, 0.018); ctx.stroke(); }
   }
 
-  function ovalShadow(ctx, w, d) {
-    ctx.save();
-    ctx.translate(0.05, 0.06);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, w * 0.52, d * 0.48, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(28, 22, 14, 0.28)';
-    ctx.fill();
-    ctx.restore();
-  }
+  function ovalShadow() { /* volontairement vide : pas d'ombre portée sur un plan */ }
 
-  function sheen(ctx, x, y, rx, ry, a) {
-    ctx.beginPath();
-    ctx.ellipse(x, y, rx, ry, a || -0.5, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.22)';
-    ctx.fill();
-  }
+  function sheen() { /* volontairement vide : pas de reflet sur un plan */ }
 
   function beginItem(ctx, toScreen, px, py, rot) {
     const o = toScreen({ x: px, y: py });
@@ -528,7 +526,7 @@ window.PlanStyle = (() => {
       if (typeof px !== 'number' || typeof py !== 'number') return;
       const cid = it.catalog_id || '';
       beginItem(ctx, toScreen, px, py, rot);
-      if (cid.startsWith('bed.')) drawBed(ctx, w, d, cid.endsWith('double') && w >= 1.4);
+      if (cid.startsWith('bed.')) drawBed(ctx, w, d, false);
       else if (DRAWERS[cid]) DRAWERS[cid](ctx, w, d);
       else drawGeneric(ctx, w, d);
       ctx.restore();

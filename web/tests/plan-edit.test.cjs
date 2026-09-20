@@ -171,3 +171,47 @@ test('roomAt ignores the excluded room', () => {
   assert.strictEqual(E.roomAt(p, { x: 6, y: 6 }, -1), 3);
   assert.strictEqual(E.roomAt(p, { x: 6, y: 6 }, 3), -1);
 });
+
+test('a wall between two hallway segments is reported as open, others are not', () => {
+  const p = {
+    floor: { bounds: { width: 8, depth: 8 } },
+    rooms: [
+      { id: 'h1', type: 'hallway', polygon: rect(0, 4, 4, 8) },
+      { id: 'h2', type: 'hallway', polygon: rect(4, 4, 8, 8) },
+      { id: 'b', type: 'bedroom', polygon: rect(0, 0, 8, 4) },
+    ],
+    walls: [
+      wall('w_outer_1', 0, 0, 8, 0), wall('w_outer_2', 8, 0, 8, 8),
+      wall('hh', 4, 4, 4, 8),        // entre deux segments de couloir
+      wall('hb1', 0, 4, 4, 4),       // couloir / chambre
+      wall('hb2', 4, 4, 8, 4),
+    ],
+  };
+  const open = E.hallwayOnlyWalls(p);
+  assert.deepStrictEqual([...open], ['hh']);
+});
+
+test('an exterior wall and a lone hallway edge are never reported as open', () => {
+  const p = {
+    floor: { bounds: { width: 8, depth: 8 } },
+    rooms: [{ id: 'h1', type: 'hallway', polygon: rect(0, 0, 4, 4) }, { id: 'h2', type: 'hallway', polygon: rect(0, 0, 4, 4) }],
+    walls: [wall('w_outer_1', 0, 0, 4, 0), wall('lone', 4, 0, 4, 4)],
+  };
+  // 'lone' est une arête commune aux deux polygones (identiques) : c'est bien un mur de couloir seul
+  assert.ok(E.hallwayOnlyWalls(p).has('lone'));
+  assert.ok(!E.hallwayOnlyWalls(p).has('w_outer_1'));
+  const single = { rooms: [{ id: 'h', type: 'hallway', polygon: rect(0, 0, 4, 4) }], walls: [wall('e', 4, 0, 4, 4)] };
+  assert.strictEqual(E.hallwayOnlyWalls(single).size, 0);
+});
+
+test('a hallway edge shared with a room of another type keeps its wall', () => {
+  const p = {
+    rooms: [
+      { id: 'h1', type: 'hallway', polygon: rect(0, 0, 4, 4) },
+      { id: 'h2', type: 'hallway', polygon: rect(0, 0, 4, 4) },
+      { id: 'k', type: 'kitchen', polygon: rect(4, 0, 8, 4) },
+    ],
+    walls: [wall('hk', 4, 0, 4, 4)],
+  };
+  assert.strictEqual(E.hallwayOnlyWalls(p).size, 0);
+});
