@@ -25,6 +25,18 @@
     <button type="button" data-tool="door" class="tool-btn btn-line">Porte</button>
     <button type="button" data-tool="window" class="tool-btn btn-line">Fenêtre</button>
     <button type="button" data-tool="delete" class="tool-btn btn-danger">Supprimer</button>
+    <button type="button" id="btn-undo" class="btn-line" title="Annuler (Ctrl+Z)">Annuler</button>
+    <span class="ml-auto flex items-center gap-1" role="group" aria-label="Zoom">
+      <button type="button" data-zoom="out" class="btn-line" aria-label="Zoom arrière" title="Zoom arrière">−</button>
+      <button type="button" data-zoom="fit" class="btn-line" title="Ajuster à la fenêtre">Ajuster</button>
+      <button type="button" data-zoom="in" class="btn-line" aria-label="Zoom avant" title="Zoom avant">+</button>
+    </span>
+  </div>
+  {{else}}
+  <div class="flex justify-end gap-1" role="group" aria-label="Zoom">
+    <button type="button" data-zoom="out" class="btn-line" aria-label="Zoom arrière">−</button>
+    <button type="button" data-zoom="fit" class="btn-line">Ajuster</button>
+    <button type="button" data-zoom="in" class="btn-line" aria-label="Zoom avant">+</button>
   </div>
   {{end}}
 
@@ -33,7 +45,7 @@
       id="plan-canvas"
       width="960"
       height="640"
-      class="w-full max-h-[70vh] cursor-crosshair bg-[#f7f4ef]"
+      class="block w-full bg-[#fbfaf7]"
       data-project-id="{{.Project.ID}}"
       data-revision-id="{{.RevisionID}}"
       data-can-edit="{{if .CanEdit}}true{{else}}false{{end}}"
@@ -45,8 +57,9 @@
     <div id="compliance-score"></div>
     <div id="plan-dimensions"></div>
     <p class="text-[10px] text-zinc-400">
-      Déplacer : poignées teal pour tirer un mur (murs et pièces restent synchronisés), ou glisser une pièce pour la déplacer entière.
-      Pièce : clic dans le plan. Porte / fenêtre : clic sur un mur. Suppr : clic sur une ouverture, une pièce ou un mur.
+      Déplacer : cliquez une pièce, glissez-la vers un espace libre (elle s'aimante aux murs voisins) ou déposez-la sur une autre pièce pour les échanger ; flèches du clavier = 10 cm (Maj : 50 cm), Échap annule, Ctrl+Z revient en arrière.
+      Poignée turquoise au survol d'un mur : tirer le mur. Fond du plan : glisser pour déplacer la vue, molette pour zoomer.
+      Pièce : clic dans le plan. Porte / fenêtre : clic sur un mur. Supprimer : clic sur une ouverture, une pièce ou un mur.
     </p>
   </div>
 </div>
@@ -54,6 +67,7 @@
 <script type="application/json" id="plan-document-data">{{.PlanJSON}}</script>
 <script src="/static/js/plan-style.js"></script>
 <script src="/static/js/plan-compliance.js"></script>
+<script src="/static/js/plan-edit.js"></script>
 <script src="/static/js/editor.js"></script>
 {{template "dash_end" .}}
 {{template "footer" .}}

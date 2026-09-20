@@ -9,12 +9,22 @@
   } catch {
     return;
   }
-  plan.walls = plan.walls || [];
-  plan.rooms = plan.rooms || [];
-  plan.openings = plan.openings || [];
-  plan.furniture = plan.furniture || [];
-  if (!plan.floor) plan.floor = { level: 0, height_m: 2.7, bounds: { width: 12, depth: 10 } };
-  if (!plan.floor.bounds) plan.floor.bounds = { width: 12, depth: 10 };
+  function ensurePlan() {
+    plan.walls = plan.walls || [];
+    plan.rooms = plan.rooms || [];
+    plan.openings = plan.openings || [];
+    plan.furniture = plan.furniture || [];
+    if (!plan.floor) plan.floor = { level: 0, height_m: 2.7, bounds: { width: 12, depth: 10 } };
+    if (!plan.floor.bounds) plan.floor.bounds = { width: 12, depth: 10 };
+  }
+  ensurePlan();
+
+  // Historique : l'enregistrement est automatique, une erreur (un échange par exemple) doit pouvoir s'annuler.
+  const history = [];
+  function checkpoint() {
+    history.push(JSON.stringify(plan));
+    if (history.length > 50) history.shift();
+  }
 
   const cfg = {
     projectId: canvas.dataset.projectId || '',
@@ -25,25 +35,70 @@
   const ctx = canvas.getContext('2d');
   const status = document.getElementById('save-status');
   const topoEl = document.getElementById('topo-status');
+  const Edit = window.PlanEdit;
   let revisionId = cfg.revisionId || null;
   let drag = null;
   let tool = 'select';
   let saveTimer = null;
-  const pad = 40;
-  const GRID = 0.1; // snap 10 cm
-  const EPS = 0.06; // coïncidence sommets murs <-> polygones
+  let selected = -1;        // pièce sélectionnée
+  let hoverRoom = -1;
+  let hoverHandleRef = null;
+  const GRID = 0.1;         // snap 10 cm
+  const EPS = 0.06;         // coïncidence sommets murs <-> polygones
+  const MARGIN = { left: 74, right: 30, top: 30, bottom: 74 }; // place des cotes autour de la maison
 
-  // ---- vue : échelle auto pour que le plan + jardin remplissent le canvas -------------
+  // ---- vue : taille du canvas adaptée à la page, zoom et déplacement ------------------
+  let W = 960;
+  let H = 640;
+  let dpr = 1;
   let scale = 40;
-  let ox = pad;
-  let oy = pad;
+  let ox = 0;
+  let oy = 0;
+  let fitScale = 40;
+  let userView = false;     // vrai dès que l'utilisateur zoome ou déplace la vue
+
+  function planSize() {
+    return { bw: plan.floor.bounds.width || 12, bd: plan.floor.bounds.depth || 10 };
+  }
+
   function fitView() {
-    const bw = plan.floor.bounds.width || 12;
-    const bd = plan.floor.bounds.depth || 10;
-    const garden = 1.8;
-    scale = Math.min((canvas.width - 2 * pad) / (bw + garden), (canvas.height - 2 * pad) / (bd + garden));
-    ox = (canvas.width - (bw + garden) * scale) / 2;
-    oy = (canvas.height - (bd + garden) * scale) / 2;
+    const { bw, bd } = planSize();
+    const aw = W - MARGIN.left - MARGIN.right;
+    const ah = H - MARGIN.top - MARGIN.bottom;
+    fitScale = Math.max(8, Math.min(aw / bw, ah / bd));
+    scale = fitScale;
+    ox = MARGIN.left + (aw - bw * scale) / 2;
+    oy = MARGIN.top + (ah - bd * scale) / 2;
+    userView = false;
+  }
+
+  // La hauteur suit les proportions de la maison (plus de grand vide autour d'un petit plan)
+  // et reste bornée par l'écran : l'éditeur ne déborde plus.
+  function resize() {
+    const wrap = canvas.parentElement;
+    const cssW = Math.max(320, Math.floor((wrap && wrap.clientWidth) || 960));
+    const { bw, bd } = planSize();
+    const aspect = (bd * 1 + (MARGIN.top + MARGIN.bottom) / 40) / (bw * 1 + (MARGIN.left + MARGIN.right) / 40);
+    const maxH = Math.max(360, Math.floor(window.innerHeight * 0.66));
+    const cssH = Math.round(Math.min(maxH, Math.max(320, cssW * aspect)));
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = cssW;
+    H = cssH;
+    canvas.style.width = `${cssW}px`;
+    canvas.style.height = `${cssH}px`;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    if (userView) {
+      // on garde le zoom courant, mais la maison reste dans le cadre
+      const keep = scale / (fitScale || scale);
+      const oldFit = fitScale;
+      fitView();
+      scale = fitScale * (oldFit ? keep : 1);
+      userView = true;
+    } else {
+      fitView();
+    }
+    draw(true);
   }
 
   const snap = (v) => Math.round(v / GRID) * GRID;
@@ -52,6 +107,9 @@
   }
   function toWorld(x, y) {
     return { x: snap((x - ox) / scale), y: snap((y - oy) / scale) };
+  }
+  function toWorldRaw(x, y) {
+    return { x: (x - ox) / scale, y: (y - oy) / scale };
   }
   function wallLen(w) {
     return Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y) || 0.1;
@@ -79,53 +137,115 @@
   }
 
   // ---- dessin ----------------------------------------------------------------
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  function polyPath(poly, dx = 0, dy = 0) {
+    ctx.beginPath();
+    poly.forEach((p, i) => {
+      const s = toScreen({ x: p.x + dx, y: p.y + dy });
+      if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
+    });
+    ctx.closePath();
+  }
 
-    const bw = plan.floor.bounds.width || 12;
-    const bd = plan.floor.bounds.depth || 10;
+  function drawGhost() {
+    if (!drag || drag.kind !== 'room' || !drag.moved) return;
+    const room = plan.rooms[drag.i];
+    if (!room) return;
+    const swap = !drag.valid && drag.target >= 0;
+    const tone = drag.valid ? '20,184,166' : (swap ? '245,158,11' : '220,38,38');
+    if (swap) {
+      const t = plan.rooms[drag.target];
+      polyPath(t.polygon);
+      ctx.fillStyle = 'rgba(245,158,11,0.16)';
+      ctx.fill();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = 'rgba(217,119,6,0.95)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    polyPath(room.polygon, drag.dx, drag.dy);
+    ctx.fillStyle = `rgba(${tone},0.20)`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(${tone},0.95)`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    const c = room.polygon.reduce((a, p) => ({ x: a.x + p.x, y: a.y + p.y }), { x: 0, y: 0 });
+    const s = toScreen({ x: c.x / room.polygon.length + drag.dx, y: c.y / room.polygon.length + drag.dy });
+    const msg = drag.valid ? 'Déposer ici' : (swap ? `Échanger avec ${style_label(plan.rooms[drag.target])}` : 'Chevauchement');
+    ctx.font = '600 11px "DM Sans", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(msg).width + 14;
+    ctx.fillStyle = `rgba(${tone},0.95)`;
+    ctx.fillRect(s.x - tw / 2, s.y - 11, tw, 22);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(msg, s.x, s.y);
+  }
+
+  function style_label(room) {
+    const style = window.PlanStyle;
+    return style ? style.label(room) : (room.name || room.type);
+  }
+
+  function draw(full = true) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const { bw, bd } = planSize();
     const style = window.PlanStyle;
 
-    if (style && style.drawSite) style.drawSite(ctx, bw, bd, toScreen, canvas.width, canvas.height);
+    if (style && style.drawSite) style.drawSite(ctx, bw, bd, toScreen, W, H);
     else {
-      ctx.fillStyle = '#f7f4ef';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fbfaf7';
+      ctx.fillRect(0, 0, W, H);
     }
 
-    // grille 0,5 m
-    ctx.strokeStyle = 'rgba(40, 40, 40, 0.08)';
+    // grille 1 m, très discrète, à l'intérieur de l'emprise seulement
+    ctx.strokeStyle = 'rgba(40, 40, 40, 0.045)';
     ctx.lineWidth = 1;
-    for (let gx = 0; gx <= bw + 1e-6; gx += 0.5) {
+    ctx.beginPath();
+    for (let gx = 0; gx <= bw + 1e-6; gx += 1) {
       const s0 = toScreen({ x: gx, y: 0 });
       const s1 = toScreen({ x: gx, y: bd });
-      ctx.beginPath(); ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y); ctx.stroke();
+      ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y);
     }
-    for (let gy = 0; gy <= bd + 1e-6; gy += 0.5) {
+    for (let gy = 0; gy <= bd + 1e-6; gy += 1) {
       const s0 = toScreen({ x: 0, y: gy });
       const s1 = toScreen({ x: bw, y: gy });
-      ctx.beginPath(); ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y); ctx.stroke();
+      ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y);
     }
+    ctx.stroke();
 
     // pièces
     (plan.rooms || []).forEach((room) => {
       if (!room.polygon?.length) return;
       if (style && style.drawFloor) style.drawFloor(ctx, room, toScreen);
       else {
-        ctx.beginPath();
-        room.polygon.forEach((p, i) => {
-          const s = toScreen(p);
-          if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
-        });
-        ctx.closePath();
+        polyPath(room.polygon);
         ctx.fillStyle = style ? style.fill(room) : 'rgba(20, 83, 45, 0.08)';
         ctx.fill();
       }
-      if (style && !(plan.furniture || []).length) style.drawFixtures(ctx, room, toScreen);
     });
+
+    // survol et sélection : sous le mobilier et les murs
+    if (cfg.canEdit && tool === 'select') {
+      if (hoverRoom >= 0 && hoverRoom !== selected && plan.rooms[hoverRoom]) {
+        polyPath(plan.rooms[hoverRoom].polygon);
+        ctx.fillStyle = 'rgba(20,184,166,0.07)';
+        ctx.fill();
+      }
+      if (selected >= 0 && plan.rooms[selected]) {
+        polyPath(plan.rooms[selected].polygon);
+        ctx.fillStyle = 'rgba(20,184,166,0.12)';
+        ctx.fill();
+      }
+    }
 
     // mobilier (les mêmes instances que le 3D)
     if (style && (plan.furniture || []).length) {
       style.drawFurniture(ctx, plan.furniture, toScreen);
+    } else if (style) {
+      (plan.rooms || []).forEach((room) => style.drawFixtures(ctx, room, toScreen));
     }
 
     if (style && style.drawPorch) style.drawPorch(ctx, plan.openings, plan.walls, bd, toScreen);
@@ -136,8 +256,8 @@
       (plan.walls || []).forEach((wall) => {
         const a = toScreen(wall.a);
         const b = toScreen(wall.b);
-        ctx.strokeStyle = '#6e6e6a';
-        ctx.lineWidth = Math.max(5, (wall.thickness_m || 0.2) * scale);
+        ctx.strokeStyle = '#4b4b48';
+        ctx.lineWidth = Math.max(4, (wall.thickness_m || 0.2) * scale);
         ctx.lineCap = 'square';
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
@@ -146,21 +266,23 @@
       });
     }
 
-    // noms de pièces par-dessus le mobilier, discrets
-    (plan.rooms || []).forEach((room) => {
-      if (!room.polygon?.length) return;
-      const c = room.polygon.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
-      c.x /= room.polygon.length; c.y /= room.polygon.length;
-      const sc = toScreen(c);
-      const text = style ? style.label(room) : (room.name || room.type);
-      ctx.font = '600 12px "DM Sans", sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.72)';
-      ctx.fillText(text, sc.x - ctx.measureText(text).width / 2 + 1, sc.y + 1);
-      ctx.fillStyle = '#2a2a28';
-      ctx.fillText(text, sc.x - ctx.measureText(text).width / 2, sc.y);
-    });
+    // libellés : capitales + surface, un seul pour un couloir continu
+    if (style && style.drawRoomLabels) {
+      style.drawRoomLabels(ctx, plan.rooms, toScreen);
+    } else {
+      (plan.rooms || []).forEach((room) => {
+        if (!room.polygon?.length) return;
+        const c = room.polygon.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+        c.x /= room.polygon.length; c.y /= room.polygon.length;
+        const sc = toScreen(c);
+        const text = style_label(room);
+        ctx.font = '600 12px "DM Sans", sans-serif';
+        ctx.fillStyle = '#2a2a28';
+        ctx.fillText(text, sc.x - ctx.measureText(text).width / 2, sc.y);
+      });
+    }
 
-    // ouvertures : vitrage blanc / porte + battant
+    // ouvertures : vitrage / porte + battant
     if (style && style.drawOpenings) {
       style.drawOpenings(ctx, plan.openings, plan.walls, toScreen, scale);
     } else {
@@ -173,29 +295,52 @@
         const t1 = Math.min(1, Math.max(0, ((op.offset_m || 0) + w2) / len));
         const p0 = toScreen({ x: wall.a.x + (wall.b.x - wall.a.x) * t0, y: wall.a.y + (wall.b.y - wall.a.y) * t0 });
         const p1 = toScreen({ x: wall.a.x + (wall.b.x - wall.a.x) * t1, y: wall.a.y + (wall.b.y - wall.a.y) * t1 });
-        ctx.strokeStyle = '#ecece8';
+        ctx.strokeStyle = '#f6f5f1';
         ctx.lineWidth = Math.max(4, (wall.thickness_m || 0.15) * scale + 2);
         ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
       });
     }
 
-    // poignées de murs (par-dessus tout)
-    (plan.walls || []).forEach((wall) => {
-      [toScreen(wall.a), toScreen(wall.b)].forEach((pt) => {
+    if (style && style.drawDimensions) style.drawDimensions(ctx, bw, bd, toScreen);
+
+    // contour de la pièce sélectionnée, par-dessus les murs
+    if (cfg.canEdit && tool === 'select' && selected >= 0 && plan.rooms[selected] && !(drag && drag.moved)) {
+      polyPath(plan.rooms[selected].polygon);
+      ctx.strokeStyle = 'rgba(13,148,136,0.95)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // poignée de mur : seulement celle qu'on survole
+    if (cfg.canEdit && tool === 'select' && hoverHandleRef) {
+      const wall = plan.walls[hoverHandleRef.i];
+      if (wall) {
+        const pt = toScreen(wall[hoverHandleRef.end]);
         ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+        ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
         ctx.fillStyle = '#14b8a6';
         ctx.fill();
-        ctx.strokeStyle = '#0f766e';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
         ctx.stroke();
-      });
-    });
+      }
+    }
+
+    drawGhost();
+
+    if (!full) return;
 
     // légende
     const legend = document.getElementById('room-legend');
     if (legend) {
-      legend.innerHTML = (plan.rooms || []).map((room) => {
-        const name = style ? style.label(room) : (room.name || room.type);
+      const seen = new Set();
+      legend.innerHTML = (plan.rooms || []).filter((room) => {
+        const key = room.type === 'hallway' ? 'hallway' : room.id;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).map((room) => {
+        const name = room.type === 'hallway' ? 'Couloir' : style_label(room);
         const color = style ? style.fill(room) : '#ddd';
         return `<li class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-sm border border-zinc-400" style="background:${escapeHtml(color)}"></span>${escapeHtml(name)}</li>`;
       }).join('');
@@ -208,13 +353,20 @@
     }
   }
 
+  let rafPending = false;
+  function redraw() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => { rafPending = false; draw(false); });
+  }
+
   // ---- hit testing -------------------------------------------------------------
   function hitHandle(x, y) {
     for (let i = 0; i < plan.walls.length; i++) {
       const wall = plan.walls[i];
       for (const end of ['a', 'b']) {
         const s = toScreen(wall[end]);
-        if ((s.x - x) ** 2 + (s.y - y) ** 2 < 144) return { kind: 'wall', i, end };
+        if ((s.x - x) ** 2 + (s.y - y) ** 2 < 100) return { kind: 'wall', i, end };
       }
     }
     return null;
@@ -242,20 +394,7 @@
   }
 
   function hitRoom(x, y) {
-    const p = toWorld(x, y);
-    for (let i = plan.rooms.length - 1; i >= 0; i--) {
-      const poly = plan.rooms[i].polygon || [];
-      if (poly.length < 3) continue;
-      let inside = false;
-      for (let j = 0, k = poly.length - 1; j < poly.length; k = j++) {
-        const xi = poly[j].x, yi = poly[j].y, xk = poly[k].x, yk = poly[k].y;
-        if ((yi > p.y) !== (yk > p.y) && p.x < ((xk - xi) * (p.y - yi)) / ((yk - yi) || 1e-9) + xi) {
-          inside = !inside;
-        }
-      }
-      if (inside) return i;
-    }
-    return -1;
+    return Edit.roomAt(plan, toWorldRaw(x, y), -1);
   }
 
   function hitOpening(x, y) {
@@ -332,61 +471,74 @@
     });
   }
 
-  // Déplace une pièce entière : polygone + murs coïncidents + mobilier de la pièce.
-  function moveRoom(ri, dx, dy) {
-    const room = plan.rooms[ri];
-    if (!room) return;
-    const mapping = [];
-    (room.polygon || []).forEach((v, idx) => {
-      mapping.push({ old: { x: v.x, y: v.y }, neo: { x: snap(v.x + dx), y: snap(v.y + dy) } });
-      room.polygon[idx] = mapping[mapping.length - 1].neo;
-    });
-    (plan.walls || []).forEach((wall) => {
-      for (const e of ['a', 'b']) {
-        const m = mapping.find((mm) => samePt(mm.old, wall[e]));
-        if (m) wall[e] = { x: m.neo.x, y: m.neo.y };
-      }
-    });
-    (plan.furniture || []).forEach((it) => {
-      if (it.room_id === room.id && it.position) {
-        it.position.x = snap(it.position.x + dx);
-        it.position.y = snap(it.position.y + dy);
-      }
-    });
-  }
-
-  function markDirty() {
-    status.textContent = 'Modifié';
-    draw();
+  function markDirty(message) {
+    status.textContent = message || 'Modifié';
+    draw(true);
     if (!cfg.canEdit) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(save, 1200);
+  }
+
+  function say(text) {
+    if (status) status.textContent = text;
+  }
+
+  function undo() {
+    const last = history.pop();
+    if (!last) { say('Rien à annuler'); return; }
+    plan = JSON.parse(last);
+    ensurePlan();
+    selected = -1;
+    hoverRoom = -1;
+    hoverHandleRef = null;
+    drag = null;
+    markDirty('Modification annulée');
   }
 
   // ---- événements ----------------------------------------------------------------
   function evtPos(e) {
     const rect = canvas.getBoundingClientRect();
     return {
-      x: (e.clientX - rect.left) * (canvas.width / rect.width),
-      y: (e.clientY - rect.top) * (canvas.height / rect.height),
+      x: (e.clientX - rect.left) * (W / rect.width),
+      y: (e.clientY - rect.top) * (H / rect.height),
     };
   }
 
   canvas.addEventListener('mousedown', (e) => {
-    if (!cfg.canEdit) return;
     const { x, y } = evtPos(e);
 
-    if (tool === 'select') {
-      const h = hitHandle(x, y);
-      if (h) { drag = h; return; }
-      const ri = hitRoom(x, y);
-      if (ri >= 0) {
-        const p = toWorld(x, y);
-        drag = { kind: 'room', i: ri, last: p };
-      }
+    // Molette enfoncée : déplacer la vue, quel que soit l'outil.
+    if (e.button === 1) {
+      e.preventDefault();
+      drag = { kind: 'pan', last: { x, y } };
+      canvas.style.cursor = 'grabbing';
       return;
     }
+    if (e.button !== 0) return;
+
+    if (tool === 'select') {
+      const h = cfg.canEdit ? hitHandle(x, y) : null;
+      if (h) { checkpoint(); drag = h; return; }
+      const ri = hitRoom(x, y);
+      if (ri >= 0) {
+        selected = ri;
+        if (cfg.canEdit) {
+          drag = { kind: 'room', i: ri, start: toWorldRaw(x, y), startScreen: { x, y }, moved: false, dx: 0, dy: 0, valid: true, target: -1 };
+        }
+        say(`${style_label(plan.rooms[ri])} : glisser pour déplacer, déposer sur une autre pièce pour l'échanger`);
+        draw(false);
+        return;
+      }
+      // Fond vide : on déplace la vue.
+      selected = -1;
+      drag = { kind: 'pan', last: { x, y } };
+      canvas.style.cursor = 'grabbing';
+      draw(false);
+      return;
+    }
+    if (!cfg.canEdit) return;
     if (tool === 'room') {
+      checkpoint();
       addRoomAt(x, y);
       markDirty();
       return;
@@ -394,6 +546,7 @@
     if (tool === 'door' || tool === 'window') {
       const hit = hitWall(x, y);
       if (hit) {
+        checkpoint();
         addOpening(tool, hit);
         markDirty();
       }
@@ -402,12 +555,14 @@
     if (tool === 'delete') {
       const oi = hitOpening(x, y);
       if (oi >= 0) {
+        checkpoint();
         plan.openings.splice(oi, 1);
         markDirty();
         return;
       }
       const ri = hitRoom(x, y);
       if (ri >= 0) {
+        checkpoint();
         const room = plan.rooms[ri];
         // retire les murs qui coïncident avec les arêtes de la pièce supprimée
         const poly = room.polygon || [];
@@ -425,11 +580,13 @@
         });
         plan.furniture = plan.furniture.filter((f) => f.room_id !== room.id);
         plan.rooms.splice(ri, 1);
+        selected = -1;
         markDirty();
         return;
       }
       const wh = hitHandle(x, y) || hitWall(x, y);
       if (wh) {
+        checkpoint();
         const wall = plan.walls[wh.i];
         plan.openings = plan.openings.filter((o) => o.wall_id !== wall.id);
         plan.walls.splice(wh.i, 1);
@@ -439,49 +596,170 @@
   });
 
   canvas.addEventListener('mousemove', (e) => {
-    if (!drag) return;
     const { x, y } = evtPos(e);
-    const p = toWorld(x, y);
+
+    if (!drag) {
+      if (tool !== 'select' || !cfg.canEdit) return;
+      const h = hitHandle(x, y);
+      const ri = h ? -1 : hitRoom(x, y);
+      const changed = ri !== hoverRoom || (h ? `${h.i}${h.end}` : '') !== (hoverHandleRef ? `${hoverHandleRef.i}${hoverHandleRef.end}` : '');
+      hoverHandleRef = h;
+      hoverRoom = ri;
+      canvas.style.cursor = h ? 'crosshair' : (ri >= 0 ? 'grab' : 'default');
+      if (changed) redraw();
+      return;
+    }
+
+    if (drag.kind === 'pan') {
+      ox += x - drag.last.x;
+      oy += y - drag.last.y;
+      drag.last = { x, y };
+      userView = true;
+      redraw();
+      return;
+    }
+
     if (drag.kind === 'wall') {
+      const p = toWorld(x, y);
       const wall = plan.walls[drag.i];
       const other = drag.end === 'a' ? wall.b : wall.a;
       // snap orthogonal
       if (Math.abs(p.x - other.x) > Math.abs(p.y - other.y)) p.y = other.y;
       else p.x = other.x;
       moveWallEndpoint(wall, drag.end, p);
-      draw();
-      status.textContent = 'Modifié';
-    } else if (drag.kind === 'room') {
-      const dx = p.x - drag.last.x;
-      const dy = p.y - drag.last.y;
-      if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return;
-      moveRoom(drag.i, dx, dy);
-      drag.last = p;
-      draw();
-      status.textContent = 'Modifié';
+      redraw();
+      say('Modifié');
+      return;
+    }
+
+    if (drag.kind === 'room') {
+      if (!drag.moved && Math.hypot(x - drag.startScreen.x, y - drag.startScreen.y) < 5) return;
+      drag.moved = true;
+      canvas.style.cursor = 'grabbing';
+      const raw = toWorldRaw(x, y);
+      const rawDx = raw.x - drag.start.x;
+      const rawDy = raw.y - drag.start.y;
+      const s = Edit.snapMove(plan, drag.i, rawDx, rawDy);
+      drag.rawDx = rawDx;
+      drag.rawDy = rawDy;
+      drag.dx = s.dx;
+      drag.dy = s.dy;
+      drag.valid = Edit.canMove(plan, drag.i, s.dx, s.dy);
+      drag.pointer = raw;
+      drag.target = drag.valid ? -1 : Edit.roomAt(plan, raw, drag.i);
+      redraw();
     }
   });
 
-  window.addEventListener('mouseup', () => {
-    if (drag) {
+  function dropRoom() {
+    const d = drag;
+    if (!d.moved) return;
+    const room = plan.rooms[d.i];
+    const res = Edit.resolveDrop(plan, d.i, d.rawDx || 0, d.rawDy || 0, d.pointer || d.start);
+    if (res.action === 'move') {
+      checkpoint();
+      Edit.translateRoom(plan, d.i, res.dx, res.dy, uid);
       drag = null;
+      markDirty('Pièce déplacée');
+    } else if (res.action === 'swap') {
+      const other = plan.rooms[res.target];
+      const names = `${style_label(room)} ⇄ ${style_label(other)}`;
+      checkpoint();
+      const areas = Edit.swapRooms(plan, d.i, res.target);
+      drag = null;
+      markDirty(`Pièces échangées : ${names} (${areas.a.toFixed(1)} et ${areas.b.toFixed(1)} m²). Ctrl+Z pour annuler`);
+    } else {
+      say('Déplacement impossible : chevauchement. Déposez sur une pièce pour l\'échanger.');
+      drag = null;
+      draw(false);
+    }
+  }
+
+  window.addEventListener('mouseup', () => {
+    if (!drag) return;
+    const d = drag;
+    if (d.kind === 'room') {
+      dropRoom();
+      canvas.style.cursor = 'grab';
+      return;
+    }
+    drag = null;
+    canvas.style.cursor = tool === 'select' ? 'default' : (tool === 'delete' ? 'not-allowed' : 'crosshair');
+    if (d.kind === 'wall') markDirty();
+  });
+
+  // Échap annule un déplacement en cours ; les flèches déplacent la pièce sélectionnée de 10 cm (Maj : 50 cm).
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && cfg.canEdit
+        && !(e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) {
+      e.preventDefault();
+      undo();
+      return;
+    }
+    if (e.key === 'Escape' && drag && drag.kind === 'room') {
+      drag = null;
+      say('Déplacement annulé');
+      draw(false);
+      return;
+    }
+    if (!cfg.canEdit || tool !== 'select' || selected < 0 || !plan.rooms[selected]) return;
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    const step = e.shiftKey ? 0.5 : GRID;
+    const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (!delta) return;
+    e.preventDefault();
+    if (Edit.canMove(plan, selected, delta[0], delta[1])) {
+      checkpoint();
+      Edit.translateRoom(plan, selected, delta[0], delta[1], uid);
       markDirty();
+    } else {
+      say('Déplacement impossible : chevauchement ou hors de la maison');
     }
   });
+
+  // Molette : zoom centré sur le curseur.
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const { x, y } = evtPos(e);
+    zoomAt(x, y, Math.exp(-e.deltaY * 0.0015));
+  }, { passive: false });
+
+  function zoomAt(x, y, factor) {
+    const next = Math.min(fitScale * 6, Math.max(fitScale * 0.5, scale * factor));
+    const k = next / scale;
+    ox = x - (x - ox) * k;
+    oy = y - (y - oy) * k;
+    scale = next;
+    userView = true;
+    draw(false);
+  }
+
+  document.getElementById('btn-undo')?.addEventListener('click', undo);
+
+  document.querySelectorAll('[data-zoom]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.zoom;
+      if (mode === 'fit') { fitView(); draw(false); return; }
+      zoomAt(W / 2, H / 2, mode === 'in' ? 1.25 : 0.8);
+    });
+  });
+
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // ---- outils ---------------------------------------------------------------------
   const toolBtns = [...document.querySelectorAll('.tool-btn')];
   toolBtns.forEach((btn) => { btn.dataset.base = btn.dataset.base || 'btn-line'; });
   function setTool(name) {
     tool = name;
+    if (name !== 'select') { selected = -1; hoverRoom = -1; hoverHandleRef = null; }
     toolBtns.forEach((b) => {
       b.classList.remove('btn-dark', 'btn-line', 'btn-danger');
       b.classList.add(b.dataset.tool === name ? 'btn-dark' : (b.dataset.tool === 'delete' ? 'btn-danger' : 'btn-line'));
     });
-    canvas.style.cursor = name === 'select' ? 'move' : (name === 'delete' ? 'not-allowed' : 'crosshair');
+    canvas.style.cursor = name === 'select' ? 'default' : (name === 'delete' ? 'not-allowed' : 'crosshair');
+    draw(false);
   }
   toolBtns.forEach((btn) => btn.addEventListener('click', () => setTool(btn.dataset.tool)));
-  setTool('select');
 
   // ---- sauvegarde -------------------------------------------------------------------
   let saving = false;
@@ -523,6 +801,15 @@
 
   document.getElementById('btn-save')?.addEventListener('click', save);
 
-  fitView();
-  draw();
+  if (typeof ResizeObserver !== 'undefined' && canvas.parentElement) {
+    let last = 0;
+    new ResizeObserver(() => {
+      const w = canvas.parentElement.clientWidth;
+      if (Math.abs(w - last) > 1) { last = w; resize(); }
+    }).observe(canvas.parentElement);
+  }
+  window.addEventListener('resize', resize);
+
+  setTool('select');
+  resize();
 })();

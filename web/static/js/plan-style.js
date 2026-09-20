@@ -1,20 +1,20 @@
 window.PlanStyle = (() => {
   const fills = {
-    living: 'rgba(196, 148, 72, 0.55)',
-    kitchen: 'rgba(248, 248, 246, 0.95)',
-    bedroom: 'rgba(232, 214, 176, 0.85)',
-    bathroom: 'rgba(210, 214, 216, 0.9)',
-    hallway: 'rgba(220, 196, 150, 0.55)',
-    garage: 'rgba(210, 210, 208, 0.95)',
-    office: 'rgba(232, 214, 176, 0.85)',
-    dining: 'rgba(196, 148, 72, 0.5)',
-    storage: 'rgba(210, 210, 208, 0.9)',
+    living: 'rgb(231, 228, 222)',
+    kitchen: 'rgb(236, 235, 231)',
+    bedroom: 'rgb(236, 223, 198)',
+    bathroom: 'rgb(213, 226, 234)', wc: 'rgb(213, 226, 234)', laundry: 'rgb(213, 226, 234)',
+    hallway: 'rgb(225, 222, 215)',
+    garage: 'rgb(211, 211, 207)',
+    office: 'rgb(236, 223, 198)',
+    dining: 'rgb(231, 228, 222)',
+    storage: 'rgb(221, 219, 214)',
     other: 'rgba(20, 83, 45, 0.08)',
   };
   const labels = {
     living: 'Séjour', kitchen: 'Cuisine', bedroom: 'Chambre', bathroom: 'SDB',
     hallway: 'Couloir', garage: 'Garage', office: 'Bureau', dining: 'Salle à manger',
-    storage: 'Rangement', other: 'Pièce',
+    storage: 'Rangement', wc: 'WC', laundry: 'Buanderie', other: 'Pièce',
   };
 
   function label(room) {
@@ -535,71 +535,162 @@ window.PlanStyle = (() => {
     });
   }
 
-  function drawTree(ctx, x, y, r) {
-    ctx.beginPath();
-    ctx.arc(x + 2, y + 3, r, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(30,50,16,0.22)';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#3a6a22';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x - r * 0.28, y - r * 0.22, r * 0.58, 0, Math.PI * 2);
-    ctx.fillStyle = '#5a9434';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x + r * 0.18, y - r * 0.08, r * 0.42, 0, Math.PI * 2);
-    ctx.fillStyle = '#6eaa44';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x, y + r * 0.12, r * 0.12, 0, Math.PI * 2);
-    ctx.fillStyle = '#6a4828';
-    ctx.fill();
-  }
+  // Palette « plan d'architecte » : papier clair, murs pleins gris foncé, sols pâles.
+  const PAPER = '#fbfaf7';
+  const GAP = '#f6f5f1';
+  const INK = '#2f2f2d';
+  const WALL = '#4b4b48';
 
   function drawSite(ctx, bw, bd, toScreen, canvasW, canvasH) {
-    const g = ctx.createLinearGradient(0, 0, canvasW, canvasH);
-    g.addColorStop(0, '#6e9a44');
-    g.addColorStop(0.45, '#5e8a38');
-    g.addColorStop(1, '#4e7630');
-    ctx.fillStyle = g;
+    ctx.fillStyle = PAPER;
     ctx.fillRect(0, 0, canvasW, canvasH);
-    for (let i = 0; i < 420; i++) {
-      const x = hash(i, 3) * canvasW;
-      const y = hash(i, 7) * canvasH;
-      const s = 4 + hash(i, 11) * 10;
-      ctx.fillStyle = hash(i, 13) > 0.5 ? 'rgba(70,110,36,0.22)' : 'rgba(190,220,90,0.12)';
-      ctx.beginPath();
-      ctx.ellipse(x, y, s, s * 0.7, hash(i, 17) * 3, 0, Math.PI * 2);
-      ctx.fill();
+  }
+
+  function fmtM(v) {
+    return v.toFixed(1).replace('.', ',');
+  }
+
+  // Cotes extérieures : largeur sous la maison, profondeur à gauche (traits d'attache + ticks à 45°).
+  function drawDimensions(ctx, bw, bd, toScreen) {
+    const sc = m2px(toScreen);
+    const a = toScreen({ x: 0, y: 0 });
+    const b = toScreen({ x: bw, y: bd });
+    const off = Math.min(0.95 * sc, 46);
+    const gap = Math.min(0.18 * sc, 8);
+    const tick = 4;
+    ctx.save();
+    ctx.strokeStyle = '#8b8b86';
+    ctx.fillStyle = '#4a4a47';
+    ctx.lineWidth = 1;
+    ctx.font = '500 11px "DM Sans", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const seg = (x0, y0, x1, y1) => { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); };
+    // largeur (bas)
+    const yy = b.y + off;
+    seg(a.x, b.y + gap, a.x, yy + 5);
+    seg(b.x, b.y + gap, b.x, yy + 5);
+    seg(a.x, yy, b.x, yy);
+    seg(a.x - tick, yy + tick, a.x + tick, yy - tick);
+    seg(b.x - tick, yy + tick, b.x + tick, yy - tick);
+    const wt = `${fmtM(bw)} m`;
+    const ww = ctx.measureText(wt).width + 10;
+    ctx.fillStyle = PAPER;
+    ctx.fillRect((a.x + b.x) / 2 - ww / 2, yy - 8, ww, 16);
+    ctx.fillStyle = '#4a4a47';
+    ctx.fillText(wt, (a.x + b.x) / 2, yy);
+    // profondeur (gauche)
+    const xx = a.x - off;
+    seg(a.x - gap, a.y, xx - 5, a.y);
+    seg(a.x - gap, b.y, xx - 5, b.y);
+    seg(xx, a.y, xx, b.y);
+    seg(xx - tick, a.y + tick, xx + tick, a.y - tick);
+    seg(xx - tick, b.y + tick, xx + tick, b.y - tick);
+    const dt = `${fmtM(bd)} m`;
+    ctx.save();
+    ctx.translate(xx, (a.y + b.y) / 2);
+    ctx.rotate(-Math.PI / 2);
+    const dw = ctx.measureText(dt).width + 10;
+    ctx.fillStyle = PAPER;
+    ctx.fillRect(-dw / 2, -8, dw, 16);
+    ctx.fillStyle = '#4a4a47';
+    ctx.fillText(dt, 0, 0);
+    ctx.restore();
+    ctx.restore();
+  }
+
+  function polyArea(poly) {
+    let s2 = 0;
+    for (let i = 0; i < poly.length; i++) {
+      const p = poly[i];
+      const q = poly[(i + 1) % poly.length];
+      s2 += p.x * q.y - q.x * p.y;
     }
-    const origin = toScreen({ x: 0, y: 0 });
-    const end = toScreen({ x: bw, y: bd });
-    [[end.x + 38, (origin.y + end.y) * 0.35, 22],
-     [end.x + 70, (origin.y + end.y) * 0.62, 28],
-     [(origin.x + end.x) * 0.22, end.y + 48, 20],
-     [(origin.x + end.x) * 0.55, end.y + 58, 26],
-     [(origin.x + end.x) * 0.82, end.y + 42, 18]].forEach(([x, y, r]) => drawTree(ctx, x, y, r));
-    ctx.strokeStyle = 'rgba(70,110,40,0.55)';
-    ctx.lineWidth = 7;
-    ctx.beginPath();
-    ctx.moveTo(end.x + 10, origin.y + 8);
-    ctx.lineTo(end.x + 10, end.y + 8);
-    ctx.lineTo(origin.x, end.y + 10);
-    ctx.stroke();
-    ctx.font = 'italic 13px Georgia, serif';
-    ctx.fillStyle = 'rgba(40,64,22,0.8)';
-    ctx.fillText('Jardin', end.x + 22, (origin.y + end.y) / 2);
-    ctx.fillText('Jardin', (origin.x + end.x) / 2 - 18, end.y + 32);
+    return Math.abs(s2) / 2;
+  }
+
+  function sharedEdge(pa, pb, tol) {
+    // vrai si deux rectangles/polygones se touchent le long d'une arête d'au moins 0,3 m
+    const a = box(pa);
+    const b = box(pb);
+    const t = tol || 0.06;
+    const ov = (u0, u1, v0, v1) => Math.min(u1, v1) - Math.max(u0, v0);
+    if (Math.abs(a.x1 - b.x0) < t || Math.abs(b.x1 - a.x0) < t) return ov(a.y0, a.y1, b.y0, b.y1) > 0.3;
+    if (Math.abs(a.y1 - b.y0) < t || Math.abs(b.y1 - a.y0) < t) return ov(a.x0, a.x1, b.x0, b.x1) > 0.3;
+    return false;
+  }
+
+  // Les segments de couloir qui se touchent forment UN couloir : on l'étiquette une fois.
+  function hallGroups(rooms) {
+    const halls = (rooms || []).map((r, i) => ({ r, i })).filter((h) => h.r.type === 'hallway' && (h.r.polygon || []).length >= 3);
+    const group = halls.map((_, k) => k);
+    const find = (k) => { while (group[k] !== k) { group[k] = group[group[k]]; k = group[k]; } return k; };
+    for (let a = 0; a < halls.length; a++) {
+      for (let b = a + 1; b < halls.length; b++) {
+        if (sharedEdge(halls[a].r.polygon, halls[b].r.polygon)) group[find(a)] = find(b);
+      }
+    }
+    const byRoot = new Map();
+    halls.forEach((h, k) => {
+      const root = find(k);
+      if (!byRoot.has(root)) byRoot.set(root, []);
+      byRoot.get(root).push(h);
+    });
+    return [...byRoot.values()];
+  }
+
+  // Libellés en capitales espacées + surface ; un seul « COULOIR » par couloir continu.
+  function drawRoomLabels(ctx, rooms, toScreen, opts) {
+    const skip = new Set();
+    const hallLabel = new Map();
+    hallGroups(rooms).forEach((grp) => {
+      const main = grp.reduce((best, h) => (polyArea(h.r.polygon) > polyArea(best.r.polygon) ? h : best), grp[0]);
+      grp.forEach((h) => { if (h !== main) skip.add(h.i); });
+      hallLabel.set(main.i, true);
+    });
+    const sc = m2px(toScreen);
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    (rooms || []).forEach((room, i) => {
+      const poly = room.polygon || [];
+      if (poly.length < 3 || skip.has(i)) return;
+      const bx = box(poly);
+      const w = bx.x1 - bx.x0;
+      const h = bx.y1 - bx.y0;
+      if (Math.min(w, h) < 0.85 || Math.max(w, h) < 1.2) return;
+      const c = poly.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+      const p = toScreen({ x: c.x / poly.length, y: c.y / poly.length });
+      const text = (room.type === 'hallway' ? 'Couloir' : label(room)).toUpperCase();
+      const size = Math.max(9, Math.min(12, sc * 0.26));
+      ctx.font = `600 ${size}px "DM Sans", system-ui, sans-serif`;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0.06em';
+      const showArea = room.type !== 'hallway' && Math.min(w, h) >= 1.3 && !(opts && opts.noArea);
+      const y = showArea ? p.y - size * 0.55 : p.y;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(251,250,247,0.85)';
+      ctx.strokeText(text, p.x, y);
+      ctx.fillStyle = INK;
+      ctx.fillText(text, p.x, y);
+      if (showArea) {
+        ctx.font = `500 ${Math.max(8, size - 1.5)}px "DM Sans", system-ui, sans-serif`;
+        if ('letterSpacing' in ctx) ctx.letterSpacing = '0';
+        const area = `${polyArea(poly).toFixed(1).replace('.', ',')} m²`;
+        ctx.strokeText(area, p.x, y + size * 1.15);
+        ctx.fillStyle = '#6d6d69';
+        ctx.fillText(area, p.x, y + size * 1.15);
+      }
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0';
+    });
+    ctx.restore();
   }
 
   function woodPlanks(ctx, a, b, sc, tones) {
     const ph = 0.135 * sc;
     const pw = 0.88 * sc;
     let row = 0;
-    ctx.strokeStyle = 'rgba(80,50,20,0.22)';
-    ctx.lineWidth = 0.7;
+    ctx.strokeStyle = 'rgba(120,90,50,0.10)';
+    ctx.lineWidth = 0.6;
     for (let y = a.y; y < b.y; y += ph) {
       const off = (row % 2) * pw * 0.38;
       let col = 0;
@@ -620,6 +711,15 @@ window.PlanStyle = (() => {
     }
   }
 
+  function tileGrid(ctx, a, b, step, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    for (let x = a.x; x <= b.x + 0.5; x += step) { ctx.moveTo(x, a.y); ctx.lineTo(x, b.y); }
+    for (let y = a.y; y <= b.y + 0.5; y += step) { ctx.moveTo(a.x, y); ctx.lineTo(b.x, y); }
+    ctx.stroke();
+  }
+
   function drawFloor(ctx, room, toScreen) {
     if (!room.polygon || room.polygon.length < 3) return;
     const type = room.type || '';
@@ -635,52 +735,26 @@ window.PlanStyle = (() => {
     const a = toScreen({ x: x0, y: y0 });
     const b = toScreen({ x: x1, y: y1 });
     const sc = m2px(toScreen);
-    if (type === 'living' || type === 'dining' || type === 'hallway') {
-      ctx.fillStyle = '#c49448';
-      ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
-      woodPlanks(ctx, a, b, sc, ['#c49448', '#b48238', '#d0a456', '#a87830', '#c89a50']);
-    } else if (type === 'bedroom' || type === 'office') {
-      ctx.fillStyle = '#e4d2ae';
-      ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
-      woodPlanks(ctx, a, b, sc, ['#e8d4b0', '#decaa4', '#f0e0c0', '#d4be98', '#ead8b4']);
+    const flat = (color) => { ctx.fillStyle = color; ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y); };
+    if (type === 'bedroom' || type === 'office') {
+      flat('#ecdfc6');
+      woodPlanks(ctx, a, b, sc, ['#ecdfc6', '#e8dabf', '#f0e4cd', '#e6d8bc', '#eee1c8']);
+    } else if (type === 'living' || type === 'dining') {
+      flat('#e7e4de');
+      tileGrid(ctx, a, b, 1.2 * sc, 'rgba(90,86,78,0.05)');
+    } else if (type === 'hallway') {
+      flat('#e1ded7');
+      tileGrid(ctx, a, b, 1.2 * sc, 'rgba(90,86,78,0.05)');
     } else if (type === 'kitchen') {
-      ctx.fillStyle = '#d8d4cc';
-      ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
-      const step = 0.38 * sc;
-      const grout = 1.6;
-      for (let x = a.x, col = 0; x < b.x; x += step, col++) {
-        for (let y = a.y, row = 0; y < b.y; y += step, row++) {
-          ctx.fillStyle = (row + col) % 2 === 0 ? '#f6f4ee' : '#e8e4dc';
-          ctx.fillRect(x + grout, y + grout, step - grout * 2, step - grout * 2);
-        }
-      }
+      flat('#ecebe7');
+      tileGrid(ctx, a, b, 0.6 * sc, 'rgba(90,90,84,0.07)');
     } else if (type === 'bathroom' || type === 'wc' || type === 'laundry') {
-      ctx.fillStyle = '#c8ced2';
-      ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
-      const step = 0.22 * sc;
-      for (let x = a.x, col = 0; x < b.x; x += step, col++) {
-        for (let y = a.y, row = 0; y < b.y; y += step, row++) {
-          ctx.fillStyle = (row + col) % 2 === 0 ? '#e4eaee' : '#d0d8dc';
-          ctx.fillRect(x + 1, y + 1, step - 2, step - 2);
-        }
-      }
+      flat('#d5e2ea');
+      tileGrid(ctx, a, b, 0.3 * sc, 'rgba(60,100,130,0.11)');
     } else if (type === 'garage' || type === 'storage') {
-      ctx.fillStyle = '#c8c8c4';
-      ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
-      ctx.strokeStyle = 'rgba(120,120,116,0.45)';
-      ctx.lineWidth = 1.2;
-      const step = 1.4 * sc;
-      for (let x = a.x; x < b.x; x += step) {
-        ctx.beginPath(); ctx.moveTo(x, a.y); ctx.lineTo(x, b.y); ctx.stroke();
-      }
-      for (let y = a.y; y < b.y; y += step) {
-        ctx.beginPath(); ctx.moveTo(a.x, y); ctx.lineTo(b.x, y); ctx.stroke();
-      }
-      ctx.fillStyle = 'rgba(255,255,255,0.08)';
-      ctx.fillRect(a.x, a.y, (b.x - a.x) * 0.35, b.y - a.y);
+      flat(type === 'garage' ? '#d3d3cf' : '#dddbd6');
     } else {
-      ctx.fillStyle = fill(room);
-      ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
+      flat(fill(room));
     }
     ctx.restore();
   }
@@ -690,44 +764,32 @@ window.PlanStyle = (() => {
   }
 
   function drawWalls(ctx, walls, toScreen, scale) {
+    ctx.save();
+    ctx.fillStyle = WALL;
     (walls || []).forEach((wall) => {
       const a = toScreen(wall.a);
       const b = toScreen(wall.b);
-      const t = Math.max(5, (wall.thickness_m || 0.2) * scale);
+      const t = Math.max(3, (wall.thickness_m || 0.2) * scale);
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const len = Math.hypot(dx, dy) || 1;
+      const ux = (dx / len) * (t / 2);
+      const uy = (dy / len) * (t / 2);
       const nx = (-dy / len) * (t / 2);
       const ny = (dx / len) * (t / 2);
+      // Prolongé d'une demi-épaisseur aux deux bouts : les angles et les T se ferment sans trou.
       ctx.beginPath();
-      ctx.moveTo(a.x + nx, a.y + ny);
-      ctx.lineTo(b.x + nx, b.y + ny);
-      ctx.lineTo(b.x - nx, b.y - ny);
-      ctx.lineTo(a.x - nx, a.y - ny);
+      ctx.moveTo(a.x - ux + nx, a.y - uy + ny);
+      ctx.lineTo(b.x + ux + nx, b.y + uy + ny);
+      ctx.lineTo(b.x + ux - nx, b.y + uy - ny);
+      ctx.lineTo(a.x - ux - nx, a.y - uy - ny);
       ctx.closePath();
-      ctx.fillStyle = '#8a8a84';
       ctx.fill();
-      ctx.strokeStyle = '#5c5c58';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.save();
-      ctx.clip();
-      ctx.strokeStyle = 'rgba(70,70,66,0.28)';
-      ctx.lineWidth = 1;
-      const minX = Math.min(a.x, b.x) - t;
-      const maxX = Math.max(a.x, b.x) + t;
-      const minY = Math.min(a.y, b.y) - t;
-      const maxY = Math.max(a.y, b.y) + t;
-      for (let x = minX - (maxY - minY); x < maxX + 20; x += 6) {
-        ctx.beginPath();
-        ctx.moveTo(x, minY);
-        ctx.lineTo(x + (maxY - minY), maxY);
-        ctx.stroke();
-      }
-      ctx.restore();
     });
+    ctx.restore();
   }
 
+  // Seuil : une marche pâle devant la porte d'entrée et une flèche noire qui indique l'entrée.
   function drawPorch(ctx, openings, walls, depth, toScreen) {
     const south = (openings || []).find((o) => o.type === 'door' && o.wall_id === 'w_outer_3');
     const wall = (walls || []).find((w) => w.id === 'w_outer_3');
@@ -735,19 +797,26 @@ window.PlanStyle = (() => {
     const len = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y) || 1;
     const t0 = (south.offset_m || 0) / len;
     const t1 = ((south.offset_m || 0) + (south.width_m || 0.9)) / len;
-    const x0 = wall.a.x + (wall.b.x - wall.a.x) * t0 - 0.45;
-    const x1 = wall.a.x + (wall.b.x - wall.a.x) * t1 + 0.45;
-    const a = toScreen({ x: x0, y: depth });
-    const b = toScreen({ x: x1, y: depth + 1.25 });
-    const sc = m2px(toScreen);
-    ctx.fillStyle = '#b48a52';
+    const xa = wall.a.x + (wall.b.x - wall.a.x) * t0;
+    const xb = wall.a.x + (wall.b.x - wall.a.x) * t1;
+    const a = toScreen({ x: Math.min(xa, xb) - 0.2, y: depth + 0.1 });
+    const b = toScreen({ x: Math.max(xa, xb) + 0.2, y: depth + 0.55 });
+    ctx.save();
+    ctx.fillStyle = '#ebe8e1';
     ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
-    ctx.strokeStyle = '#7a5428';
+    ctx.strokeStyle = '#8b8b86';
+    ctx.lineWidth = 1;
     ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
-    ctx.strokeStyle = 'rgba(90,60,28,0.4)';
-    for (let y = a.y; y < b.y; y += 0.15 * sc) {
-      ctx.beginPath(); ctx.moveTo(a.x, y); ctx.lineTo(b.x, y); ctx.stroke();
-    }
+    const cx = (a.x + b.x) / 2;
+    const ty = b.y + 5;
+    ctx.fillStyle = '#1f1f1d';
+    ctx.beginPath();
+    ctx.moveTo(cx, ty);
+    ctx.lineTo(cx - 7, ty + 13);
+    ctx.lineTo(cx + 7, ty + 13);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawOpenings(ctx, openings, walls, toScreen, scale) {
@@ -766,46 +835,50 @@ window.PlanStyle = (() => {
         x: wall.a.x + (wall.b.x - wall.a.x) * t1,
         y: wall.a.y + (wall.b.y - wall.a.y) * t1,
       });
-      const thick = Math.max(6, (wall.thickness_m || 0.2) * scale + 3);
+      const thick = Math.max(4, (wall.thickness_m || 0.2) * scale);
+      const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+      const nx = -Math.sin(ang);
+      const ny = Math.cos(ang);
+      ctx.save();
       ctx.lineCap = 'butt';
-      ctx.strokeStyle = '#f2f2ee';
-      ctx.lineWidth = thick;
+      ctx.strokeStyle = GAP;
+      ctx.lineWidth = thick + 1;
       ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
       if (op.type === 'window') {
-        ctx.strokeStyle = '#7eb4d0';
-        ctx.lineWidth = Math.max(2.5, thick * 0.38);
+        // Deux traits de part et d'autre du vitrage, un trait bleu au centre.
+        ctx.strokeStyle = '#3d3d3a';
+        ctx.lineWidth = 1;
+        [-1, 1].forEach((k) => {
+          ctx.beginPath();
+          ctx.moveTo(p0.x + nx * (thick / 2) * k, p0.y + ny * (thick / 2) * k);
+          ctx.lineTo(p1.x + nx * (thick / 2) * k, p1.y + ny * (thick / 2) * k);
+          ctx.stroke();
+        });
+        ctx.strokeStyle = '#6fa3c4';
+        ctx.lineWidth = 1.6;
         ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
-        ctx.strokeStyle = '#ecece8';
-        ctx.lineWidth = 1.4;
-        const mx = (p0.x + p1.x) / 2;
-        const my = (p0.y + p1.y) / 2;
-        const dx = p1.x - p0.x;
-        const dy = p1.y - p0.y;
-        const n = Math.hypot(dx, dy) || 1;
-        ctx.beginPath();
-        ctx.moveTo(mx - (dy / n) * thick * 0.35, my + (dx / n) * thick * 0.35);
-        ctx.lineTo(mx + (dy / n) * thick * 0.35, my - (dx / n) * thick * 0.35);
-        ctx.stroke();
       } else {
-        const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
         const r = w2 * scale;
-        ctx.strokeStyle = '#c4a06a';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 3]);
+        // Battant plein + arc fin : lisible à toutes les échelles, sans pointillés.
+        ctx.strokeStyle = '#6f6f6a';
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(p0.x, p0.y, r, ang, ang + Math.PI / 2);
         ctx.stroke();
-        ctx.setLineDash([]);
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1.6;
         ctx.beginPath();
         ctx.moveTo(p0.x, p0.y);
         ctx.lineTo(p0.x + Math.cos(ang + Math.PI / 2) * r, p0.y + Math.sin(ang + Math.PI / 2) * r);
         ctx.stroke();
       }
+      ctx.restore();
     });
   }
 
   return {
     fills, labels, label, fill, drawFixtures, drawFurniture,
     drawFloor, drawSite, drawPorch, drawOpenings, drawWalls,
+    drawDimensions, drawRoomLabels, hallGroups, polyArea,
   };
 })();
