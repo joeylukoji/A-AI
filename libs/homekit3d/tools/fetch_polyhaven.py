@@ -68,6 +68,7 @@ def fetch(asset_id: str, res: str, blender: str) -> Path:
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")       # les noms d'auteurs ne sont pas tous en cp1252
     parser = argparse.ArgumentParser()
     parser.add_argument("ids", nargs="*")
     parser.add_argument("--res", default="1k")
@@ -86,6 +87,8 @@ def main() -> None:
     if not blender:
         raise SystemExit("Blender introuvable (--blender ou BLENDER_BIN)")
     for asset_id in args.ids:
+        if (ROOT / f"{asset_id}.glb").exists() and (ROOT / f"{asset_id}.license.json").exists():
+            continue                                                  # déjà téléchargé
         fetch(asset_id, args.res, blender)
 
 

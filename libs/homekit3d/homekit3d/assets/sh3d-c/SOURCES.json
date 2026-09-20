@@ -1,0 +1,237 @@
+{
+ "1DoorLowerCabinet": {
+  "category": "Kitchen",
+  "model": "/contributions/1DoorLowerCabinet/1DoorLowerCabinet.obj",
+  "name": "Wood lower cabinet"
+ },
+ "1DoorUpperCabinet": {
+  "category": "Kitchen",
+  "model": "/contributions/1DoorUpperCabinet/1DoorUpperCabinet.obj",
+  "name": "Wood upper cabinet"
+ },
+ "2DoorLowerCabinet": {
+  "category": "Kitchen",
+  "model": "/contributions/2DoorLowerCabinet/2DoorLowerCabinet.obj",
+  "name": "Wood lower cabinet"
+ },
+ "2DoorUpperCabinet": {
+  "category": "Kitchen",
+  "model": "/contributions/2DoorUpperCabinet/2DoorUpperCabinet.obj",
+  "name": "Wood upper cabinet"
+ },
+ "armchair_wing": {
+  "category": "Living room",
+  "model": "/contributions/armchair_wing/armchair_wing.obj",
+  "name": "Armchair"
+ },
+ "armoireLotus": {
+  "category": "Bedroom",
+  "model": "/contributions/armoireLotus/armoireLotus.obj",
+  "name": "Wardrobe"
+ },
+ "bath_L": {
+  "category": "Bathroom",
+  "model": "/contributions/bath_L/bath_L.obj",
+  "name": "Bath L shape"
+ },
+ "bathtub_jet_system": {
+  "category": "Bathroom",
+  "model": "/contributions/bathtub_jet_system/bathtub_jet_system.obj",
+  "name": "Bathtub jet system"
+ },
+ "bureau3": {
+  "category": "Office",
+  "model": "/contributions/bureau3/bureau3.obj",
+  "name": "Desk"
+ },
+ "captainsBed": {
+  "category": "Bedroom",
+  "model": "/contributions/captainsBed/captainsBed.obj",
+  "name": "Captain's bed"
+ },
+ "carpet": {
+  "category": "Living room",
+  "model": "/contributions/carpet/carpet.obj",
+  "name": "Carpet"
+ },
+ "chaise": {
+  "category": "Living room",
+  "model": "/contributions/chaise.obj",
+  "name": "Chair"
+ },
+ "chaiseOrange": {
+  "category": "Living room",
+  "model": "/contributions/chaiseOrange/chaiseOrange.obj",
+  "name": "Orange chair"
+ },
+ "childBed": {
+  "category": "Bedroom",
+  "model": "/contributions/childBed/childBed.obj",
+  "name": "Child bed"
+ },
+ "couchTable": {
+  "category": "Living room",
+  "model": "/contributions/couchTable/couchTable.obj",
+  "name": "Couch table"
+ },
+ "couchTwoSeats": {
+  "category": "Living room",
+  "model": "/contributions/couchTwoSeats.obj",
+  "name": "Couch two seats"
+ },
+ "deskLamp1": {
+  "category": "Lights",
+  "model": "/contributions/deskLamp1/deskLamp1.obj",
+  "name": "Desk lamp"
+ },
+ "dishwasher": {
+  "category": "Kitchen",
+  "model": "/contributions/dishwasher/dishwasher.obj",
+  "name": "Dishwasher"
+ },
+ "flowers": {
+  "category": "Living room",
+  "model": "/contributions/flowers/flowers.obj",
+  "name": "Flowers"
+ },
+ "frigo": {
+  "category": "Kitchen",
+  "model": "/contributions/frigo/frigo.obj",
+  "name": "Fridge"
+ },
+ "hangingLight": {
+  "category": "Lights",
+  "model": "/contributions/hangingLight/hangingLight.obj",
+  "name": "Hanging light"
+ },
+ "kitchenSinkWithMarble": {
+  "category": "Kitchen",
+  "model": "/contributions/kitchenSinkWithMarble/kitchenSinkWithMarble.obj",
+  "name": "Wood cabinet with sink"
+ },
+ "kleed_grieks": {
+  "category": "Living room",
+  "model": "/contributions/kleed_grieks/kleed_grieks.obj",
+  "name": "Greek carpet"
+ },
+ "kommode": {
+  "category": "Bedroom",
+  "model": "/contributions/kommode/kommode.obj",
+  "name": "Chest"
+ },
+ "lampeHalogene": {
+  "category": "Lights",
+  "model": "/contributions/lampeHalogene.obj",
+  "name": "Floor lamp"
+ },
+ "largeCouch": {
+  "category": "Living room",
+  "model": "/contributions/largeCouch/largeCouch.obj",
+  "name": "Large couch"
+ },
+ "latticeChair": {
+  "category": "Living room",
+  "model": "/contributions/latticeChair/latticeChair.obj",
+  "name": "Lattice chair"
+ },
+ "lustreBoule": {
+  "category": "Lights",
+  "model": "/contributions/lustreBoule.obj",
+  "name": "Pendant light"
+ },
+ "meubleChevet": {
+  "category": "Bedroom",
+  "model": "/contributions/meubleChevet/meubleChevet.obj",
+  "name": "Bedside table"
+ },
+ "meubleHiFiBas": {
+  "category": "Living room",
+  "model": "/contributions/meubleHiFiBas/meubleHiFiBas.obj",
+  "name": "TV shelf unit"
+ },
+ "officeChair": {
+  "category": "Office",
+  "model": "/contributions/officeChair/officeChair.obj",
+  "name": "Office chair"
+ },
+ "officeChair2": {
+  "category": "Office",
+  "model": "/contributions/officeChair2/officeChair2.obj",
+  "name": "Office chair"
+ },
+ "pantry": {
+  "category": "Kitchen",
+  "model": "/contributions/pantry/pantry.obj",
+  "name": "Wood pantry"
+ },
+ "petiteCommode": {
+  "category": "Bedroom",
+  "model": "/contributions/petiteCommode.obj",
+  "name": "Small chest"
+ },
+ "piano_cottura_Scene": {
+  "category": "Kitchen",
+  "model": "/contributions/piano_cottura/piano_cottura_Scene.obj",
+  "name": "Cooker"
+ },
+ "potplant2": {
+  "category": "Living room",
+  "model": "/contributions/potplant2/potplant2.obj",
+  "name": "Plant"
+ },
+ "refridgerator": {
+  "category": "Kitchen",
+  "model": "/contributions/refridgerator/refridgerator.obj",
+  "name": "Refrigerator"
+ },
+ "roundTable": {
+  "category": "Living room",
+  "model": "/contributions/roundTable.obj",
+  "name": "Round table"
+ },
+ "shower_cabin": {
+  "category": "Bathroom",
+  "model": "/contributions/shower_cabin/shower_cabin.obj",
+  "name": "Shower cabin"
+ },
+ "singleChair": {
+  "category": "Living room",
+  "model": "/contributions/singleChair/singleChair.obj",
+  "name": "Armchair"
+ },
+ "smallbookshelves": {
+  "category": "Living room",
+  "model": "/contributions/smallbookshelves/smallbookshelves.obj",
+  "name": "Small bookshelves"
+ },
+ "sofa1": {
+  "category": "Living room",
+  "model": "/contributions/sofa1/sofa1.obj",
+  "name": "Sofa"
+ },
+ "sofa3": {
+  "category": "Living room",
+  "model": "/contributions/sofa3/sofa3.obj",
+  "name": "Sofa"
+ },
+ "sofa4": {
+  "category": "Living room",
+  "model": "/contributions/sofa4/sofa4.obj",
+  "name": "Sofa"
+ },
+ "tableBasse2": {
+  "category": "Living room",
+  "model": "/contributions/tableBasse2/tableBasse2.obj",
+  "name": "Coffee table"
+ },
+ "tableBasseBois": {
+  "category": "Living room",
+  "model": "/contributions/tableBasseBois.obj",
+  "name": "Wooden coffee table"
+ },
+ "washer_dryer": {
+  "category": "Kitchen",
+  "model": "/contributions/washer_dryer/washer_dryer.obj",
+  "name": "Washer dryer"
+ }
+}

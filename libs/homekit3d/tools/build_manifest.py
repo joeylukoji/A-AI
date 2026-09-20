@@ -29,8 +29,17 @@ PACKS = {
         "source": "https://kaylousberg.itch.io/furniture-bits",
     },
     "polyhaven": {
-        "author": "Poly Haven contributors (polyhaven.com)", "license": "CC0-1.0", "style": ["premium", "hd"],
-        "source": "https://polyhaven.com/models",
+        "author": "Poly Haven contributors (polyhaven.com)", "license": "CC0-1.0", "style": ["premium", "hd", "realistic"],
+        "source": "https://polyhaven.com/models", "real_size": True,
+    },
+    # Modèles de Sweet Home 3D (OBJ + textures) convertis en GLB par tools/sh3d_to_glb.py : déjà à la taille réelle, en mètres.
+    "sh3d-b": {
+        "author": "Blend Swap contributors, via the Sweet Home 3D catalog (sweethome3d.com)", "license": "CC0-1.0",
+        "style": ["realistic", "hd"], "source": "https://github.com/YoannDev90/SweetHome3D-Packs", "real_size": True,
+    },
+    "sh3d-c": {
+        "author": "Sweet Home 3D contributors (Contributions catalog 1.9.3)", "license": "Free Art License 1.3",
+        "style": ["realistic", "hd"], "source": "https://www.sweethome3d.com/freeModels.jsp", "real_size": True,
     },
     "kaykit-restaurant": {
         "author": "Kay Lousberg (www.kaylousberg.com)", "license": "CC0-1.0", "style": ["kitchen", "restaurant"],
@@ -43,10 +52,29 @@ Rule = tuple[str, str, list[str], list[str]]
 BED, LIV, KIT, BATH, OFF, DIN, HALL = "bedroom", "living", "kitchen", "bathroom", "office", "dining", "hallway"
 RULES: list[Rule] = [
     # --- Poly Haven (détaillés, plus lourds : style « premium »)
-    (r"^modern_arm_chair|^mid_century_lounge_chair", "armchair", [LIV, BED], ["seating"]),
-    (r"^dining_chair", "chair.dining", [DIN, KIT], ["seating"]),
-    (r"coffee_table", "table.coffee", [LIV], ["table"]),
+    (r"^modern_arm_chair|^mid_century_lounge_chair|^armchair_01", "armchair", [LIV, BED], ["seating"]),
+    (r"^sofa_0[12]$", "sofa", [LIV], ["seating"]),
+    (r"^sofa_03$", "sofa.long", [LIV], ["seating"]),
+    (r"^dining_chair|^woodenchair_01|^painted_wooden_chair|^greenchair", "chair.dining", [DIN, KIT], ["seating"]),
+    (r"^ottoman_01", "ottoman", [LIV], ["seating"]),
+    (r"coffee_?table", "table.coffee", [LIV], ["table"]),
+    (r"^dining_table|^wooden_table_02", "table.dining", [DIN, KIT], ["table"]),
+    (r"^side_table_01|nightstand", "nightstand", [BED, LIV], ["storage"]),
     (r"^modern_wooden_cabinet", "tv.console", [LIV], ["storage"]),
+    (r"^drawer_cabinet|^vintage_cabinet", "wardrobe", [BED, HALL], ["storage", "tall"]),
+    (r"^wooden_bookshelf|^shelf_01", "bookcase", [LIV, OFF], ["storage"]),
+    (r"^metal_office_desk", "desk", [OFF], ["table"]),
+    (r"^chandelier|^modern_ceiling_lamp", "lamp.ceiling", [LIV, BED, DIN, HALL], ["lamp", "ceiling"]),
+    (r"^desk_lamp", "lamp.table", [BED, LIV, OFF], ["lamp"]),
+    (r"^potted_plant_04", "plant.small", [LIV, BED, KIT, OFF, DIN], ["plant", "decor", "small"]),
+    (r"^potted_plant|^calathea", "plant", [LIV, BED, HALL, OFF, DIN], ["plant", "decor"]),
+    (r"picture_frame", "picture", [LIV, BED, HALL, DIN], ["decor", "wall"]),
+    (r"^ornate_mirror", "mirror", [BATH, HALL, BED, LIV], ["decor", "wall"]),
+    (r"^throw_pillows", "pillow", [LIV, BED], ["decor", "small"]),
+    (r"^decorative_book", "books", [LIV, OFF], ["decor", "small"]),
+    (r"^electric_stove", "kitchen.stove", [KIT], ["appliance"]),
+    (r"^wall_clock", "clock", [LIV, KIT, HALL], ["decor", "wall"]),
+    (r"^ceramic_vase|^wicker_basket", "vase", [LIV, HALL, DIN], ["decor", "small"]),
     # --- chambre
     (r"^beddouble|^bed-?double", "bed.double", [BED], ["bed"]),
     (r"^bedsingle|^bed-?single", "bed.single", [BED], ["bed"]),
@@ -115,6 +143,71 @@ RULES: list[Rule] = [
     (r"^stairs", "stairs", [], ["structure"]),
 ]
 
+# Packs classés à la main, modèle par modèle (leurs noms ne suivent aucune convention) : fichier -> (rôle, pièces, étiquettes).
+# Un modèle absent de la table est ignoré : la table est aussi la sélection.
+SEAT, STO, APP, CTR, SAN, LMP, PLT = ["seating"], ["storage"], ["appliance"], ["counter"], ["sanitary"], ["lamp"], ["plant", "decor"]
+PLANT_ROOMS = [LIV, BED, HALL, OFF, DIN]
+SMALL_PLANT_ROOMS = [LIV, BED, KIT, OFF, DIN]
+EXPLICIT: dict[str, dict[str, tuple[str, list[str], list[str]]]] = {
+    "sh3d-b": {
+        "bed1": ("bed.double", [BED], ["bed"]), "bed2": ("bed.double", [BED], ["bed"]), "bed3": ("bed.double", [BED], ["bed"]),
+        "bedsideTable2": ("nightstand", [BED], STO), "wardrobeWithSlidingDoors": ("wardrobe", [BED, HALL], STO + ["tall"]),
+        
+        "couch": ("sofa", [LIV], SEAT), "couch2": ("sofa.corner", [LIV], SEAT), "sofa2": ("sofa", [LIV], SEAT),
+        "winchesterSofa": ("sofa", [LIV], SEAT), "sofa": ("sofa.corner", [LIV], SEAT), "L_shaped_sofa": ("sofa.corner", [LIV], SEAT),
+        "armchair2": ("armchair", [LIV, BED], SEAT), "modernArmchair": ("armchair", [LIV, BED], SEAT),
+        "winchesterArmchair": ("armchair", [LIV, BED], SEAT),
+        "oakTable": ("table.dining", [DIN, KIT], ["table"]), "table": ("table.dining", [DIN, KIT], ["table"]),
+        "chair": ("chair.dining", [DIN, KIT], SEAT), "chair2": ("chair.dining", [DIN, KIT], SEAT),
+        "thonet": ("chair.dining", [DIN, KIT], SEAT), "oakChair": ("chair.dining", [DIN, KIT], SEAT),
+        "sillaBlanca": ("chair.dining", [DIN, KIT], SEAT), "chairWithCushion": ("chair.dining", [DIN, KIT], SEAT),
+        "designChair": ("chair.dining", [DIN, KIT], SEAT), "stool": ("stool", [KIT, DIN], SEAT),
+        "bookcase": ("bookcase", [LIV, OFF], STO), "led_tv": ("tv", [LIV], APP),
+        "lbDesk": ("desk", [OFF, BED], ["table"]), "desk": ("desk", [OFF, BED], ["table"]),
+        "lowerCabinet": ("kitchen.base", [KIT], CTR), "drawersCabinet": ("kitchen.base", [KIT], CTR),
+        "sinkCabinet2": ("kitchen.sink", [KIT], CTR), "upperCabinet": ("kitchen.upper", [KIT], CTR + ["wall"]),
+        "highCabinet": ("kitchen.tall", [KIT], STO + ["tall"]), "largeFridge": ("kitchen.fridge", [KIT], APP),
+        "refrigerator": ("kitchen.fridge", [KIT], APP), "doubleOven": ("kitchen.oven", [KIT], APP),
+        "toiletsUnit": ("toilet", [BATH], SAN), "washbasin": ("sink.bath", [BATH], SAN), "modernVanity": ("sink.bath", [BATH], SAN),
+        "showerStall": ("shower", [BATH], SAN), "bidet": ("bidet", [BATH], SAN),
+        "desklamp": ("lamp.table", [BED, LIV, OFF], LMP), "lamp2": ("lamp.table", [BED, LIV, OFF], LMP),
+        "wallLight": ("lamp.wall", [HALL, LIV], LMP + ["wall"]),
+        "decorativePlant": ("plant", PLANT_ROOMS, PLT), "plant": ("plant", PLANT_ROOMS, PLT),
+        "orchids": ("plant.small", SMALL_PLANT_ROOMS, PLT + ["small"]),
+        "littlePlant": ("plant.small", SMALL_PLANT_ROOMS, PLT + ["small"]),
+    },
+    "sh3d-c": {
+        "captainsBed": ("bed.single", [BED], ["bed", "kids"]), "childBed": ("bed.single", [BED], ["bed", "kids"]),
+        "meubleChevet": ("nightstand", [BED], STO), "armoireLotus": ("wardrobe", [BED, HALL], STO + ["tall"]),
+        "kommode": ("dresser", [BED, LIV, HALL], STO),
+        "petiteCommode": ("dresser", [BED, LIV, HALL], STO),
+        "sofa1": ("sofa", [LIV], SEAT), "sofa3": ("sofa.long", [LIV], SEAT), "sofa4": ("sofa", [LIV], SEAT),
+        "largeCouch": ("sofa", [LIV], SEAT), "couchTwoSeats": ("sofa", [LIV], SEAT),
+        "armchair_wing": ("armchair", [LIV, BED], SEAT), "singleChair": ("armchair", [LIV, BED], SEAT),
+        "tableBasse2": ("table.coffee", [LIV], ["table"]), "tableBasseBois": ("table.coffee", [LIV], ["table"]),
+        "couchTable": ("table.coffee", [LIV], ["table"]),
+        "roundTable": ("table.dining", [DIN, KIT], ["table"]),
+        "chaise": ("chair.dining", [DIN, KIT], SEAT), "chaiseOrange": ("chair.dining", [DIN, KIT], SEAT),
+        "latticeChair": ("chair.dining", [DIN, KIT], SEAT),
+        "smallbookshelves": ("bookcase", [LIV, OFF], STO), "meubleHiFiBas": ("tv.console", [LIV], STO),
+        "bureau3": ("desk", [OFF, BED], ["table"]),
+        "officeChair": ("chair.desk", [OFF], SEAT), "officeChair2": ("chair.desk", [OFF], SEAT),
+        "1DoorLowerCabinet": ("kitchen.base", [KIT], CTR), "2DoorLowerCabinet": ("kitchen.base", [KIT], CTR),
+        "kitchenSinkWithMarble": ("kitchen.sink", [KIT], CTR),
+        "1DoorUpperCabinet": ("kitchen.upper", [KIT], CTR + ["wall"]), "2DoorUpperCabinet": ("kitchen.upper", [KIT], CTR + ["wall"]),
+        "pantry": ("kitchen.tall", [KIT], STO + ["tall"]), "refridgerator": ("kitchen.fridge", [KIT], APP), "piano_cottura_Scene": ("kitchen.stove", [KIT], APP),
+        "dishwasher": ("kitchen.dishwasher", [KIT], APP), "washer_dryer": ("laundry.machine", [BATH, KIT, HALL], APP),
+        "bath_L": ("bathtub", [BATH], SAN), "bathtub_jet_system": ("bathtub", [BATH], SAN),
+        "shower_cabin": ("shower", [BATH], SAN), 
+        "lampeHalogene": ("lamp.floor", [LIV, BED, OFF], LMP), "deskLamp1": ("lamp.table", [BED, LIV, OFF], LMP),
+        "hangingLight": ("lamp.ceiling", [LIV, BED, KIT, HALL], LMP + ["ceiling"]),
+        "lustreBoule": ("lamp.ceiling", [LIV, BED, KIT, HALL], LMP + ["ceiling"]),
+        
+        "potplant2": ("plant", PLANT_ROOMS, PLT), "flowers": ("plant.small", SMALL_PLANT_ROOMS, PLT + ["small"]),
+        "carpet": ("rug", [LIV, BED, DIN], ["rug"]), "kleed_grieks": ("rug", [LIV, BED, DIN], ["rug"]),
+    },
+}
+
 # Ce qui ne sert pas à meubler une maison (nourriture, ustensiles, pièces murales modulaires, jouets…).
 UNUSED = re.compile(
     r"^(food|crate|jar|ketchup|mustard|knife|lid|menu|pan|pot|plate|bowl|cuttingboard|dishrack|papertowel|stew|"
@@ -146,12 +239,27 @@ ROLE_FIT: dict[str, tuple[str, float]] = {
 }
 
 
+# Un modèle trop grand ou trop petit pour son rôle : {pack/nom: (mode, mètres)} remplace la taille d'origine (voir ROLE_FIT).
+ITEM_FIT: dict[str, tuple[str, float]] = {
+    "polyhaven/modern_wooden_cabinet": ("length", 1.7),
+}
+
+
+# Poly Haven : téléchargés et vus en planche-contact, écartés (trop gothiques, trop massifs, texture manquante, etc.).
+POLYHAVEN_REJECTED = {"woodenchair_01", "coffeetable_01", "dining_table", "hanging_picture_frame_01", "drawer_cabinet",
+                      "vintage_cabinet_01", "wooden_bookshelf_worn", "shelf_01", "wooden_display_shelves_01"}
+
+
 def norm(name: str) -> str:
     return name.lower()
 
 
-def classify(name: str) -> tuple[str | None, list[str], list[str]]:
+def classify(name: str, pack: str = "") -> tuple[str | None, list[str], list[str]]:
+    if pack in EXPLICIT:
+        return EXPLICIT[pack].get(name, (None, [], []))
     key = norm(name)
+    if pack == "polyhaven" and key in POLYHAVEN_REJECTED:
+        return None, [], []
     for pattern, role, rooms, tags in RULES:
         if re.search(pattern, key):
             return role, rooms, tags
@@ -165,11 +273,12 @@ def build() -> dict:
         for glb in sorted(folder.glob("*.glb")):
             name = glb.stem
             info = bounds(glb)
-            role, rooms, tags = classify(name)
+            role, rooms, tags = classify(name, pack)
             unused = role is None
             fit = ROLE_FIT.get(role or "")
             scale = 1.0
-            if fit:
+            fit = ITEM_FIT.get(f"{pack}/{name}") or fit
+            if fit and (not meta.get("real_size") or f"{pack}/{name}" in ITEM_FIT):
                 basis = max(info["size"][0], info["size"][2]) if fit[0] == "length" else info["size"][1]
                 scale = round(fit[1] / basis, 4) if basis > 1e-6 else 1.0
             # Un motif « inutile » n'écrase pas un rôle explicite (ex. `table-round` de la brasserie reste utilisable).

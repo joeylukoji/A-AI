@@ -119,16 +119,16 @@ class Catalog:
         pool = self.find(role, room=room) or self.find(role)
         if not pool:
             return None
+        style = set(style)
+        if prefer_pack:                                   # le style d'abord, la ressemblance de taille ensuite : un style
+            pool = [a for a in pool if a.pack == prefer_pack] or pool       # réaliste ne doit pas retomber sur un jouet
+        if style:                                         # parce que celui-ci a une emprise un peu plus proche
+            pool = [a for a in pool if style & set(a.tags)] or pool
         if size and size[0] > 0 and size[1] > 0:
             def error(a: Asset) -> float:
                 w, d = a.footprint
                 return abs(math.log(max(w, 1e-3) / size[0])) + abs(math.log(max(d, 1e-3) / size[1]))
             pool = sorted(pool, key=lambda a: (error(a), a.id))[:max(1, top * 2)]
-        style = set(style)
-        if prefer_pack:
-            pool = [a for a in pool if a.pack == prefer_pack] or pool
-        if style:
-            pool = [a for a in pool if style & set(a.tags)] or pool
         return random.Random(f"{seed}:{role}:{room or ''}").choice(pool[:max(1, top)])
 
     def summary(self, rooms: Iterable[str] | None = None) -> dict[str, list[str]]:

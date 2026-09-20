@@ -25,8 +25,30 @@
    "author": "Poly Haven contributors (polyhaven.com)",
    "license": "CC0-1.0",
    "source": "https://polyhaven.com/models",
+   "real_size": true,
    "style": [
     "premium",
+    "hd",
+    "realistic"
+   ]
+  },
+  "sh3d-b": {
+   "author": "Blend Swap contributors, via the Sweet Home 3D catalog (sweethome3d.com)",
+   "license": "CC0-1.0",
+   "source": "https://github.com/YoannDev90/SweetHome3D-Packs",
+   "real_size": true,
+   "style": [
+    "realistic",
+    "hd"
+   ]
+  },
+  "sh3d-c": {
+   "author": "Sweet Home 3D contributors (Contributions catalog 1.9.3)",
+   "license": "Free Art License 1.3",
+   "source": "https://www.sweethome3d.com/freeModels.jsp",
+   "real_size": true,
+   "style": [
+    "realistic",
     "hd"
    ]
   },
@@ -7715,6 +7737,175 @@
    ]
   },
   {
+   "id": "polyhaven/ArmChair_01",
+   "pack": "polyhaven",
+   "name": "ArmChair_01",
+   "file": "assets/polyhaven/ArmChair_01.glb",
+   "role": "armchair",
+   "rooms": [
+    "living",
+    "bedroom"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.848,
+    1.065,
+    0.766
+   ],
+   "min": [
+    -0.424,
+    -0.0,
+    -0.417
+   ],
+   "max": [
+    0.424,
+    1.065,
+    0.348
+   ],
+   "tris": 5626,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.848,
+    1.065,
+    0.766
+   ]
+  },
+  {
+   "id": "polyhaven/ceramic_vase_01",
+   "pack": "polyhaven",
+   "name": "ceramic_vase_01",
+   "file": "assets/polyhaven/ceramic_vase_01.glb",
+   "role": "vase",
+   "rooms": [
+    "living",
+    "hallway",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "premium",
+    "realistic",
+    "small"
+   ],
+   "size": [
+    0.204,
+    0.4,
+    0.204
+   ],
+   "min": [
+    -0.102,
+    0.001,
+    -0.102
+   ],
+   "max": [
+    0.102,
+    0.401,
+    0.102
+   ],
+   "tris": 10296,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.204,
+    0.4,
+    0.204
+   ]
+  },
+  {
+   "id": "polyhaven/Chandelier_01",
+   "pack": "polyhaven",
+   "name": "Chandelier_01",
+   "file": "assets/polyhaven/Chandelier_01.glb",
+   "role": "lamp.ceiling",
+   "rooms": [
+    "living",
+    "bedroom",
+    "dining",
+    "hallway"
+   ],
+   "tags": [
+    "ceiling",
+    "hd",
+    "lamp",
+    "premium",
+    "realistic"
+   ],
+   "size": [
+    0.746,
+    0.798,
+    0.816
+   ],
+   "min": [
+    -0.373,
+    -0.798,
+    -0.402
+   ],
+   "max": [
+    0.373,
+    0.0,
+    0.413
+   ],
+   "tris": 26860,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.746,
+    0.798,
+    0.816
+   ]
+  },
+  {
+   "id": "polyhaven/ClassicNightstand_01",
+   "pack": "polyhaven",
+   "name": "ClassicNightstand_01",
+   "file": "assets/polyhaven/ClassicNightstand_01.glb",
+   "role": "nightstand",
+   "rooms": [
+    "bedroom",
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "storage"
+   ],
+   "size": [
+    0.568,
+    0.7,
+    0.424
+   ],
+   "min": [
+    -0.284,
+    -0.0,
+    -0.212
+   ],
+   "max": [
+    0.284,
+    0.7,
+    0.212
+   ],
+   "tris": 2002,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.568,
+    0.7,
+    0.424
+   ]
+  },
+  {
    "id": "polyhaven/coffee_table_round_01",
    "pack": "polyhaven",
    "name": "coffee_table_round_01",
@@ -7726,6 +7917,7 @@
    "tags": [
     "hd",
     "premium",
+    "realistic",
     "table"
    ],
    "size": [
@@ -7746,11 +7938,53 @@
    "tris": 4044,
    "textured": true,
    "unused": false,
-   "scale": 0.8455,
+   "scale": 1.0,
    "fit_size": [
-    1.1,
-    0.415,
-    1.1
+    1.301,
+    0.491,
+    1.301
+   ]
+  },
+  {
+   "id": "polyhaven/desk_lamp_arm_01",
+   "pack": "polyhaven",
+   "name": "desk_lamp_arm_01",
+   "file": "assets/polyhaven/desk_lamp_arm_01.glb",
+   "role": "lamp.table",
+   "rooms": [
+    "bedroom",
+    "living",
+    "office"
+   ],
+   "tags": [
+    "hd",
+    "lamp",
+    "premium",
+    "realistic"
+   ],
+   "size": [
+    0.202,
+    0.893,
+    0.614
+   ],
+   "min": [
+    -0.118,
+    -0.088,
+    -0.297
+   ],
+   "max": [
+    0.083,
+    0.805,
+    0.317
+   ],
+   "tris": 24102,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.202,
+    0.893,
+    0.614
    ]
   },
   {
@@ -7766,6 +8000,7 @@
    "tags": [
     "hd",
     "premium",
+    "realistic",
     "seating"
    ],
    "size": [
@@ -7786,11 +8021,224 @@
    "tris": 22013,
    "textured": true,
    "unused": false,
-   "scale": 0.925,
+   "scale": 1.0,
    "fit_size": [
-    0.401,
-    0.9,
-    0.533
+    0.434,
+    0.973,
+    0.576
+   ]
+  },
+  {
+   "id": "polyhaven/fancy_picture_frame_01",
+   "pack": "polyhaven",
+   "name": "fancy_picture_frame_01",
+   "file": "assets/polyhaven/fancy_picture_frame_01.glb",
+   "role": "picture",
+   "rooms": [
+    "living",
+    "bedroom",
+    "hallway",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "premium",
+    "realistic",
+    "wall"
+   ],
+   "size": [
+    0.603,
+    0.464,
+    0.02
+   ],
+   "min": [
+    -0.302,
+    -0.232,
+    0.002
+   ],
+   "max": [
+    0.302,
+    0.232,
+    0.022
+   ],
+   "tris": 938,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.603,
+    0.464,
+    0.02
+   ]
+  },
+  {
+   "id": "polyhaven/fancy_picture_frame_02",
+   "pack": "polyhaven",
+   "name": "fancy_picture_frame_02",
+   "file": "assets/polyhaven/fancy_picture_frame_02.glb",
+   "role": "picture",
+   "rooms": [
+    "living",
+    "bedroom",
+    "hallway",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "premium",
+    "realistic",
+    "wall"
+   ],
+   "size": [
+    0.661,
+    0.771,
+    0.089
+   ],
+   "min": [
+    -0.332,
+    -0.391,
+    0.001
+   ],
+   "max": [
+    0.328,
+    0.38,
+    0.09
+   ],
+   "tris": 35102,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.661,
+    0.771,
+    0.089
+   ]
+  },
+  {
+   "id": "polyhaven/GreenChair_01",
+   "pack": "polyhaven",
+   "name": "GreenChair_01",
+   "file": "assets/polyhaven/GreenChair_01.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.673,
+    1.059,
+    0.664
+   ],
+   "min": [
+    -0.337,
+    -0.001,
+    -0.378
+   ],
+   "max": [
+    0.336,
+    1.058,
+    0.286
+   ],
+   "tris": 4213,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.673,
+    1.059,
+    0.664
+   ]
+  },
+  {
+   "id": "polyhaven/hanging_picture_frame_02",
+   "pack": "polyhaven",
+   "name": "hanging_picture_frame_02",
+   "file": "assets/polyhaven/hanging_picture_frame_02.glb",
+   "role": "picture",
+   "rooms": [
+    "living",
+    "bedroom",
+    "hallway",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "premium",
+    "realistic",
+    "wall"
+   ],
+   "size": [
+    0.752,
+    0.5,
+    0.033
+   ],
+   "min": [
+    -0.376,
+    -0.279,
+    0.002
+   ],
+   "max": [
+    0.376,
+    0.221,
+    0.035
+   ],
+   "tris": 3678,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.752,
+    0.5,
+    0.033
+   ]
+  },
+  {
+   "id": "polyhaven/metal_office_desk",
+   "pack": "polyhaven",
+   "name": "metal_office_desk",
+   "file": "assets/polyhaven/metal_office_desk.glb",
+   "role": "desk",
+   "rooms": [
+    "office"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    2.0,
+    0.788,
+    0.947
+   ],
+   "min": [
+    -1.0,
+    0.0,
+    -0.469
+   ],
+   "max": [
+    1.0,
+    0.788,
+    0.478
+   ],
+   "tris": 6898,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.0,
+    0.788,
+    0.947
    ]
   },
   {
@@ -7806,6 +8254,7 @@
    "tags": [
     "hd",
     "premium",
+    "realistic",
     "seating"
    ],
    "size": [
@@ -7826,11 +8275,11 @@
    "tris": 6148,
    "textured": true,
    "unused": false,
-   "scale": 0.7563,
+   "scale": 1.0,
    "fit_size": [
-    0.763,
-    0.884,
-    0.9
+    1.009,
+    1.169,
+    1.19
    ]
   },
   {
@@ -7846,6 +8295,7 @@
    "tags": [
     "hd",
     "premium",
+    "realistic",
     "seating"
    ],
    "size": [
@@ -7866,11 +8316,95 @@
    "tris": 8916,
    "textured": true,
    "unused": false,
-   "scale": 0.9119,
+   "scale": 1.0,
    "fit_size": [
-    0.748,
-    0.933,
-    0.9
+    0.82,
+    1.023,
+    0.987
+   ]
+  },
+  {
+   "id": "polyhaven/modern_ceiling_lamp_01",
+   "pack": "polyhaven",
+   "name": "modern_ceiling_lamp_01",
+   "file": "assets/polyhaven/modern_ceiling_lamp_01.glb",
+   "role": "lamp.ceiling",
+   "rooms": [
+    "living",
+    "bedroom",
+    "dining",
+    "hallway"
+   ],
+   "tags": [
+    "ceiling",
+    "hd",
+    "lamp",
+    "premium",
+    "realistic"
+   ],
+   "size": [
+    0.432,
+    0.952,
+    0.432
+   ],
+   "min": [
+    -0.216,
+    0.221,
+    -0.214
+   ],
+   "max": [
+    0.216,
+    1.173,
+    0.217
+   ],
+   "tris": 5602,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.432,
+    0.952,
+    0.432
+   ]
+  },
+  {
+   "id": "polyhaven/modern_coffee_table_01",
+   "pack": "polyhaven",
+   "name": "modern_coffee_table_01",
+   "file": "assets/polyhaven/modern_coffee_table_01.glb",
+   "role": "table.coffee",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    0.6,
+    0.39,
+    1.202
+   ],
+   "min": [
+    -0.3,
+    -0.0,
+    -0.601
+   ],
+   "max": [
+    0.3,
+    0.39,
+    0.601
+   ],
+   "tris": 4504,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.6,
+    0.39,
+    1.202
    ]
   },
   {
@@ -7885,6 +8419,7 @@
    "tags": [
     "hd",
     "premium",
+    "realistic",
     "storage"
    ],
    "size": [
@@ -7905,11 +8440,4362 @@
    "tris": 24976,
    "textured": true,
    "unused": false,
-   "scale": 0.6148,
+   "scale": 0.6967,
    "fit_size": [
+    1.7,
+    0.474,
+    0.362
+   ]
+  },
+  {
+   "id": "polyhaven/ornate_mirror_01",
+   "pack": "polyhaven",
+   "name": "ornate_mirror_01",
+   "file": "assets/polyhaven/ornate_mirror_01.glb",
+   "role": "mirror",
+   "rooms": [
+    "bathroom",
+    "hallway",
+    "bedroom",
+    "living"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "premium",
+    "realistic",
+    "wall"
+   ],
+   "size": [
+    0.486,
+    0.744,
+    0.026
+   ],
+   "min": [
+    -0.243,
+    -0.411,
+    0.0
+   ],
+   "max": [
+    0.243,
+    0.333,
+    0.026
+   ],
+   "tris": 14246,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.486,
+    0.744,
+    0.026
+   ]
+  },
+  {
+   "id": "polyhaven/Ottoman_01",
+   "pack": "polyhaven",
+   "name": "Ottoman_01",
+   "file": "assets/polyhaven/Ottoman_01.glb",
+   "role": "ottoman",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.885,
+    0.624,
+    0.621
+   ],
+   "min": [
+    -0.44,
+    -0.0,
+    -0.31
+   ],
+   "max": [
+    0.444,
+    0.624,
+    0.311
+   ],
+   "tris": 4240,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.885,
+    0.624,
+    0.621
+   ]
+  },
+  {
+   "id": "polyhaven/painted_wooden_chair_01",
+   "pack": "polyhaven",
+   "name": "painted_wooden_chair_01",
+   "file": "assets/polyhaven/painted_wooden_chair_01.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.432,
+    0.956,
+    0.54
+   ],
+   "min": [
+    -0.217,
+    -0.001,
+    -0.301
+   ],
+   "max": [
+    0.214,
+    0.956,
+    0.239
+   ],
+   "tris": 724,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.432,
+    0.956,
+    0.54
+   ]
+  },
+  {
+   "id": "polyhaven/painted_wooden_nightstand",
+   "pack": "polyhaven",
+   "name": "painted_wooden_nightstand",
+   "file": "assets/polyhaven/painted_wooden_nightstand.glb",
+   "role": "nightstand",
+   "rooms": [
+    "bedroom",
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "storage"
+   ],
+   "size": [
+    0.505,
+    0.616,
+    0.509
+   ],
+   "min": [
+    -0.253,
+    -0.0,
+    -0.249
+   ],
+   "max": [
+    0.251,
+    0.616,
+    0.259
+   ],
+   "tris": 470,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.505,
+    0.616,
+    0.509
+   ]
+  },
+  {
+   "id": "polyhaven/potted_plant_01",
+   "pack": "polyhaven",
+   "name": "potted_plant_01",
+   "file": "assets/polyhaven/potted_plant_01.glb",
+   "role": "plant",
+   "rooms": [
+    "living",
+    "bedroom",
+    "hallway",
+    "office",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "plant",
+    "premium",
+    "realistic"
+   ],
+   "size": [
+    0.587,
+    1.35,
+    0.634
+   ],
+   "min": [
+    -0.338,
+    -0.014,
+    -0.364
+   ],
+   "max": [
+    0.249,
+    1.336,
+    0.27
+   ],
+   "tris": 176226,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.587,
+    1.35,
+    0.634
+   ]
+  },
+  {
+   "id": "polyhaven/potted_plant_02",
+   "pack": "polyhaven",
+   "name": "potted_plant_02",
+   "file": "assets/polyhaven/potted_plant_02.glb",
+   "role": "plant",
+   "rooms": [
+    "living",
+    "bedroom",
+    "hallway",
+    "office",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "plant",
+    "premium",
+    "realistic"
+   ],
+   "size": [
+    0.701,
+    0.841,
+    0.657
+   ],
+   "min": [
+    -0.397,
+    0.0,
+    -0.42
+   ],
+   "max": [
+    0.304,
+    0.841,
+    0.237
+   ],
+   "tris": 69806,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.701,
+    0.841,
+    0.657
+   ]
+  },
+  {
+   "id": "polyhaven/potted_plant_04",
+   "pack": "polyhaven",
+   "name": "potted_plant_04",
+   "file": "assets/polyhaven/potted_plant_04.glb",
+   "role": "plant.small",
+   "rooms": [
+    "living",
+    "bedroom",
+    "kitchen",
+    "office",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "plant",
+    "premium",
+    "realistic",
+    "small"
+   ],
+   "size": [
+    0.168,
+    0.267,
+    0.185
+   ],
+   "min": [
+    -0.084,
+    0.0,
+    -0.084
+   ],
+   "max": [
+    0.084,
+    0.268,
+    0.101
+   ],
+   "tris": 8929,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.168,
+    0.267,
+    0.185
+   ]
+  },
+  {
+   "id": "polyhaven/side_table_01",
+   "pack": "polyhaven",
+   "name": "side_table_01",
+   "file": "assets/polyhaven/side_table_01.glb",
+   "role": "nightstand",
+   "rooms": [
+    "bedroom",
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "storage"
+   ],
+   "size": [
+    0.55,
+    0.551,
+    0.45
+   ],
+   "min": [
+    -0.275,
+    -0.002,
+    -0.225
+   ],
+   "max": [
+    0.275,
+    0.548,
+    0.225
+   ],
+   "tris": 2756,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.55,
+    0.551,
+    0.45
+   ]
+  },
+  {
+   "id": "polyhaven/Sofa_01",
+   "pack": "polyhaven",
+   "name": "Sofa_01",
+   "file": "assets/polyhaven/Sofa_01.glb",
+   "role": "sofa",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    1.571,
+    0.797,
+    0.658
+   ],
+   "min": [
+    -0.778,
+    -0.001,
+    -0.361
+   ],
+   "max": [
+    0.793,
+    0.796,
+    0.297
+   ],
+   "tris": 4101,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.571,
+    0.797,
+    0.658
+   ]
+  },
+  {
+   "id": "polyhaven/sofa_02",
+   "pack": "polyhaven",
+   "name": "sofa_02",
+   "file": "assets/polyhaven/sofa_02.glb",
+   "role": "sofa",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    1.807,
+    0.709,
+    0.818
+   ],
+   "min": [
+    -0.903,
+    0.0,
+    -0.478
+   ],
+   "max": [
+    0.904,
+    0.71,
+    0.34
+   ],
+   "tris": 2728,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.807,
+    0.709,
+    0.818
+   ]
+  },
+  {
+   "id": "polyhaven/sofa_03",
+   "pack": "polyhaven",
+   "name": "sofa_03",
+   "file": "assets/polyhaven/sofa_03.glb",
+   "role": "sofa.long",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    2.731,
+    1.118,
+    0.925
+   ],
+   "min": [
+    -1.366,
+    0.001,
+    -0.464
+   ],
+   "max": [
+    1.366,
+    1.119,
+    0.461
+   ],
+   "tris": 8003,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.731,
+    1.118,
+    0.925
+   ]
+  },
+  {
+   "id": "polyhaven/throw_pillows_01",
+   "pack": "polyhaven",
+   "name": "throw_pillows_01",
+   "file": "assets/polyhaven/throw_pillows_01.glb",
+   "role": "pillow",
+   "rooms": [
+    "living",
+    "bedroom"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "premium",
+    "realistic",
+    "small"
+   ],
+   "size": [
+    1.022,
+    0.45,
+    0.627
+   ],
+   "min": [
+    -0.505,
+    -0.002,
+    -0.242
+   ],
+   "max": [
+    0.517,
+    0.448,
+    0.386
+   ],
+   "tris": 6362,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.022,
+    0.45,
+    0.627
+   ]
+  },
+  {
+   "id": "polyhaven/wall_clock",
+   "pack": "polyhaven",
+   "name": "wall_clock",
+   "file": "assets/polyhaven/wall_clock.glb",
+   "role": "clock",
+   "rooms": [
+    "living",
+    "kitchen",
+    "hallway"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "premium",
+    "realistic",
+    "wall"
+   ],
+   "size": [
+    0.32,
+    0.32,
+    0.047
+   ],
+   "min": [
+    -0.16,
+    -0.16,
+    -0.0
+   ],
+   "max": [
+    0.16,
+    0.16,
+    0.047
+   ],
+   "tris": 3658,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.32,
+    0.32,
+    0.047
+   ]
+  },
+  {
+   "id": "polyhaven/wooden_table_02",
+   "pack": "polyhaven",
+   "name": "wooden_table_02",
+   "file": "assets/polyhaven/wooden_table_02.glb",
+   "role": "table.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "premium",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    1.134,
+    0.8,
+    0.706
+   ],
+   "min": [
+    -0.567,
+    -0.0,
+    -0.353
+   ],
+   "max": [
+    0.567,
+    0.799,
+    0.353
+   ],
+   "tris": 196,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.134,
+    0.8,
+    0.706
+   ]
+  },
+  {
+   "id": "sh3d-b/armchair2",
+   "pack": "sh3d-b",
+   "name": "armchair2",
+   "file": "assets/sh3d-b/armchair2.glb",
+   "role": "armchair",
+   "rooms": [
+    "living",
+    "bedroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.953,
+    0.783,
+    0.833
+   ],
+   "min": [
+    -0.477,
+    -0.003,
+    -0.439
+   ],
+   "max": [
+    0.476,
+    0.78,
+    0.395
+   ],
+   "tris": 6666,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.953,
+    0.783,
+    0.833
+   ]
+  },
+  {
+   "id": "sh3d-b/bed1",
+   "pack": "sh3d-b",
+   "name": "bed1",
+   "file": "assets/sh3d-b/bed1.glb",
+   "role": "bed.double",
+   "rooms": [
+    "bedroom"
+   ],
+   "tags": [
+    "bed",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    1.407,
+    0.955,
+    2.081
+   ],
+   "min": [
+    -1.698,
+    -0.0,
+    -1.04
+   ],
+   "max": [
+    -0.291,
+    0.955,
+    1.04
+   ],
+   "tris": 45176,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.407,
+    0.955,
+    2.081
+   ]
+  },
+  {
+   "id": "sh3d-b/bed2",
+   "pack": "sh3d-b",
+   "name": "bed2",
+   "file": "assets/sh3d-b/bed2.glb",
+   "role": "bed.double",
+   "rooms": [
+    "bedroom"
+   ],
+   "tags": [
+    "bed",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    1.447,
+    1.077,
+    2.137
+   ],
+   "min": [
+    0.381,
+    -0.0,
+    -1.069
+   ],
+   "max": [
+    1.828,
+    1.077,
+    1.069
+   ],
+   "tris": 26728,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.447,
+    1.077,
+    2.137
+   ]
+  },
+  {
+   "id": "sh3d-b/bed3",
+   "pack": "sh3d-b",
+   "name": "bed3",
+   "file": "assets/sh3d-b/bed3.glb",
+   "role": "bed.double",
+   "rooms": [
+    "bedroom"
+   ],
+   "tags": [
+    "bed",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    2.022,
+    1.142,
+    2.282
+   ],
+   "min": [
+    -1.008,
+    0.128,
+    -0.039
+   ],
+   "max": [
+    1.014,
+    1.271,
+    2.243
+   ],
+   "tris": 35670,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.022,
+    1.142,
+    2.282
+   ]
+  },
+  {
+   "id": "sh3d-b/bedsideTable2",
+   "pack": "sh3d-b",
+   "name": "bedsideTable2",
+   "file": "assets/sh3d-b/bedsideTable2.glb",
+   "role": "nightstand",
+   "rooms": [
+    "bedroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "storage"
+   ],
+   "size": [
+    0.486,
+    0.454,
+    0.481
+   ],
+   "min": [
+    -0.245,
+    0.005,
+    -0.233
+   ],
+   "max": [
+    0.241,
+    0.459,
+    0.248
+   ],
+   "tris": 288,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.486,
+    0.454,
+    0.481
+   ]
+  },
+  {
+   "id": "sh3d-b/bidet",
+   "pack": "sh3d-b",
+   "name": "bidet",
+   "file": "assets/sh3d-b/bidet.glb",
+   "role": "bidet",
+   "rooms": [
+    "bathroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "sanitary"
+   ],
+   "size": [
+    0.399,
+    0.513,
+    0.536
+   ],
+   "min": [
+    -0.199,
+    0.0,
+    -0.05
+   ],
+   "max": [
+    0.2,
+    0.513,
+    0.487
+   ],
+   "tris": 12034,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.399,
+    0.513,
+    0.536
+   ]
+  },
+  {
+   "id": "sh3d-b/bookcase",
+   "pack": "sh3d-b",
+   "name": "bookcase",
+   "file": "assets/sh3d-b/bookcase.glb",
+   "role": "bookcase",
+   "rooms": [
+    "living",
+    "office"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "storage"
+   ],
+   "size": [
+    0.919,
+    1.474,
+    0.365
+   ],
+   "min": [
+    -0.46,
+    -0.737,
+    -0.067
+   ],
+   "max": [
+    0.459,
+    0.737,
+    0.297
+   ],
+   "tris": 2858,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.919,
+    1.474,
+    0.365
+   ]
+  },
+  {
+   "id": "sh3d-b/chair",
+   "pack": "sh3d-b",
+   "name": "chair",
+   "file": "assets/sh3d-b/chair.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.513,
+    0.799,
+    0.532
+   ],
+   "min": [
+    -0.259,
+    3.54,
+    -0.267
+   ],
+   "max": [
+    0.254,
+    4.339,
+    0.264
+   ],
+   "tris": 9584,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.513,
+    0.799,
+    0.532
+   ]
+  },
+  {
+   "id": "sh3d-b/chair2",
+   "pack": "sh3d-b",
+   "name": "chair2",
+   "file": "assets/sh3d-b/chair2.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.403,
+    0.868,
+    0.489
+   ],
+   "min": [
+    -0.198,
+    0.005,
+    -0.3
+   ],
+   "max": [
+    0.205,
+    0.873,
+    0.189
+   ],
+   "tris": 1912,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.403,
+    0.868,
+    0.489
+   ]
+  },
+  {
+   "id": "sh3d-b/chairWithCushion",
+   "pack": "sh3d-b",
+   "name": "chairWithCushion",
+   "file": "assets/sh3d-b/chairWithCushion.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.441,
+    0.947,
+    0.441
+   ],
+   "min": [
+    -0.219,
+    0.032,
+    -0.594
+   ],
+   "max": [
+    0.222,
+    0.979,
+    -0.153
+   ],
+   "tris": 12368,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.441,
+    0.947,
+    0.441
+   ]
+  },
+  {
+   "id": "sh3d-b/couch",
+   "pack": "sh3d-b",
+   "name": "couch",
+   "file": "assets/sh3d-b/couch.glb",
+   "role": "sofa",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    2.074,
+    0.856,
+    0.877
+   ],
+   "min": [
+    -1.037,
+    -0.0,
+    -0.514
+   ],
+   "max": [
+    1.037,
+    0.856,
+    0.362
+   ],
+   "tris": 22682,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.074,
+    0.856,
+    0.877
+   ]
+  },
+  {
+   "id": "sh3d-b/couch2",
+   "pack": "sh3d-b",
+   "name": "couch2",
+   "file": "assets/sh3d-b/couch2.glb",
+   "role": "sofa.corner",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    2.3,
+    0.866,
+    1.597
+   ],
+   "min": [
+    -1.15,
+    0.0,
+    -0.015
+   ],
+   "max": [
+    1.15,
+    0.866,
+    1.583
+   ],
+   "tris": 1512,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.3,
+    0.866,
+    1.597
+   ]
+  },
+  {
+   "id": "sh3d-b/decorativePlant",
+   "pack": "sh3d-b",
+   "name": "decorativePlant",
+   "file": "assets/sh3d-b/decorativePlant.glb",
+   "role": "plant",
+   "rooms": [
+    "living",
+    "bedroom",
+    "hallway",
+    "office",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "plant",
+    "realistic"
+   ],
+   "size": [
+    0.559,
+    1.031,
+    0.602
+   ],
+   "min": [
+    -0.265,
+    1.052,
+    -0.297
+   ],
+   "max": [
+    0.294,
+    2.082,
+    0.305
+   ],
+   "tris": 63428,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.559,
+    1.031,
+    0.602
+   ]
+  },
+  {
+   "id": "sh3d-b/designChair",
+   "pack": "sh3d-b",
+   "name": "designChair",
+   "file": "assets/sh3d-b/designChair.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.779,
+    0.995,
+    0.628
+   ],
+   "min": [
+    -0.386,
+    0.0,
+    -0.316
+   ],
+   "max": [
+    0.393,
+    0.995,
+    0.312
+   ],
+   "tris": 7446,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.779,
+    0.995,
+    0.628
+   ]
+  },
+  {
+   "id": "sh3d-b/desk",
+   "pack": "sh3d-b",
+   "name": "desk",
+   "file": "assets/sh3d-b/desk.glb",
+   "role": "desk",
+   "rooms": [
+    "office",
+    "bedroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    1.393,
+    1.055,
+    0.543
+   ],
+   "min": [
+    -0.002,
+    0.0,
+    -0.03
+   ],
+   "max": [
+    1.391,
+    1.055,
+    0.512
+   ],
+   "tris": 3013,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.393,
+    1.055,
+    0.543
+   ]
+  },
+  {
+   "id": "sh3d-b/desklamp",
+   "pack": "sh3d-b",
+   "name": "desklamp",
+   "file": "assets/sh3d-b/desklamp.glb",
+   "role": "lamp.table",
+   "rooms": [
+    "bedroom",
+    "living",
+    "office"
+   ],
+   "tags": [
+    "hd",
+    "lamp",
+    "realistic"
+   ],
+   "size": [
+    0.244,
+    0.4,
+    0.244
+   ],
+   "min": [
+    -0.122,
+    -0.01,
+    -0.122
+   ],
+   "max": [
+    0.122,
+    0.39,
+    0.122
+   ],
+   "tris": 3584,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.244,
+    0.4,
+    0.244
+   ]
+  },
+  {
+   "id": "sh3d-b/doubleOven",
+   "pack": "sh3d-b",
+   "name": "doubleOven",
+   "file": "assets/sh3d-b/doubleOven.glb",
+   "role": "kitchen.oven",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "appliance",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.6,
+    1.088,
+    0.515
+   ],
+   "min": [
+    -0.285,
+    0.833,
+    -0.247
+   ],
+   "max": [
+    0.315,
+    1.922,
+    0.268
+   ],
+   "tris": 25761,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.6,
+    1.088,
+    0.515
+   ]
+  },
+  {
+   "id": "sh3d-b/drawersCabinet",
+   "pack": "sh3d-b",
+   "name": "drawersCabinet",
+   "file": "assets/sh3d-b/drawersCabinet.glb",
+   "role": "kitchen.base",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "counter",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.6,
+    0.884,
+    0.613
+   ],
+   "min": [
+    -0.297,
+    -0.0,
+    -0.283
+   ],
+   "max": [
+    0.303,
+    0.884,
+    0.329
+   ],
+   "tris": 686,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.6,
+    0.884,
+    0.613
+   ]
+  },
+  {
+   "id": "sh3d-b/highCabinet",
+   "pack": "sh3d-b",
+   "name": "highCabinet",
+   "file": "assets/sh3d-b/highCabinet.glb",
+   "role": "kitchen.tall",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "storage",
+    "tall"
+   ],
+   "size": [
+    0.6,
+    2.168,
+    0.613
+   ],
+   "min": [
+    -0.299,
+    -0.0,
+    -0.283
+   ],
+   "max": [
+    0.301,
+    2.168,
+    0.329
+   ],
+   "tris": 21876,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.6,
+    2.168,
+    0.613
+   ]
+  },
+  {
+   "id": "sh3d-b/L_shaped_sofa",
+   "pack": "sh3d-b",
+   "name": "L_shaped_sofa",
+   "file": "assets/sh3d-b/L_shaped_sofa.glb",
+   "role": "sofa.corner",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    2.337,
+    0.8,
+    1.437
+   ],
+   "min": [
+    -1.175,
+    0.001,
+    -0.764
+   ],
+   "max": [
+    1.162,
+    0.801,
+    0.673
+   ],
+   "tris": 57968,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.337,
+    0.8,
+    1.437
+   ]
+  },
+  {
+   "id": "sh3d-b/lamp2",
+   "pack": "sh3d-b",
+   "name": "lamp2",
+   "file": "assets/sh3d-b/lamp2.glb",
+   "role": "lamp.table",
+   "rooms": [
+    "bedroom",
+    "living",
+    "office"
+   ],
+   "tags": [
+    "hd",
+    "lamp",
+    "realistic"
+   ],
+   "size": [
+    0.534,
+    0.633,
+    0.513
+   ],
+   "min": [
+    -0.267,
+    -0.021,
+    -0.235
+   ],
+   "max": [
+    0.267,
+    0.613,
+    0.279
+   ],
+   "tris": 12774,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.534,
+    0.633,
+    0.513
+   ]
+  },
+  {
+   "id": "sh3d-b/largeFridge",
+   "pack": "sh3d-b",
+   "name": "largeFridge",
+   "file": "assets/sh3d-b/largeFridge.glb",
+   "role": "kitchen.fridge",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "appliance",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.925,
+    1.842,
+    0.806
+   ],
+   "min": [
+    -0.462,
+    -0.0,
+    -0.291
+   ],
+   "max": [
+    0.463,
+    1.842,
+    0.515
+   ],
+   "tris": 6732,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.925,
+    1.842,
+    0.806
+   ]
+  },
+  {
+   "id": "sh3d-b/lbDesk",
+   "pack": "sh3d-b",
+   "name": "lbDesk",
+   "file": "assets/sh3d-b/lbDesk.glb",
+   "role": "desk",
+   "rooms": [
+    "office",
+    "bedroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    1.6,
+    0.723,
+    0.8
+   ],
+   "min": [
+    -0.8,
+    -0.0,
+    -0.4
+   ],
+   "max": [
+    0.8,
+    0.723,
+    0.4
+   ],
+   "tris": 10136,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.6,
+    0.723,
+    0.8
+   ]
+  },
+  {
+   "id": "sh3d-b/led_tv",
+   "pack": "sh3d-b",
+   "name": "led_tv",
+   "file": "assets/sh3d-b/led_tv.glb",
+   "role": "tv",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "appliance",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.775,
+    0.509,
+    0.142
+   ],
+   "min": [
+    -0.387,
+    0.002,
+    -0.076
+   ],
+   "max": [
+    0.387,
+    0.51,
+    0.066
+   ],
+   "tris": 29740,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.775,
+    0.509,
+    0.142
+   ]
+  },
+  {
+   "id": "sh3d-b/littlePlant",
+   "pack": "sh3d-b",
+   "name": "littlePlant",
+   "file": "assets/sh3d-b/littlePlant.glb",
+   "role": "plant.small",
+   "rooms": [
+    "living",
+    "bedroom",
+    "kitchen",
+    "office",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "plant",
+    "realistic",
+    "small"
+   ],
+   "size": [
+    0.266,
+    0.232,
+    0.266
+   ],
+   "min": [
+    -0.133,
+    -0.0,
+    -0.133
+   ],
+   "max": [
+    0.133,
+    0.232,
+    0.133
+   ],
+   "tris": 1116,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.266,
+    0.232,
+    0.266
+   ]
+  },
+  {
+   "id": "sh3d-b/lowerCabinet",
+   "pack": "sh3d-b",
+   "name": "lowerCabinet",
+   "file": "assets/sh3d-b/lowerCabinet.glb",
+   "role": "kitchen.base",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "counter",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.6,
+    0.884,
+    0.613
+   ],
+   "min": [
+    -0.298,
+    -0.0,
+    -0.283
+   ],
+   "max": [
+    0.302,
+    0.884,
+    0.33
+   ],
+   "tris": 498,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.6,
+    0.884,
+    0.613
+   ]
+  },
+  {
+   "id": "sh3d-b/modernArmchair",
+   "pack": "sh3d-b",
+   "name": "modernArmchair",
+   "file": "assets/sh3d-b/modernArmchair.glb",
+   "role": "armchair",
+   "rooms": [
+    "living",
+    "bedroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.773,
+    0.864,
+    0.85
+   ],
+   "min": [
+    -0.387,
+    -0.0,
+    -0.428
+   ],
+   "max": [
+    0.387,
+    0.864,
+    0.422
+   ],
+   "tris": 15768,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.773,
+    0.864,
+    0.85
+   ]
+  },
+  {
+   "id": "sh3d-b/modernVanity",
+   "pack": "sh3d-b",
+   "name": "modernVanity",
+   "file": "assets/sh3d-b/modernVanity.glb",
+   "role": "sink.bath",
+   "rooms": [
+    "bathroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "sanitary"
+   ],
+   "size": [
+    0.904,
+    0.933,
+    0.708
+   ],
+   "min": [
+    -0.452,
+    -0.0,
+    -0.326
+   ],
+   "max": [
+    0.452,
+    0.933,
+    0.382
+   ],
+   "tris": 12001,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.904,
+    0.933,
+    0.708
+   ]
+  },
+  {
+   "id": "sh3d-b/oakChair",
+   "pack": "sh3d-b",
+   "name": "oakChair",
+   "file": "assets/sh3d-b/oakChair.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.491,
+    1.178,
+    0.612
+   ],
+   "min": [
+    -0.245,
+    -0.018,
+    -0.391
+   ],
+   "max": [
+    0.246,
+    1.159,
+    0.221
+   ],
+   "tris": 31786,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.491,
+    1.178,
+    0.612
+   ]
+  },
+  {
+   "id": "sh3d-b/oakTable",
+   "pack": "sh3d-b",
+   "name": "oakTable",
+   "file": "assets/sh3d-b/oakTable.glb",
+   "role": "table.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    1.24,
+    0.741,
+    1.239
+   ],
+   "min": [
+    -0.62,
+    0.002,
+    -0.62
+   ],
+   "max": [
+    0.62,
+    0.744,
+    0.62
+   ],
+   "tris": 5160,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.24,
+    0.741,
+    1.239
+   ]
+  },
+  {
+   "id": "sh3d-b/orchids",
+   "pack": "sh3d-b",
+   "name": "orchids",
+   "file": "assets/sh3d-b/orchids.glb",
+   "role": "plant.small",
+   "rooms": [
+    "living",
+    "bedroom",
+    "kitchen",
+    "office",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "plant",
+    "realistic",
+    "small"
+   ],
+   "size": [
+    0.311,
+    0.575,
+    0.352
+   ],
+   "min": [
+    -0.122,
+    -0.0,
+    -0.182
+   ],
+   "max": [
+    0.189,
+    0.575,
+    0.171
+   ],
+   "tris": 44830,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.311,
+    0.575,
+    0.352
+   ]
+  },
+  {
+   "id": "sh3d-b/plant",
+   "pack": "sh3d-b",
+   "name": "plant",
+   "file": "assets/sh3d-b/plant.glb",
+   "role": "plant",
+   "rooms": [
+    "living",
+    "bedroom",
+    "hallway",
+    "office",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "plant",
+    "realistic"
+   ],
+   "size": [
+    0.818,
+    1.171,
+    0.69
+   ],
+   "min": [
+    -0.392,
+    0.0,
+    -0.372
+   ],
+   "max": [
+    0.426,
+    1.171,
+    0.319
+   ],
+   "tris": 14370,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.818,
+    1.171,
+    0.69
+   ]
+  },
+  {
+   "id": "sh3d-b/refrigerator",
+   "pack": "sh3d-b",
+   "name": "refrigerator",
+   "file": "assets/sh3d-b/refrigerator.glb",
+   "role": "kitchen.fridge",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "appliance",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.9,
+    1.723,
+    0.959
+   ],
+   "min": [
+    -0.451,
+    -0.0,
+    -0.402
+   ],
+   "max": [
+    0.449,
+    1.723,
+    0.557
+   ],
+   "tris": 15356,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.9,
+    1.723,
+    0.959
+   ]
+  },
+  {
+   "id": "sh3d-b/showerStall",
+   "pack": "sh3d-b",
+   "name": "showerStall",
+   "file": "assets/sh3d-b/showerStall.glb",
+   "role": "shower",
+   "rooms": [
+    "bathroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "sanitary"
+   ],
+   "size": [
+    0.931,
+    2.0,
+    1.119
+   ],
+   "min": [
+    -0.452,
+    -0.152,
+    -0.546
+   ],
+   "max": [
+    0.478,
+    1.848,
+    0.573
+   ],
+   "tris": 21998,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.931,
+    2.0,
+    1.119
+   ]
+  },
+  {
+   "id": "sh3d-b/sillaBlanca",
+   "pack": "sh3d-b",
+   "name": "sillaBlanca",
+   "file": "assets/sh3d-b/sillaBlanca.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.505,
+    0.85,
+    0.584
+   ],
+   "min": [
+    -0.272,
+    -0.415,
+    -0.345
+   ],
+   "max": [
+    0.233,
+    0.435,
+    0.239
+   ],
+   "tris": 5400,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.505,
+    0.85,
+    0.584
+   ]
+  },
+  {
+   "id": "sh3d-b/sinkCabinet2",
+   "pack": "sh3d-b",
+   "name": "sinkCabinet2",
+   "file": "assets/sh3d-b/sinkCabinet2.glb",
+   "role": "kitchen.sink",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "counter",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.6,
+    1.211,
+    0.612
+   ],
+   "min": [
+    -0.299,
+    -0.0,
+    -0.283
+   ],
+   "max": [
+    0.301,
+    1.211,
+    0.329
+   ],
+   "tris": 12022,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.6,
+    1.211,
+    0.612
+   ]
+  },
+  {
+   "id": "sh3d-b/sofa",
+   "pack": "sh3d-b",
+   "name": "sofa",
+   "file": "assets/sh3d-b/sofa.glb",
+   "role": "sofa.corner",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    2.488,
+    0.78,
+    1.896
+   ],
+   "min": [
+    -1.099,
+    -0.049,
+    -1.094
+   ],
+   "max": [
+    1.389,
+    0.731,
+    0.802
+   ],
+   "tris": 17324,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.488,
+    0.78,
+    1.896
+   ]
+  },
+  {
+   "id": "sh3d-b/sofa2",
+   "pack": "sh3d-b",
+   "name": "sofa2",
+   "file": "assets/sh3d-b/sofa2.glb",
+   "role": "sofa",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    1.669,
+    0.848,
+    0.747
+   ],
+   "min": [
+    -0.836,
+    0.0,
+    -0.365
+   ],
+   "max": [
+    0.833,
+    0.848,
+    0.382
+   ],
+   "tris": 10507,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.669,
+    0.848,
+    0.747
+   ]
+  },
+  {
+   "id": "sh3d-b/stool",
+   "pack": "sh3d-b",
+   "name": "stool",
+   "file": "assets/sh3d-b/stool.glb",
+   "role": "stool",
+   "rooms": [
+    "kitchen",
+    "dining"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.53,
+    0.979,
+    0.521
+   ],
+   "min": [
+    -0.243,
+    -0.792,
+    -0.211
+   ],
+   "max": [
+    0.287,
+    0.187,
+    0.31
+   ],
+   "tris": 7050,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.53,
+    0.979,
+    0.521
+   ]
+  },
+  {
+   "id": "sh3d-b/table",
+   "pack": "sh3d-b",
+   "name": "table",
+   "file": "assets/sh3d-b/table.glb",
+   "role": "table.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    2.35,
+    0.738,
+    1.001
+   ],
+   "min": [
+    -0.388,
+    -0.0,
+    -0.007
+   ],
+   "max": [
+    1.962,
+    0.738,
+    0.994
+   ],
+   "tris": 1484,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.35,
+    0.738,
+    1.001
+   ]
+  },
+  {
+   "id": "sh3d-b/thonet",
+   "pack": "sh3d-b",
+   "name": "thonet",
+   "file": "assets/sh3d-b/thonet.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.547,
+    0.753,
+    0.577
+   ],
+   "min": [
+    -1.016,
+    0.0,
+    -0.275
+   ],
+   "max": [
+    -0.469,
+    0.754,
+    0.302
+   ],
+   "tris": 9473,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.547,
+    0.753,
+    0.577
+   ]
+  },
+  {
+   "id": "sh3d-b/toiletsUnit",
+   "pack": "sh3d-b",
+   "name": "toiletsUnit",
+   "file": "assets/sh3d-b/toiletsUnit.glb",
+   "role": "toilet",
+   "rooms": [
+    "bathroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "sanitary"
+   ],
+   "size": [
+    0.353,
+    0.772,
+    0.692
+   ],
+   "min": [
+    -0.17,
+    0.003,
+    0.0
+   ],
+   "max": [
+    0.183,
+    0.775,
+    0.692
+   ],
+   "tris": 20190,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.353,
+    0.772,
+    0.692
+   ]
+  },
+  {
+   "id": "sh3d-b/upperCabinet",
+   "pack": "sh3d-b",
+   "name": "upperCabinet",
+   "file": "assets/sh3d-b/upperCabinet.glb",
+   "role": "kitchen.upper",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "counter",
+    "hd",
+    "realistic",
+    "wall"
+   ],
+   "size": [
+    0.6,
+    0.72,
+    0.41
+   ],
+   "min": [
+    -0.298,
     1.5,
-    0.418,
-    0.32
+    -0.278
+   ],
+   "max": [
+    0.302,
+    2.22,
+    0.132
+   ],
+   "tris": 324,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.6,
+    0.72,
+    0.41
+   ]
+  },
+  {
+   "id": "sh3d-b/wallLight",
+   "pack": "sh3d-b",
+   "name": "wallLight",
+   "file": "assets/sh3d-b/wallLight.glb",
+   "role": "lamp.wall",
+   "rooms": [
+    "hallway",
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "lamp",
+    "realistic",
+    "wall"
+   ],
+   "size": [
+    0.228,
+    0.538,
+    0.246
+   ],
+   "min": [
+    -0.118,
+    1.776,
+    -0.133
+   ],
+   "max": [
+    0.11,
+    2.314,
+    0.113
+   ],
+   "tris": 8219,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.228,
+    0.538,
+    0.246
+   ]
+  },
+  {
+   "id": "sh3d-b/wardrobeWithSlidingDoors",
+   "pack": "sh3d-b",
+   "name": "wardrobeWithSlidingDoors",
+   "file": "assets/sh3d-b/wardrobeWithSlidingDoors.glb",
+   "role": "wardrobe",
+   "rooms": [
+    "bedroom",
+    "hallway"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "storage",
+    "tall"
+   ],
+   "size": [
+    2.0,
+    2.434,
+    0.641
+   ],
+   "min": [
+    -1.0,
+    0.003,
+    -0.672
+   ],
+   "max": [
+    1.0,
+    2.437,
+    -0.031
+   ],
+   "tris": 660,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.0,
+    2.434,
+    0.641
+   ]
+  },
+  {
+   "id": "sh3d-b/washbasin",
+   "pack": "sh3d-b",
+   "name": "washbasin",
+   "file": "assets/sh3d-b/washbasin.glb",
+   "role": "sink.bath",
+   "rooms": [
+    "bathroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "sanitary"
+   ],
+   "size": [
+    0.564,
+    0.93,
+    0.457
+   ],
+   "min": [
+    -0.282,
+    0.0,
+    -0.0
+   ],
+   "max": [
+    0.282,
+    0.93,
+    0.457
+   ],
+   "tris": 49034,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.564,
+    0.93,
+    0.457
+   ]
+  },
+  {
+   "id": "sh3d-b/winchesterArmchair",
+   "pack": "sh3d-b",
+   "name": "winchesterArmchair",
+   "file": "assets/sh3d-b/winchesterArmchair.glb",
+   "role": "armchair",
+   "rooms": [
+    "living",
+    "bedroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    1.12,
+    0.804,
+    0.934
+   ],
+   "min": [
+    -1.218,
+    -0.615,
+    -0.254
+   ],
+   "max": [
+    -0.098,
+    0.189,
+    0.68
+   ],
+   "tris": 14690,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.12,
+    0.804,
+    0.934
+   ]
+  },
+  {
+   "id": "sh3d-b/winchesterSofa",
+   "pack": "sh3d-b",
+   "name": "winchesterSofa",
+   "file": "assets/sh3d-b/winchesterSofa.glb",
+   "role": "sofa",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    2.319,
+    0.805,
+    0.937
+   ],
+   "min": [
+    -1.817,
+    -0.616,
+    -0.258
+   ],
+   "max": [
+    0.502,
+    0.189,
+    0.68
+   ],
+   "tris": 23305,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.319,
+    0.805,
+    0.937
+   ]
+  },
+  {
+   "id": "sh3d-c/1DoorLowerCabinet",
+   "pack": "sh3d-c",
+   "name": "1DoorLowerCabinet",
+   "file": "assets/sh3d-c/1DoorLowerCabinet.glb",
+   "role": "kitchen.base",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "counter",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.519,
+    0.742,
+    0.742
+   ],
+   "min": [
+    -0.258,
+    -0.369,
+    -0.429
+   ],
+   "max": [
+    0.261,
+    0.372,
+    0.312
+   ],
+   "tris": 4940,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.519,
+    0.742,
+    0.742
+   ]
+  },
+  {
+   "id": "sh3d-c/1DoorUpperCabinet",
+   "pack": "sh3d-c",
+   "name": "1DoorUpperCabinet",
+   "file": "assets/sh3d-c/1DoorUpperCabinet.glb",
+   "role": "kitchen.upper",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "counter",
+    "hd",
+    "realistic",
+    "wall"
+   ],
+   "size": [
+    0.452,
+    0.598,
+    0.464
+   ],
+   "min": [
+    -0.216,
+    -0.267,
+    -0.248
+   ],
+   "max": [
+    0.236,
+    0.332,
+    0.216
+   ],
+   "tris": 2514,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.452,
+    0.598,
+    0.464
+   ]
+  },
+  {
+   "id": "sh3d-c/2DoorLowerCabinet",
+   "pack": "sh3d-c",
+   "name": "2DoorLowerCabinet",
+   "file": "assets/sh3d-c/2DoorLowerCabinet.glb",
+   "role": "kitchen.base",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "counter",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.96,
+    0.742,
+    0.742
+   ],
+   "min": [
+    -0.459,
+    -0.429,
+    -0.429
+   ],
+   "max": [
+    0.501,
+    0.313,
+    0.312
+   ],
+   "tris": 9856,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.96,
+    0.742,
+    0.742
+   ]
+  },
+  {
+   "id": "sh3d-c/2DoorUpperCabinet",
+   "pack": "sh3d-c",
+   "name": "2DoorUpperCabinet",
+   "file": "assets/sh3d-c/2DoorUpperCabinet.glb",
+   "role": "kitchen.upper",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "counter",
+    "hd",
+    "realistic",
+    "wall"
+   ],
+   "size": [
+    0.96,
+    0.598,
+    0.464
+   ],
+   "min": [
+    -0.278,
+    -0.271,
+    -0.248
+   ],
+   "max": [
+    0.682,
+    0.327,
+    0.216
+   ],
+   "tris": 5016,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.96,
+    0.598,
+    0.464
+   ]
+  },
+  {
+   "id": "sh3d-c/armchair_wing",
+   "pack": "sh3d-c",
+   "name": "armchair_wing",
+   "file": "assets/sh3d-c/armchair_wing.glb",
+   "role": "armchair",
+   "rooms": [
+    "living",
+    "bedroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.85,
+    1.12,
+    0.9
+   ],
+   "min": [
+    5.515,
+    0.0,
+    4.136
+   ],
+   "max": [
+    6.365,
+    1.12,
+    5.036
+   ],
+   "tris": 419,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.85,
+    1.12,
+    0.9
+   ]
+  },
+  {
+   "id": "sh3d-c/armoireLotus",
+   "pack": "sh3d-c",
+   "name": "armoireLotus",
+   "file": "assets/sh3d-c/armoireLotus.glb",
+   "role": "wardrobe",
+   "rooms": [
+    "bedroom",
+    "hallway"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "storage",
+    "tall"
+   ],
+   "size": [
+    1.795,
+    2.213,
+    0.675
+   ],
+   "min": [
+    -1.798,
+    -1.092,
+    -0.646
+   ],
+   "max": [
+    -0.003,
+    1.12,
+    0.03
+   ],
+   "tris": 860,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.795,
+    2.213,
+    0.675
+   ]
+  },
+  {
+   "id": "sh3d-c/bath_L",
+   "pack": "sh3d-c",
+   "name": "bath_L",
+   "file": "assets/sh3d-c/bath_L.glb",
+   "role": "bathtub",
+   "rooms": [
+    "bathroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "sanitary"
+   ],
+   "size": [
+    1.7,
+    1.86,
+    0.85
+   ],
+   "min": [
+    -0.843,
+    -0.0,
+    -0.414
+   ],
+   "max": [
+    0.857,
+    1.86,
+    0.436
+   ],
+   "tris": 194,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.7,
+    1.86,
+    0.85
+   ]
+  },
+  {
+   "id": "sh3d-c/bathtub_jet_system",
+   "pack": "sh3d-c",
+   "name": "bathtub_jet_system",
+   "file": "assets/sh3d-c/bathtub_jet_system.glb",
+   "role": "bathtub",
+   "rooms": [
+    "bathroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "sanitary"
+   ],
+   "size": [
+    1.6,
+    0.58,
+    0.7
+   ],
+   "min": [
+    0.915,
+    0.0,
+    2.676
+   ],
+   "max": [
+    2.515,
+    0.58,
+    3.376
+   ],
+   "tris": 2020,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.6,
+    0.58,
+    0.7
+   ]
+  },
+  {
+   "id": "sh3d-c/bureau3",
+   "pack": "sh3d-c",
+   "name": "bureau3",
+   "file": "assets/sh3d-c/bureau3.glb",
+   "role": "desk",
+   "rooms": [
+    "office",
+    "bedroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    1.2,
+    0.725,
+    0.59
+   ],
+   "min": [
+    -0.589,
+    -0.368,
+    -0.295
+   ],
+   "max": [
+    0.611,
+    0.357,
+    0.295
+   ],
+   "tris": 400,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.2,
+    0.725,
+    0.59
+   ]
+  },
+  {
+   "id": "sh3d-c/captainsBed",
+   "pack": "sh3d-c",
+   "name": "captainsBed",
+   "file": "assets/sh3d-c/captainsBed.glb",
+   "role": "bed.single",
+   "rooms": [
+    "bedroom"
+   ],
+   "tags": [
+    "bed",
+    "hd",
+    "kids",
+    "realistic"
+   ],
+   "size": [
+    1.317,
+    1.193,
+    2.08
+   ],
+   "min": [
+    -0.654,
+    -0.337,
+    -1.042
+   ],
+   "max": [
+    0.664,
+    0.856,
+    1.038
+   ],
+   "tris": 18346,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.317,
+    1.193,
+    2.08
+   ]
+  },
+  {
+   "id": "sh3d-c/carpet",
+   "pack": "sh3d-c",
+   "name": "carpet",
+   "file": "assets/sh3d-c/carpet.glb",
+   "role": "rug",
+   "rooms": [
+    "living",
+    "bedroom",
+    "dining"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "rug"
+   ],
+   "size": [
+    1.6,
+    0.01,
+    2.25
+   ],
+   "min": [
+    -0.799,
+    0.0,
+    -1.101
+   ],
+   "max": [
+    0.801,
+    0.01,
+    1.149
+   ],
+   "tris": 12,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.6,
+    0.01,
+    2.25
+   ]
+  },
+  {
+   "id": "sh3d-c/chaise",
+   "pack": "sh3d-c",
+   "name": "chaise",
+   "file": "assets/sh3d-c/chaise.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.38,
+    0.977,
+    0.521
+   ],
+   "min": [
+    -0.188,
+    -0.384,
+    -0.122
+   ],
+   "max": [
+    0.192,
+    0.593,
+    0.399
+   ],
+   "tris": 360,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.38,
+    0.977,
+    0.521
+   ]
+  },
+  {
+   "id": "sh3d-c/chaiseOrange",
+   "pack": "sh3d-c",
+   "name": "chaiseOrange",
+   "file": "assets/sh3d-c/chaiseOrange.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.412,
+    0.95,
+    0.467
+   ],
+   "min": [
+    -0.208,
+    -0.482,
+    -0.438
+   ],
+   "max": [
+    0.204,
+    0.468,
+    0.029
+   ],
+   "tris": 568,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.412,
+    0.95,
+    0.467
+   ]
+  },
+  {
+   "id": "sh3d-c/childBed",
+   "pack": "sh3d-c",
+   "name": "childBed",
+   "file": "assets/sh3d-c/childBed.glb",
+   "role": "bed.single",
+   "rooms": [
+    "bedroom"
+   ],
+   "tags": [
+    "bed",
+    "hd",
+    "kids",
+    "realistic"
+   ],
+   "size": [
+    1.05,
+    1.1,
+    2.1
+   ],
+   "min": [
+    -0.0,
+    -0.0,
+    -0.0
+   ],
+   "max": [
+    1.05,
+    1.1,
+    2.1
+   ],
+   "tris": 382,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.05,
+    1.1,
+    2.1
+   ]
+  },
+  {
+   "id": "sh3d-c/couchTable",
+   "pack": "sh3d-c",
+   "name": "couchTable",
+   "file": "assets/sh3d-c/couchTable.glb",
+   "role": "table.coffee",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    1.001,
+    0.44,
+    0.701
+   ],
+   "min": [
+    -0.001,
+    -0.0,
+    -0.7
+   ],
+   "max": [
+    1.0,
+    0.44,
+    0.001
+   ],
+   "tris": 656,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.001,
+    0.44,
+    0.701
+   ]
+  },
+  {
+   "id": "sh3d-c/couchTwoSeats",
+   "pack": "sh3d-c",
+   "name": "couchTwoSeats",
+   "file": "assets/sh3d-c/couchTwoSeats.glb",
+   "role": "sofa",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    1.98,
+    0.72,
+    0.906
+   ],
+   "min": [
+    -0.99,
+    -0.13,
+    -0.43
+   ],
+   "max": [
+    0.99,
+    0.59,
+    0.476
+   ],
+   "tris": 3272,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.98,
+    0.72,
+    0.906
+   ]
+  },
+  {
+   "id": "sh3d-c/deskLamp1",
+   "pack": "sh3d-c",
+   "name": "deskLamp1",
+   "file": "assets/sh3d-c/deskLamp1.glb",
+   "role": "lamp.table",
+   "rooms": [
+    "bedroom",
+    "living",
+    "office"
+   ],
+   "tags": [
+    "hd",
+    "lamp",
+    "realistic"
+   ],
+   "size": [
+    0.406,
+    0.612,
+    0.406
+   ],
+   "min": [
+    0.0,
+    0.0,
+    -0.0
+   ],
+   "max": [
+    0.406,
+    0.612,
+    0.406
+   ],
+   "tris": 3728,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.406,
+    0.612,
+    0.406
+   ]
+  },
+  {
+   "id": "sh3d-c/dishwasher",
+   "pack": "sh3d-c",
+   "name": "dishwasher",
+   "file": "assets/sh3d-c/dishwasher.glb",
+   "role": "kitchen.dishwasher",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "appliance",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.6,
+    0.623,
+    0.826
+   ],
+   "min": [
+    -0.295,
+    -0.243,
+    -0.382
+   ],
+   "max": [
+    0.305,
+    0.38,
+    0.444
+   ],
+   "tris": 334,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.6,
+    0.623,
+    0.826
+   ]
+  },
+  {
+   "id": "sh3d-c/flowers",
+   "pack": "sh3d-c",
+   "name": "flowers",
+   "file": "assets/sh3d-c/flowers.glb",
+   "role": "plant.small",
+   "rooms": [
+    "living",
+    "bedroom",
+    "kitchen",
+    "office",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "plant",
+    "realistic",
+    "small"
+   ],
+   "size": [
+    0.209,
+    0.499,
+    0.159
+   ],
+   "min": [
+    -1.159,
+    -0.17,
+    -0.712
+   ],
+   "max": [
+    -0.95,
+    0.329,
+    -0.552
+   ],
+   "tris": 4586,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.209,
+    0.499,
+    0.159
+   ]
+  },
+  {
+   "id": "sh3d-c/hangingLight",
+   "pack": "sh3d-c",
+   "name": "hangingLight",
+   "file": "assets/sh3d-c/hangingLight.glb",
+   "role": "lamp.ceiling",
+   "rooms": [
+    "living",
+    "bedroom",
+    "kitchen",
+    "hallway"
+   ],
+   "tags": [
+    "ceiling",
+    "hd",
+    "lamp",
+    "realistic"
+   ],
+   "size": [
+    0.323,
+    0.372,
+    0.323
+   ],
+   "min": [
+    0.0,
+    0.0,
+    -0.0
+   ],
+   "max": [
+    0.323,
+    0.372,
+    0.323
+   ],
+   "tris": 3080,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.323,
+    0.372,
+    0.323
+   ]
+  },
+  {
+   "id": "sh3d-c/kitchenSinkWithMarble",
+   "pack": "sh3d-c",
+   "name": "kitchenSinkWithMarble",
+   "file": "assets/sh3d-c/kitchenSinkWithMarble.glb",
+   "role": "kitchen.sink",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "counter",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.909,
+    1.209,
+    0.589
+   ],
+   "min": [
+    -0.437,
+    -0.46,
+    -0.258
+   ],
+   "max": [
+    0.472,
+    0.749,
+    0.331
+   ],
+   "tris": 47970,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.909,
+    1.209,
+    0.589
+   ]
+  },
+  {
+   "id": "sh3d-c/kleed_grieks",
+   "pack": "sh3d-c",
+   "name": "kleed_grieks",
+   "file": "assets/sh3d-c/kleed_grieks.glb",
+   "role": "rug",
+   "rooms": [
+    "living",
+    "bedroom",
+    "dining"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "rug"
+   ],
+   "size": [
+    1.7,
+    0.007,
+    1.714
+   ],
+   "min": [
+    0.15,
+    0.0,
+    0.571
+   ],
+   "max": [
+    1.85,
+    0.007,
+    2.286
+   ],
+   "tris": 36608,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.7,
+    0.007,
+    1.714
+   ]
+  },
+  {
+   "id": "sh3d-c/kommode",
+   "pack": "sh3d-c",
+   "name": "kommode",
+   "file": "assets/sh3d-c/kommode.glb",
+   "role": "dresser",
+   "rooms": [
+    "bedroom",
+    "living",
+    "hallway"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "storage"
+   ],
+   "size": [
+    0.951,
+    0.93,
+    0.419
+   ],
+   "min": [
+    -0.001,
+    0.0,
+    -0.4
+   ],
+   "max": [
+    0.95,
+    0.93,
+    0.019
+   ],
+   "tris": 148,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.951,
+    0.93,
+    0.419
+   ]
+  },
+  {
+   "id": "sh3d-c/lampeHalogene",
+   "pack": "sh3d-c",
+   "name": "lampeHalogene",
+   "file": "assets/sh3d-c/lampeHalogene.glb",
+   "role": "lamp.floor",
+   "rooms": [
+    "living",
+    "bedroom",
+    "office"
+   ],
+   "tags": [
+    "hd",
+    "lamp",
+    "realistic"
+   ],
+   "size": [
+    0.313,
+    1.801,
+    0.689
+   ],
+   "min": [
+    -0.086,
+    -1.002,
+    -0.344
+   ],
+   "max": [
+    0.227,
+    0.799,
+    0.344
+   ],
+   "tris": 228,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.313,
+    1.801,
+    0.689
+   ]
+  },
+  {
+   "id": "sh3d-c/largeCouch",
+   "pack": "sh3d-c",
+   "name": "largeCouch",
+   "file": "assets/sh3d-c/largeCouch.glb",
+   "role": "sofa",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    2.367,
+    0.75,
+    0.767
+   ],
+   "min": [
+    -1.521,
+    -0.277,
+    5.194
+   ],
+   "max": [
+    0.846,
+    0.473,
+    5.96
+   ],
+   "tris": 69744,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.367,
+    0.75,
+    0.767
+   ]
+  },
+  {
+   "id": "sh3d-c/latticeChair",
+   "pack": "sh3d-c",
+   "name": "latticeChair",
+   "file": "assets/sh3d-c/latticeChair.glb",
+   "role": "chair.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.43,
+    0.874,
+    0.423
+   ],
+   "min": [
+    -0.178,
+    -0.642,
+    -0.034
+   ],
+   "max": [
+    0.252,
+    0.231,
+    0.389
+   ],
+   "tris": 11598,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.43,
+    0.874,
+    0.423
+   ]
+  },
+  {
+   "id": "sh3d-c/lustreBoule",
+   "pack": "sh3d-c",
+   "name": "lustreBoule",
+   "file": "assets/sh3d-c/lustreBoule.glb",
+   "role": "lamp.ceiling",
+   "rooms": [
+    "living",
+    "bedroom",
+    "kitchen",
+    "hallway"
+   ],
+   "tags": [
+    "ceiling",
+    "hd",
+    "lamp",
+    "realistic"
+   ],
+   "size": [
+    0.3,
+    0.676,
+    0.3
+   ],
+   "min": [
+    -0.15,
+    -0.148,
+    -0.147
+   ],
+   "max": [
+    0.15,
+    0.528,
+    0.153
+   ],
+   "tris": 8352,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.3,
+    0.676,
+    0.3
+   ]
+  },
+  {
+   "id": "sh3d-c/meubleChevet",
+   "pack": "sh3d-c",
+   "name": "meubleChevet",
+   "file": "assets/sh3d-c/meubleChevet.glb",
+   "role": "nightstand",
+   "rooms": [
+    "bedroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "storage"
+   ],
+   "size": [
+    0.399,
+    0.54,
+    0.29
+   ],
+   "min": [
+    -0.199,
+    -0.297,
+    -0.145
+   ],
+   "max": [
+    0.2,
+    0.243,
+    0.145
+   ],
+   "tris": 144,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.399,
+    0.54,
+    0.29
+   ]
+  },
+  {
+   "id": "sh3d-c/meubleHiFiBas",
+   "pack": "sh3d-c",
+   "name": "meubleHiFiBas",
+   "file": "assets/sh3d-c/meubleHiFiBas.glb",
+   "role": "tv.console",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "storage"
+   ],
+   "size": [
+    1.038,
+    0.333,
+    0.445
+   ],
+   "min": [
+    -0.519,
+    -0.316,
+    -0.222
+   ],
+   "max": [
+    0.519,
+    0.016,
+    0.222
+   ],
+   "tris": 169,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.038,
+    0.333,
+    0.445
+   ]
+  },
+  {
+   "id": "sh3d-c/officeChair",
+   "pack": "sh3d-c",
+   "name": "officeChair",
+   "file": "assets/sh3d-c/officeChair.glb",
+   "role": "chair.desk",
+   "rooms": [
+    "office"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.626,
+    0.873,
+    0.597
+   ],
+   "min": [
+    3.46,
+    -1.226,
+    1.685
+   ],
+   "max": [
+    4.087,
+    -0.352,
+    2.282
+   ],
+   "tris": 1232,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.626,
+    0.873,
+    0.597
+   ]
+  },
+  {
+   "id": "sh3d-c/officeChair2",
+   "pack": "sh3d-c",
+   "name": "officeChair2",
+   "file": "assets/sh3d-c/officeChair2.glb",
+   "role": "chair.desk",
+   "rooms": [
+    "office"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    0.629,
+    1.015,
+    0.688
+   ],
+   "min": [
+    0.0,
+    0.0,
+    -0.0
+   ],
+   "max": [
+    0.629,
+    1.015,
+    0.688
+   ],
+   "tris": 7100,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.629,
+    1.015,
+    0.688
+   ]
+  },
+  {
+   "id": "sh3d-c/pantry",
+   "pack": "sh3d-c",
+   "name": "pantry",
+   "file": "assets/sh3d-c/pantry.glb",
+   "role": "kitchen.tall",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "storage",
+    "tall"
+   ],
+   "size": [
+    0.983,
+    1.846,
+    0.64
+   ],
+   "min": [
+    -0.567,
+    -0.732,
+    -0.193
+   ],
+   "max": [
+    0.416,
+    1.114,
+    0.446
+   ],
+   "tris": 10192,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.983,
+    1.846,
+    0.64
+   ]
+  },
+  {
+   "id": "sh3d-c/petiteCommode",
+   "pack": "sh3d-c",
+   "name": "petiteCommode",
+   "file": "assets/sh3d-c/petiteCommode.glb",
+   "role": "dresser",
+   "rooms": [
+    "bedroom",
+    "living",
+    "hallway"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "storage"
+   ],
+   "size": [
+    0.82,
+    0.829,
+    0.464
+   ],
+   "min": [
+    -0.41,
+    -0.06,
+    -0.21
+   ],
+   "max": [
+    0.41,
+    0.769,
+    0.254
+   ],
+   "tris": 14952,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.82,
+    0.829,
+    0.464
+   ]
+  },
+  {
+   "id": "sh3d-c/piano_cottura_Scene",
+   "pack": "sh3d-c",
+   "name": "piano_cottura_Scene",
+   "file": "assets/sh3d-c/piano_cottura_Scene.glb",
+   "role": "kitchen.stove",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "appliance",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.6,
+    0.842,
+    0.706
+   ],
+   "min": [
+    -0.321,
+    0.047,
+    -0.357
+   ],
+   "max": [
+    0.279,
+    0.89,
+    0.349
+   ],
+   "tris": 652,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.6,
+    0.842,
+    0.706
+   ]
+  },
+  {
+   "id": "sh3d-c/potplant2",
+   "pack": "sh3d-c",
+   "name": "potplant2",
+   "file": "assets/sh3d-c/potplant2.glb",
+   "role": "plant",
+   "rooms": [
+    "living",
+    "bedroom",
+    "hallway",
+    "office",
+    "dining"
+   ],
+   "tags": [
+    "decor",
+    "hd",
+    "plant",
+    "realistic"
+   ],
+   "size": [
+    0.967,
+    0.854,
+    0.962
+   ],
+   "min": [
+    -1.948,
+    -0.315,
+    1.439
+   ],
+   "max": [
+    -0.981,
+    0.539,
+    2.401
+   ],
+   "tris": 1515,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.967,
+    0.854,
+    0.962
+   ]
+  },
+  {
+   "id": "sh3d-c/refridgerator",
+   "pack": "sh3d-c",
+   "name": "refridgerator",
+   "file": "assets/sh3d-c/refridgerator.glb",
+   "role": "kitchen.fridge",
+   "rooms": [
+    "kitchen"
+   ],
+   "tags": [
+    "appliance",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.764,
+    1.67,
+    0.65
+   ],
+   "min": [
+    -0.339,
+    -0.297,
+    -0.059
+   ],
+   "max": [
+    0.425,
+    1.374,
+    0.591
+   ],
+   "tris": 604,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.764,
+    1.67,
+    0.65
+   ]
+  },
+  {
+   "id": "sh3d-c/roundTable",
+   "pack": "sh3d-c",
+   "name": "roundTable",
+   "file": "assets/sh3d-c/roundTable.glb",
+   "role": "table.dining",
+   "rooms": [
+    "dining",
+    "kitchen"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    0.945,
+    0.747,
+    0.936
+   ],
+   "min": [
+    -0.472,
+    -0.617,
+    -0.705
+   ],
+   "max": [
+    0.472,
+    0.13,
+    0.231
+   ],
+   "tris": 3628,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.945,
+    0.747,
+    0.936
+   ]
+  },
+  {
+   "id": "sh3d-c/shower_cabin",
+   "pack": "sh3d-c",
+   "name": "shower_cabin",
+   "file": "assets/sh3d-c/shower_cabin.glb",
+   "role": "shower",
+   "rooms": [
+    "bathroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "sanitary"
+   ],
+   "size": [
+    0.9,
+    1.99,
+    0.9
+   ],
+   "min": [
+    0.02,
+    -0.0,
+    0.012
+   ],
+   "max": [
+    0.92,
+    1.99,
+    0.912
+   ],
+   "tris": 1406,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.9,
+    1.99,
+    0.9
+   ]
+  },
+  {
+   "id": "sh3d-c/singleChair",
+   "pack": "sh3d-c",
+   "name": "singleChair",
+   "file": "assets/sh3d-c/singleChair.glb",
+   "role": "armchair",
+   "rooms": [
+    "living",
+    "bedroom"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    1.012,
+    0.75,
+    0.771
+   ],
+   "min": [
+    2.722,
+    -0.277,
+    6.471
+   ],
+   "max": [
+    3.734,
+    0.473,
+    7.242
+   ],
+   "tris": 32880,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.012,
+    0.75,
+    0.771
+   ]
+  },
+  {
+   "id": "sh3d-c/smallbookshelves",
+   "pack": "sh3d-c",
+   "name": "smallbookshelves",
+   "file": "assets/sh3d-c/smallbookshelves.glb",
+   "role": "bookcase",
+   "rooms": [
+    "living",
+    "office"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "storage"
+   ],
+   "size": [
+    0.874,
+    1.058,
+    0.335
+   ],
+   "min": [
+    -0.03,
+    -0.005,
+    -0.012
+   ],
+   "max": [
+    0.844,
+    1.054,
+    0.323
+   ],
+   "tris": 384,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.874,
+    1.058,
+    0.335
+   ]
+  },
+  {
+   "id": "sh3d-c/sofa1",
+   "pack": "sh3d-c",
+   "name": "sofa1",
+   "file": "assets/sh3d-c/sofa1.glb",
+   "role": "sofa",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    2.34,
+    0.792,
+    0.794
+   ],
+   "min": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "max": [
+    2.34,
+    0.792,
+    0.794
+   ],
+   "tris": 3070,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.34,
+    0.792,
+    0.794
+   ]
+  },
+  {
+   "id": "sh3d-c/sofa3",
+   "pack": "sh3d-c",
+   "name": "sofa3",
+   "file": "assets/sh3d-c/sofa3.glb",
+   "role": "sofa.long",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    2.859,
+    0.892,
+    1.001
+   ],
+   "min": [
+    0.0,
+    0.0,
+    -0.0
+   ],
+   "max": [
+    2.859,
+    0.892,
+    1.001
+   ],
+   "tris": 1032,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    2.859,
+    0.892,
+    1.001
+   ]
+  },
+  {
+   "id": "sh3d-c/sofa4",
+   "pack": "sh3d-c",
+   "name": "sofa4",
+   "file": "assets/sh3d-c/sofa4.glb",
+   "role": "sofa",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "seating"
+   ],
+   "size": [
+    1.85,
+    0.835,
+    0.74
+   ],
+   "min": [
+    0.0,
+    0.0,
+    -0.0
+   ],
+   "max": [
+    1.85,
+    0.835,
+    0.74
+   ],
+   "tris": 10942,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.85,
+    0.835,
+    0.74
+   ]
+  },
+  {
+   "id": "sh3d-c/tableBasse2",
+   "pack": "sh3d-c",
+   "name": "tableBasse2",
+   "file": "assets/sh3d-c/tableBasse2.glb",
+   "role": "table.coffee",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    1.125,
+    0.391,
+    0.598
+   ],
+   "min": [
+    -0.033,
+    -0.192,
+    -0.26
+   ],
+   "max": [
+    1.092,
+    0.2,
+    0.337
+   ],
+   "tris": 1572,
+   "textured": true,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    1.125,
+    0.391,
+    0.598
+   ]
+  },
+  {
+   "id": "sh3d-c/tableBasseBois",
+   "pack": "sh3d-c",
+   "name": "tableBasseBois",
+   "file": "assets/sh3d-c/tableBasseBois.glb",
+   "role": "table.coffee",
+   "rooms": [
+    "living"
+   ],
+   "tags": [
+    "hd",
+    "realistic",
+    "table"
+   ],
+   "size": [
+    0.95,
+    0.378,
+    0.5
+   ],
+   "min": [
+    -0.475,
+    -0.008,
+    -0.25
+   ],
+   "max": [
+    0.475,
+    0.37,
+    0.25
+   ],
+   "tris": 168,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.95,
+    0.378,
+    0.5
+   ]
+  },
+  {
+   "id": "sh3d-c/washer_dryer",
+   "pack": "sh3d-c",
+   "name": "washer_dryer",
+   "file": "assets/sh3d-c/washer_dryer.glb",
+   "role": "laundry.machine",
+   "rooms": [
+    "bathroom",
+    "kitchen",
+    "hallway"
+   ],
+   "tags": [
+    "appliance",
+    "hd",
+    "realistic"
+   ],
+   "size": [
+    0.595,
+    0.85,
+    0.55
+   ],
+   "min": [
+    0.002,
+    -0.0,
+    0.002
+   ],
+   "max": [
+    0.597,
+    0.85,
+    0.552
+   ],
+   "tris": 1216,
+   "textured": false,
+   "unused": false,
+   "scale": 1.0,
+   "fit_size": [
+    0.595,
+    0.85,
+    0.55
    ]
   },
   {

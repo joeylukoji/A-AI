@@ -20,32 +20,36 @@ from .plan import Item, Plan, Room, Style
 LLM = Callable[[str, str], str]
 
 STYLES: dict[str, Style] = {
-    "moderne": Style("moderne", ["modern"], "kenney-furniture", (0.93, 0.91, 0.87), (0.96, 0.95, 0.92)),
-    "scandinave": Style("scandinave", ["modern", "simple"], "kenney-furniture", (0.95, 0.94, 0.91), (0.98, 0.98, 0.96),
+    "moderne": Style("moderne", ["realistic"], "sh3d-b", (0.93, 0.91, 0.87), (0.96, 0.95, 0.92)),
+    "scandinave": Style("scandinave", ["realistic"], "sh3d-b", (0.95, 0.94, 0.91), (0.98, 0.98, 0.96),
                         floors={"living": (0.86, 0.75, 0.58), "dining": (0.86, 0.75, 0.58), "bedroom": (0.88, 0.78, 0.62),
                                 "office": (0.86, 0.76, 0.60), "hallway": (0.82, 0.72, 0.56), "kitchen": (0.90, 0.90, 0.88),
                                 "bathroom": (0.80, 0.86, 0.88), "wc": (0.80, 0.86, 0.88), "laundry": (0.86, 0.88, 0.88),
                                 "garage": (0.66, 0.66, 0.64), "storage": (0.78, 0.76, 0.72)}, accent=(0.55, 0.68, 0.70)),
-    "chaleureux": Style("chaleureux", ["cozy", "warm"], "kaykit-furniture", (0.90, 0.84, 0.74), (0.96, 0.92, 0.84),
+    "chaleureux": Style("chaleureux", ["realistic"], "sh3d-c", (0.90, 0.84, 0.74), (0.96, 0.92, 0.84),
                         floors={"living": (0.62, 0.44, 0.30), "dining": (0.62, 0.44, 0.30), "bedroom": (0.68, 0.50, 0.34),
                                 "office": (0.64, 0.46, 0.32), "hallway": (0.60, 0.43, 0.30), "kitchen": (0.82, 0.78, 0.70),
                                 "bathroom": (0.70, 0.76, 0.78), "wc": (0.70, 0.76, 0.78), "laundry": (0.78, 0.78, 0.76),
                                 "garage": (0.58, 0.58, 0.56), "storage": (0.66, 0.62, 0.56)}, accent=(0.72, 0.44, 0.28)),
-    # Pièces maîtresses détaillées (Poly Haven, textures 1k) là où le catalogue en a, packs low-poly ailleurs.
-    "premium": Style("premium", ["premium", "modern"], "polyhaven", (0.94, 0.93, 0.90), (0.97, 0.96, 0.94),
+    # Poly Haven (scans à textures 1k, CC0) d'abord, puis les autres modèles réalistes ; plus lourd que les autres styles.
+    "premium": Style("premium", ["realistic"], "polyhaven", (0.94, 0.93, 0.90), (0.97, 0.96, 0.94),
                      floors={"living": (0.70, 0.55, 0.38), "dining": (0.70, 0.55, 0.38), "bedroom": (0.74, 0.60, 0.42),
                              "office": (0.72, 0.58, 0.40), "hallway": (0.66, 0.52, 0.36), "kitchen": (0.84, 0.83, 0.80),
                              "bathroom": (0.74, 0.80, 0.83), "wc": (0.74, 0.80, 0.83), "laundry": (0.82, 0.83, 0.84),
                              "garage": (0.60, 0.60, 0.58), "storage": (0.70, 0.67, 0.62)}, accent=(0.30, 0.28, 0.26)),
-    "classique": Style("classique", ["cozy", "modern"], "kenney-furniture", (0.88, 0.85, 0.80), (0.94, 0.92, 0.88),
+    "classique": Style("classique", ["realistic"], "sh3d-c", (0.88, 0.85, 0.80), (0.94, 0.92, 0.88),
                        floors={"living": (0.55, 0.40, 0.28), "dining": (0.55, 0.40, 0.28), "bedroom": (0.60, 0.45, 0.32),
                                "office": (0.56, 0.42, 0.30), "hallway": (0.52, 0.38, 0.27), "kitchen": (0.78, 0.74, 0.68),
                                "bathroom": (0.66, 0.72, 0.74), "wc": (0.66, 0.72, 0.74), "laundry": (0.74, 0.74, 0.72),
                                "garage": (0.55, 0.55, 0.54), "storage": (0.62, 0.58, 0.52)}, accent=(0.45, 0.30, 0.22)),
 }
 
-# Styles qui embarquent des modèles détaillés et texturés (plusieurs Mo) : choisis à la demande, jamais par tirage.
-HEAVY_STYLES = {"premium"}
+# Les deux styles « jouet » (packs low-poly Kenney et KayKit) : gardés pour les maisons légères, jamais tirés au hasard.
+STYLES["lowpoly"] = replace(STYLES["moderne"], name="lowpoly", tags=["modern"], prefer_pack="kenney-furniture")
+STYLES["lowpoly-chaleureux"] = replace(STYLES["chaleureux"], name="lowpoly-chaleureux", tags=["cozy", "warm"],
+                                       prefer_pack="kaykit-furniture")
+# Styles choisis à la demande, jamais par tirage : le plus lourd (Poly Haven, plusieurs Mo de textures) et les deux low-poly.
+HEAVY_STYLES = {"premium", "lowpoly", "lowpoly-chaleureux"}
 def _shade(style: Style, floors: float = 0.80, exterior: float = 0.84, interior: float = 0.92) -> Style:
     """Les viewers web (model-viewer) éclairent fort : des teintes trop claires ressortent en aplats blancs."""
     def k(rgb, f):
@@ -211,7 +215,9 @@ SYSTEM_PROMPT = (
     '{"style": <one of the given style names>, "rooms": {<room id>: [<decor roles>]}}. '
     "Use only the given style names and decor roles, at most max_decor_per_room roles per room, never invent room ids. "
     "Pick decor that suits each room (a plant and a floor lamp in a living room, a table lamp and a picture in a bedroom). "
-    "Style 'premium' embeds detailed textured pieces and makes the file about 10 MB: pick it only if the brief explicitly asks "
-    "for a luxurious or high-quality look. "
+    "Styles moderne, scandinave, chaleureux and classique all use realistic textured models. Style 'premium' prefers the most "
+    "detailed scans and makes the file about 10 MB: pick it only if the brief explicitly asks for a luxurious or high-quality look. "
+    "Styles 'lowpoly' and 'lowpoly-chaleureux' are cartoon-like and light: pick one only if the brief asks for a simple or "
+    "light model. "
     "Do not place anything or give coordinates: a solver does that. No commentary."
 )

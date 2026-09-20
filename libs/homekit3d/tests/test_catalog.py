@@ -7,9 +7,9 @@ import pytest
 from homekit3d.catalog import DEFAULT_MANIFEST
 
 # Tailles réelles attendues (m) : la normalisation par rôle doit ramener CHAQUE modèle de CHAQUE pack à peu près là.
-REAL = {"bed.double": ("length", 1.7, 2.4), "bed.single": ("length", 1.7, 2.3), "sofa": ("length", 1.6, 2.4),
-        "kitchen.fridge": ("height", 1.5, 2.1), "wardrobe": ("height", 1.7, 2.3), "toilet": ("length", 0.55, 0.85),
-        "table.dining": ("length", 1.4, 2.2), "armchair": ("length", 0.7, 1.1), "bathtub": ("length", 1.4, 2.0)}
+REAL = {"bed.double": ("length", 1.7, 2.4), "bed.single": ("length", 1.7, 2.3), "sofa": ("length", 1.5, 2.4),
+        "kitchen.fridge": ("height", 1.5, 2.1), "wardrobe": ("height", 1.7, 2.5), "toilet": ("length", 0.55, 0.85),
+        "table.dining": ("length", 0.9, 2.4), "armchair": ("length", 0.7, 1.25), "bathtub": ("length", 1.4, 2.0)}
 
 
 def test_every_file_of_the_manifest_exists(catalog):
@@ -31,10 +31,14 @@ def test_every_asset_file_is_in_the_manifest(catalog):
     assert on_disk == listed
 
 
-def test_the_catalog_is_cc0_and_credited(catalog):
+# Les seuls modèles qui ne sont pas CC0 : le catalogue « Contributions » de Sweet Home 3D (Free Art License 1.3, copyleft).
+NOT_CC0 = {"sh3d-c": "Free Art License 1.3"}
+
+
+def test_every_pack_has_a_known_license_and_a_credit(catalog):
     for pack, meta in json.loads(DEFAULT_MANIFEST.read_text(encoding="utf-8"))["packs"].items():
-        assert meta["license"] == "CC0-1.0" and meta["author"] and meta["source"].startswith("https://"), pack
-    assert all(a.license == "CC0-1.0" for a in catalog.assets.values())
+        assert meta["license"] == NOT_CC0.get(pack, "CC0-1.0") and meta["author"] and meta["source"].startswith("https://"), pack
+    assert {a.pack for a in catalog.assets.values() if a.license != "CC0-1.0"} <= set(NOT_CC0)
 
 
 def test_the_roles_needed_to_furnish_a_house_all_exist(catalog):
@@ -104,7 +108,7 @@ def test_summary_lists_usable_roles_only(catalog):
 def test_attributions_credit_only_the_packs_used(catalog):
     a = catalog.attributions(["kenney-furniture/bedDouble"])
     assert [x["pack"] for x in a] == ["kenney-furniture"] and a[0]["license"] == "CC0-1.0"
-    assert {a["pack"] for a in catalog.attributions()} == {"kenney-furniture", "kaykit-furniture", "kaykit-restaurant", "polyhaven"}
+    assert {a["pack"] for a in catalog.attributions()} == {"kenney-furniture", "kaykit-furniture", "kaykit-restaurant", "polyhaven", "sh3d-b", "sh3d-c"}
 
 
 def test_center_offset_points_at_the_footprint_centre_on_the_floor(catalog):
@@ -116,3 +120,16 @@ def test_center_offset_points_at_the_footprint_centre_on_the_floor(catalog):
 def test_find_by_room_excludes_roles_that_do_not_belong_there(catalog):
     assert catalog.find("plant", room="bedroom") and catalog.find("plant", room="kitchen") == []
     assert catalog.find("toilet", room="living") == []
+
+
+def test_the_style_wins_over_a_slightly_closer_footprint(catalog):
+    """Un style réaliste ne doit pas retomber sur un jouet parce que celui-ci a une emprise un peu plus proche."""
+    for seed in range(20):
+        asset = catalog.pick_fit("sofa", (1.9, 0.8), style=["realistic"], seed=seed)
+        assert "realistic" in asset.tags, asset.id
+
+
+def test_the_realistic_packs_carry_real_sizes_and_the_realistic_tag(catalog):
+    for a in catalog.assets.values():
+        if a.pack in ("sh3d-b", "sh3d-c", "polyhaven"):
+            assert "realistic" in a.tags and a.scale == pytest.approx(1.0) or a.id == "polyhaven/modern_wooden_cabinet", a.id

@@ -1,9 +1,11 @@
 # homekit3d
 
 Composants 3D **réutilisables** pour construire des maisons : murs avec de vraies ouvertures, sols, portes, fenêtres,
-un catalogue de 214 meubles et objets sous licence CC0, l'ameublement automatique d'un plan vierge, et un styliste
-assisté par un LLM. Une maison de 12 pièces se construit en **moins de 5 secondes** (Blender compris) et pèse
-environ 0,5 Mo en GLB.
+un catalogue de plus de 330 meubles et objets, l'ameublement automatique d'un plan vierge, et un styliste assisté par un
+LLM. Le catalogue mêle des modèles **réalistes et texturés** (Sweet Home 3D / Blend Swap, Poly Haven), utilisés par
+défaut, et deux packs *low-poly* de style jouet (Kenney, KayKit) gardés en option et en secours. Une maison de 12 pièces
+se construit en **moins de 8 secondes** (Blender compris) ; en réaliste elle pèse de 10 à 30 Mo en GLB, le prix des
+textures (le style `lowpoly` reste à 0,5 Mo).
 
 C'est un projet à part : il ne dépend d'aucun code d'A-AI. A-AI l'utilise (voir plus bas), mais on peut le copier
 dans n'importe quel autre projet, avec ou sans lui fournir un plan A-AI.
@@ -11,7 +13,7 @@ dans n'importe quel autre projet, avec ou sans lui fournir un plan A-AI.
 ```
 libs/homekit3d/
   homekit3d/            le paquet Python
-    assets/             342 modèles GLB (4 packs CC0) + leurs licences
+    assets/             modèles GLB (6 packs) + leurs licences ; sh3d-b, sh3d-c et polyhaven sont réalistes
     catalog/manifest.json   rôle, dimensions réelles, échelle, licence de chaque modèle (généré)
     plan.py             modèle de plan + outils pour le construire
     geometry.py         murs, ouvertures, sols (Python pur, testable sans Blender)
@@ -20,7 +22,7 @@ libs/homekit3d/
     stylist.py, llm.py  style et décor : un LLM propose, un solveur dispose
     blender_scene.py    scène Blender + export GLB / OBJ
     cli.py              python -m homekit3d build plan.json maison.glb
-  tools/                génération du manifeste, planche-contact, rendu de contrôle
+  tools/                manifeste, planche-contact, rendu de contrôle, import Poly Haven et Sweet Home 3D
   examples/villa.py     une maison construite avec les seuls outils de la bibliothèque
   tests/                des tests unitaires par module et l'intégration avec un vrai Blender
 ```
@@ -61,10 +63,13 @@ dossiers usuels.
    chambranles, vantaux, poignées, vitrages (translucides) et sols (un matériau par type de pièce) suivent. La face
    intérieure et la face extérieure d'un mur reçoivent chacune leur peinture, quel que soit le sens de tracé.
 2. **Catalogue** (`catalog.py`, `tools/build_manifest.py`). Chaque modèle a un *rôle* (`bed.double`, `sofa`,
-   `kitchen.stove`…). Les packs n'ont pas la même échelle : un canapé Kenney fait 0,98 m, celui de KayKit 3,0 m. Le
-   manifeste ramène chaque rôle à une **taille réelle** (`ROLE_FIT`), après application de la hiérarchie de nœuds du
-   GLB (les modèles exportés d'Unity portent des rotations et des échelles sur leurs nœuds : les ignorer donnait des
-   toilettes tournées et réduites de moitié).
+   `kitchen.stove`…). Les packs low-poly n'ont pas la même échelle : un canapé Kenney fait 0,98 m, celui de KayKit
+   3,0 m. Le manifeste les ramène à une **taille réelle** par rôle (`ROLE_FIT`), après application de la hiérarchie de
+   nœuds du GLB (les modèles exportés d'Unity portent des rotations et des échelles sur leurs nœuds : les ignorer
+   donnait des toilettes tournées et réduites de moitié). Les packs réalistes (`real_size`) sont déjà en mètres et
+   gardent leur taille. Le choix d'un modèle applique **d'abord le style** (pack préféré, étiquette `realistic`), puis
+   choisit le plus proche de l'emprise demandée : un style réaliste ne retombe sur un jouet que pour un rôle qu'aucun
+   modèle réaliste ne couvre (portemanteau, poubelle, escalier, îlot de cuisine…).
 3. **Assemblage** (`assemble.py`). Pour chaque objet : le modèle du rôle dont l'emprise réelle ressemble le plus à
    celle demandée (tirage déterministe par graine), un facteur d'échelle borné (jamais un meuble déformé), la pose
    contre les murs. Un plan de travail de cuisine devient une **file d'éléments** qui remplit exactement sa longueur,
@@ -109,20 +114,34 @@ Un test d'intégration (`tests/test_blender.py`) échoue au-delà de 30 s.
 3. `python tools/build_manifest.py`, puis `blender -b --python tools/contact_sheet.py -- planche.png <rôles>` pour
    vérifier à l'œil l'échelle et l'orientation (la face d'un meuble regarde vers +Z glTF).
 
-`tools/fetch_polyhaven.py` télécharge des modèles depuis Poly Haven (CC0) pour compléter le catalogue avec des
-pièces plus détaillées ; ils sont plus lourds que les packs low-poly, à réserver aux pièces maîtresses.
+`tools/fetch_polyhaven.py` télécharge des modèles depuis Poly Haven (CC0). Poly Haven n'a ni lit moderne, ni cuisine,
+ni sanitaires : ceux-là viennent de Sweet Home 3D. `tools/import_sh3d.py pack.sh3f sh3d-b` convertit en GLB, à la taille
+et à l'orientation du catalogue Sweet Home 3D (dimensions et `modelRotation` du fichier `.properties`), les modèles
+listés dans `EXPLICIT["sh3d-b"]` de `build_manifest.py` : la table de rôles est aussi la sélection. Les packs viennent
+de https://github.com/YoannDev90/SweetHome3D-Packs (`Furnitures/*.sh3f`). Regarder chaque planche-contact avant de
+garder un modèle : plusieurs ont été écartés (texture cassée, style gothique, dimensions incohérentes).
+
+## Styles
+
+`moderne`, `scandinave`, `chaleureux`, `classique` : modèles réalistes (ils diffèrent par les couleurs des murs et des
+sols et par le pack préféré : `sh3d-b` ou `sh3d-c`). `premium` préfère les scans Poly Haven (le GLB dépasse 25 Mo).
+`lowpoly` et `lowpoly-chaleureux` : packs Kenney / KayKit, légers mais d'aspect jouet. Seuls les quatre premiers sont
+tirés au hasard ; les autres se demandent (`--style`, `HOMEKIT_STYLE`, ou le brief donné au LLM).
 
 ## Licences et crédits
 
-Le code de `homekit3d/` est sous licence MIT (`LICENSE`). Les modèles sont sous **CC0** : aucun crédit n'est exigé,
-mais [ATTRIBUTION.md](ATTRIBUTION.md) les cite. `Catalog.attributions(used)` liste les packs réellement utilisés par
-une maison.
+Le code de `homekit3d/` est sous licence MIT (`LICENSE`). Les modèles sont sous **CC0**, sauf le pack `sh3d-c`
+(catalogue « Contributions » de Sweet Home 3D) qui est sous **Free Art License 1.3** : citer les auteurs, et garder sous
+la même licence les œuvres qui en dérivent (copyleft). [ATTRIBUTION.md](ATTRIBUTION.md) cite tous les packs ;
+`Catalog.attributions(used)` liste ceux qu'une maison utilise réellement, avec leur licence.
 
 ## Ce que cette version ne fait pas
 
 * Des murs droits (les plans testés sont orthogonaux) ; pas de murs courbes, d'étages ni de toits.
 * L'ameublement automatique suppose des pièces rectangulaires (leur boîte englobante) ; une pièce en L est meublée
   dans sa boîte, hors des zones qui n'appartiennent pas à la pièce elle-même.
-* Les packs de base sont *low-poly* et cohérents entre eux ; seules les pièces Poly Haven du style `premium` (cinq
-  aujourd'hui : deux fauteuils, une chaise, une table basse, un buffet) sont détaillées et texturées.
+* Tous les rôles n'ont pas de modèle réaliste : portemanteau, poubelle, escalier, îlot de cuisine, bancs et la voiture du
+  garage (construite par code) restent d'aspect low-poly ou schématique. Les modèles Sweet Home 3D sont de qualité
+  inégale (certains sont peu texturés) et n'ont ni PBR ni normal maps ; seuls les scans Poly Haven en ont.
+* Le viewer web éclaire fort : les textures claires « brûlent » à `exposure="1"`, A-AI règle `0.6`.
 * Les portes sont dessinées fermées ; un utilisateur ne peut pas encore choisir un modèle de porte du catalogue.

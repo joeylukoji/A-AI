@@ -93,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--seed", type=int)
     b.add_argument("--stats")
     b.add_argument("--cutaway", type=float, metavar="M", help="coupe les murs à M mètres (aperçu où l'on voit l'intérieur ; 1,2 = plan en coupe)")
-    b.add_argument("--style", help="impose un style : moderne, scandinave, chaleureux, classique, premium (lourd, détaillé)")
+    b.add_argument("--style", help="impose un style : moderne, scandinave, chaleureux, classique (réalistes), premium (le plus détaillé, lourd), lowpoly, lowpoly-chaleureux (légers, style jouet)")
     b.add_argument("--obj", help="écrit aussi un OBJ (pour les outils qui n'acceptent pas le glTF)")
     b.add_argument("--no-ai", action="store_true", help="pas d'appel à un LLM : styliste déterministe")
     b.add_argument("--keep-furniture", action="store_true", help="ne pas ajouter ni retirer de meubles")

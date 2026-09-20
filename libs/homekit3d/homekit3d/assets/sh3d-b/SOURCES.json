@@ -1,0 +1,242 @@
+{
+ "L_shaped_sofa": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/L_shaped_sofa/L_shaped_sofa.obj",
+  "name": "Corner sofa"
+ },
+ "armchair2": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/armchair2/armchair2.obj",
+  "name": "Armchair"
+ },
+ "bed1": {
+  "category": "Bedroom",
+  "model": "/blendswap-cc-0/bed1/bed1.obj",
+  "name": "Bed"
+ },
+ "bed2": {
+  "category": "Bedroom",
+  "model": "/blendswap-cc-0/bed2/bed2.obj",
+  "name": "Bed"
+ },
+ "bed3": {
+  "category": "Bedroom",
+  "model": "/blendswap-cc-0/bed3/bed3.obj",
+  "name": "Bed"
+ },
+ "bedsideTable2": {
+  "category": "Bedroom",
+  "model": "/blendswap-cc-0/bedsideTable2/bedsideTable2.obj",
+  "name": "Bedside table"
+ },
+ "bidet": {
+  "category": "Bathroom",
+  "model": "/blendswap-cc-0/bidet/bidet.obj",
+  "name": "Bidet"
+ },
+ "bookcase": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/bookcase/bookcase.obj",
+  "name": "Bookcase"
+ },
+ "chair": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/chair/chair.obj",
+  "name": "Chair"
+ },
+ "chair2": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/chair2/chair2.obj",
+  "name": "Chair"
+ },
+ "chairWithCushion": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/chairWithCushion/chairWithCushion.obj",
+  "name": "Chair with cushion"
+ },
+ "couch": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/couch/couch.obj",
+  "name": "Couch"
+ },
+ "couch2": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/couch2/couch2.obj",
+  "name": "Couch"
+ },
+ "decorativePlant": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/decorativePlant/decorativePlant.obj",
+  "name": "Decorative plant"
+ },
+ "designChair": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/designChair/designChair.obj",
+  "name": "Chair"
+ },
+ "desk": {
+  "category": "Office",
+  "model": "/blendswap-cc-0/desk/desk.obj",
+  "name": "Desk"
+ },
+ "desklamp": {
+  "category": "Lights",
+  "model": "/blendswap-cc-0/desklamp/desklamp.obj",
+  "name": "Desk lamp"
+ },
+ "doubleOven": {
+  "category": "Kitchen",
+  "model": "/blendswap-cc-0/doubleOven/doubleOven.obj",
+  "name": "Double oven"
+ },
+ "drawersCabinet": {
+  "category": "Kitchen",
+  "model": "/blendswap-cc-0/drawersCabinet/drawersCabinet.obj",
+  "name": "Drawers cabinet"
+ },
+ "highCabinet": {
+  "category": "Kitchen",
+  "model": "/blendswap-cc-0/highCabinet/highCabinet.obj",
+  "name": "High cabinet"
+ },
+ "lamp2": {
+  "category": "Lights",
+  "model": "/blendswap-cc-0/lamp2/lamp2.obj",
+  "name": "Lamp"
+ },
+ "largeFridge": {
+  "category": "Kitchen",
+  "model": "/blendswap-cc-0/largeFridge/largeFridge.obj",
+  "name": "Large fridge"
+ },
+ "lbDesk": {
+  "category": "Office",
+  "model": "/blendswap-cc-0/lbDesk/lbDesk.obj",
+  "name": "Desk"
+ },
+ "led_tv": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/led_tv/led_tv.obj",
+  "name": "TV"
+ },
+ "littlePlant": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/littlePlant/littlePlant.obj",
+  "name": "Little plant"
+ },
+ "lowerCabinet": {
+  "category": "Kitchen",
+  "model": "/blendswap-cc-0/lowerCabinet/lowerCabinet.obj",
+  "name": "Lower cabinet"
+ },
+ "modernArmchair": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/modernArmchair/modernArmchair.obj",
+  "name": "Armchair"
+ },
+ "modernVanity": {
+  "category": "Bathroom",
+  "model": "/blendswap-cc-0/modernVanity/modernVanity.obj",
+  "name": "Vanity"
+ },
+ "oakChair": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/oakChair/oakChair.obj",
+  "name": "Oak chair"
+ },
+ "oakTable": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/oakTable/oakTable.obj",
+  "name": "Oak table"
+ },
+ "orchids": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/orchids/orchids.obj",
+  "name": "Orchids"
+ },
+ "plant": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/plant/plant.obj",
+  "name": "Plant"
+ },
+ "refrigerator": {
+  "category": "Kitchen",
+  "model": "/blendswap-cc-0/refrigerator/refrigerator.obj",
+  "name": "Refrigerator"
+ },
+ "showerStall": {
+  "category": "Bathroom",
+  "model": "/blendswap-cc-0/showerStall/showerStall.obj",
+  "name": "Shower stall"
+ },
+ "sillaBlanca": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/sillaBlanca/sillaBlanca.obj",
+  "name": "Chair"
+ },
+ "sinkCabinet2": {
+  "category": "Kitchen",
+  "model": "/blendswap-cc-0/sinkCabinet2/sinkCabinet2.obj",
+  "name": "Sink cabinet"
+ },
+ "sofa": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/sofa/sofa.obj",
+  "name": "Corner sofa"
+ },
+ "sofa2": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/sofa2/sofa2.obj",
+  "name": "Sofa"
+ },
+ "stool": {
+  "category": "Kitchen",
+  "model": "/blendswap-cc-0/stool/stool.obj",
+  "name": "Stool"
+ },
+ "table": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/table/table.obj",
+  "name": "Table"
+ },
+ "thonet": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/thonet/thonet.obj",
+  "name": "Chair"
+ },
+ "toiletsUnit": {
+  "category": "Bathroom",
+  "model": "/blendswap-cc-0/toiletsUnit/toiletsUnit.obj",
+  "name": "Toilet unit"
+ },
+ "upperCabinet": {
+  "category": "Kitchen",
+  "model": "/blendswap-cc-0/upperCabinet/upperCabinet.obj",
+  "name": "Upper cabinet"
+ },
+ "wallLight": {
+  "category": "Lights",
+  "model": "/blendswap-cc-0/wallLight/wallLight.obj",
+  "name": "Wall light"
+ },
+ "wardrobeWithSlidingDoors": {
+  "category": "Bedroom",
+  "model": "/blendswap-cc-0/wardrobeWithSlidingDoors/wardrobeWithSlidingDoors.obj",
+  "name": "Wardrobe"
+ },
+ "washbasin": {
+  "category": "Bathroom",
+  "model": "/blendswap-cc-0/washbasin/washbasin.obj",
+  "name": "Washbasin"
+ },
+ "winchesterArmchair": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/winchesterArmchair/winchesterArmchair.obj",
+  "name": "Winchester armchair"
+ },
+ "winchesterSofa": {
+  "category": "Living room",
+  "model": "/blendswap-cc-0/winchesterSofa/winchesterSofa.obj",
+  "name": "Winchester sofa"
+ }
+}

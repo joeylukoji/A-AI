@@ -102,7 +102,7 @@ def test_a_valid_llm_answer_is_used(catalog, blank):
     living, bedroom = blank.rooms[0].id, blank.rooms[1].id
     llm = fake_llm({"style": "chaleureux", "rooms": {living: ["plant", "lamp.floor"], bedroom: ["lamp.table"]}})
     report = Stylist(catalog, llm).style(blank, brief="maison chaleureuse")
-    assert report["ai"] is True and report["style"] == "chaleureux" and blank.style.prefer_pack == "kaykit-furniture"
+    assert report["ai"] is True and report["style"] == "chaleureux" and blank.style.prefer_pack == "sh3d-c"
     assert set(report["decor"][living]) <= {"plant", "lamp.floor"}                   # rien d'autre que ce que le LLM a demandé
     assert report["decor"][bedroom] in (["lamp.table"], [])                           # posée si un chevet existe
     assert "maison chaleureuse" in llm.calls[0][1] and llm.calls[0][0].startswith("You are an interior design assistant")
@@ -203,7 +203,7 @@ def test_the_heavy_style_is_never_drawn_by_chance(catalog, blank):
         plan = Plan.from_dict(blank.to_dict())
         plan.seed = seed
         styles.add(Stylist(catalog).style(plan)["style"])
-    assert "premium" not in styles and len(styles) >= 3
+    assert not styles & {"premium", "lowpoly", "lowpoly-chaleureux"} and len(styles) >= 3
 
 
 def test_a_style_can_be_imposed_even_over_the_llm_and_uses_the_detailed_models(catalog, blank):
@@ -222,3 +222,24 @@ def test_the_llm_may_choose_the_heavy_style_and_is_warned_about_its_weight(catal
     assert Stylist(catalog, llm).style(blank)["style"] == "premium"
     assert "10 MB" in llm.calls[0][0]
 
+
+
+# --- réalisme par défaut ------------------------------------------------------------------------------
+REALISTIC_PACKS = {"sh3d-b", "sh3d-c", "polyhaven"}
+
+
+def test_the_default_styles_furnish_with_realistic_models_not_toys(catalog, blank):
+    for seed in range(12):
+        plan = Plan.from_dict(blank.to_dict())
+        plan.seed = seed
+        Stylist(catalog).style(plan)
+        packs = {catalog.get(i.asset).pack for i in plan.items if i.asset}
+        assert packs and packs <= REALISTIC_PACKS | {"kenney-furniture", "kaykit-furniture", "kaykit-restaurant"}
+        bulky = {catalog.get(i.asset).pack for i in plan.items if i.asset and i.role in ("bed.double", "sofa", "wardrobe")}
+        assert bulky <= REALISTIC_PACKS, (seed, bulky)
+
+
+def test_the_low_poly_styles_stay_available_on_request(catalog, blank):
+    report = Stylist(catalog).style(blank, style="lowpoly")
+    assert report["style"] == "lowpoly"
+    assert {catalog.get(i.asset).pack for i in blank.items if i.asset and i.role in ("bed.double", "sofa")} <= {"kenney-furniture"}
