@@ -78,7 +78,7 @@ def vectorize(payload: dict[str, Any]) -> dict[str, Any]:
             for r in rooms
         ],
         "openings": openings,
-        "furniture": furnish(rooms),
+        "furniture": furnish(rooms, openings, walls),
     }
     program = _program(spec)
     if program:

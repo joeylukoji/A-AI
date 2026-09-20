@@ -138,46 +138,46 @@ window.PlanStyle = (() => {
   function drawSofa(ctx, w, d, lshape) {
     const chaise = lshape ? 0.72 : 0;
     ovalShadow(ctx, w, d + chaise);
-    const fabric = '#5a5e66';
-    const dark = '#3a3e44';
-    const seat = '#6a6e76';
+    const fabric = '#a89f92';
+    const dark = '#8a8174';
+    const seat = '#c4bcaf';
     roundRect(ctx, -w / 2, -d / 2, w, d + chaise, 0.12);
-    paint(ctx, fabric, '#2a2e34', 0.022);
+    paint(ctx, fabric, '#6f6b64', 0.022);
     roundRect(ctx, -w / 2, -d / 2, w, 0.2, 0.07);
-    paint(ctx, dark, '#24282c', 0.014);
+    paint(ctx, dark, '#6f6b64', 0.014);
     roundRect(ctx, -w / 2, -d / 2, 0.18, d, 0.07);
-    paint(ctx, dark, '#24282c', 0.014);
+    paint(ctx, dark, '#6f6b64', 0.014);
     roundRect(ctx, w / 2 - 0.18, -d / 2, 0.18, d + chaise, 0.07);
-    paint(ctx, dark, '#24282c', 0.014);
+    paint(ctx, dark, '#6f6b64', 0.014);
     const seats = lshape ? 3 : 2;
     const innerW = w - 0.4;
     const seatH = d - 0.32;
     for (let i = 0; i < seats; i++) {
       const cw = innerW / seats - 0.04;
-      drawCushion(ctx, -w / 2 + 0.22 + i * (innerW / seats), -d / 2 + 0.24, cw, seatH, seat, '#3e4248');
+      drawCushion(ctx, -w / 2 + 0.22 + i * (innerW / seats), -d / 2 + 0.24, cw, seatH, seat, '#8f8a80');
     }
     if (lshape) {
       roundRect(ctx, w / 2 - 1.02, -d / 2, 1.02, d + chaise, 0.12);
-      paint(ctx, fabric, '#2a2e34', 0.022);
+      paint(ctx, fabric, '#6f6b64', 0.022);
       roundRect(ctx, w / 2 - 0.18, -d / 2, 0.18, d + chaise, 0.07);
-      paint(ctx, dark, '#24282c', 0.014);
-      drawCushion(ctx, w / 2 - 0.92, d / 2 - 0.06, 0.7, chaise - 0.08, seat, '#3e4248');
+      paint(ctx, dark, '#6f6b64', 0.014);
+      drawCushion(ctx, w / 2 - 0.92, d / 2 - 0.06, 0.7, chaise - 0.08, seat, '#8f8a80');
     }
   }
 
   function drawArmchair(ctx, w, d) {
     ovalShadow(ctx, w, d);
     roundRect(ctx, -w / 2, -d / 2, w, d, 0.14);
-    paint(ctx, '#6e4a30', '#3a2414', 0.02);
+    paint(ctx, '#b39d84', '#6f6b64', 0.02);
     roundRect(ctx, -w / 2, -d / 2, w, 0.16, 0.06);
-    paint(ctx, '#54361c', '#3a2414', 0.014);
+    paint(ctx, '#9a8468', '#6f6b64', 0.014);
     roundRect(ctx, -w / 2, -d / 2, 0.12, d, 0.05);
-    paint(ctx, '#54361c', '#3a2414', 0.012);
+    paint(ctx, '#9a8468', '#6f6b64', 0.012);
     roundRect(ctx, w / 2 - 0.12, -d / 2, 0.12, d, 0.05);
-    paint(ctx, '#54361c', '#3a2414', 0.012);
+    paint(ctx, '#9a8468', '#6f6b64', 0.012);
     ctx.beginPath();
     ctx.ellipse(0, 0.06, w * 0.3, d * 0.24, 0, 0, Math.PI * 2);
-    paint(ctx, '#8a6040', '#4a301c', 0.012);
+    paint(ctx, '#c2ae96', '#6f6b64', 0.012);
     sheen(ctx, -0.06, -0.02, w * 0.12, d * 0.08, -0.4);
   }
 

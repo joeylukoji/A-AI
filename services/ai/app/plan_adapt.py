@@ -259,7 +259,7 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
         "openings": openings,
         # Le mobilier suit les polygones repackés : le 3D (Blender) et le 2D
         # utilisent exactement les mêmes instances catalog_id/position/rotation.
-        "furniture": furnish(packed),
+        "furniture": furnish(packed, openings, walls),
     }
     if program:
         doc["program"] = program
