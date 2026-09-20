@@ -2998,6 +2998,7 @@ def perimeter_and_internal_walls(rooms: list[dict[str, Any]], width: float, dept
         {"id": "w_outer_3", "a": {"x": width, "y": depth}, "b": {"x": 0, "y": depth}, "thickness_m": 0.2},
         {"id": "w_outer_4", "a": {"x": 0, "y": depth}, "b": {"x": 0, "y": 0}, "thickness_m": 0.2},
     ]
+    open_edges = _hallway_only_edges(rooms)
     seen: set[tuple[float, float, float, float]] = set()
     wid = 1
     for room in rooms:
@@ -3012,6 +3013,8 @@ def perimeter_and_internal_walls(rooms: list[dict[str, Any]], width: float, dept
             if key in seen:
                 continue
             seen.add(key)
+            if key in open_edges:
+                continue                      # deux segments d'un même couloir : pas de mur entre eux
             walls.append({
                 "id": f"w_i{wid}",
                 "a": {"x": key[0], "y": key[1]},
@@ -3020,6 +3023,27 @@ def perimeter_and_internal_walls(rooms: list[dict[str, Any]], width: float, dept
             })
             wid += 1
     return walls
+
+
+def _hallway_only_edges(rooms: list[dict[str, Any]]) -> set[tuple[float, float, float, float]]:
+    """Arêtes que se partagent des segments de couloir et rien d'autre.
+
+    Le packer découpe un couloir en plusieurs rectangles ; un mur entre deux d'entre eux ne
+    sépare rien, et sans porte il scellerait le couloir en morceaux.
+    """
+    hall: dict[tuple[float, float, float, float], int] = {}
+    other: set[tuple[float, float, float, float]] = set()
+    for room in rooms:
+        poly = room.get("polygon") or [] if isinstance(room, dict) else []
+        if len(poly) < 3:
+            continue
+        for i in range(len(poly)):
+            key = _edge_key(poly[i], poly[(i + 1) % len(poly)])
+            if room.get("type") == "hallway":
+                hall[key] = hall.get(key, 0) + 1
+            else:
+                other.add(key)
+    return {key for key, n in hall.items() if n >= 2 and key not in other}
 
 
 def _edge_key(a: dict[str, float], b: dict[str, float]) -> tuple[float, float, float, float]:

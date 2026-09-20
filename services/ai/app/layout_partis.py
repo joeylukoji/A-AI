@@ -493,6 +493,13 @@ def door_issues(rooms: list[Room], width: float, depth: float) -> set[str]:
             a, b = served
             links[id(a)].add(id(b))
             links[id(b)].add(id(a))
+    # Deux segments de couloir voisins n'ont pas de mur entre eux : ils sont reliés sans porte.
+    halls = [r for r in rooms if r["type"] == "hallway"]
+    for i, a in enumerate(halls):
+        for b in halls[i + 1:]:
+            if _shared_wall(a, b) > MIN_WC_WALL:
+                links[id(a)].add(id(b))
+                links[id(b)].add(id(a))
     reached = {id(r) for r in entrance}
     frontier = list(reached)
     while frontier:
