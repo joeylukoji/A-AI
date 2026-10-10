@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app import together_image  # noqa: E402
@@ -59,39 +61,25 @@ def test_backend_disabled_without_key(monkeypatch):
 
 
 def test_backend_respects_image_backend_override(monkeypatch):
-    monkeypatch.setenv("TOGETHER_API_KEY", "dummy")
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
     monkeypatch.setenv("IMAGE_BACKEND", "procedural")
     assert together_image.available() is False
     monkeypatch.setenv("IMAGE_BACKEND", "together")
     assert together_image.available() is True
 
 
-def test_model_name_default(monkeypatch):
-    monkeypatch.delenv("TOGETHER_IMAGE_MODEL", raising=False)
-    assert together_image.model_name() == "black-forest-labs/FLUX.2-max"
-
-
-def test_generate_sends_sweet_home_as_data_uri(monkeypatch):
+def test_together_key_alone_does_not_draw_images(monkeypatch):
     monkeypatch.setenv("TOGETHER_API_KEY", "dummy")
     monkeypatch.setenv("IMAGE_BACKEND", "together")
     monkeypatch.delenv("EDENAI_API_KEY", raising=False)
     monkeypatch.delenv("EDEN_API_KEY", raising=False)
-    captured: dict = {}
+    assert together_image.available() is False
+    assert together_image.generate_floorplan_image("plan", reference_png_b64="YWJj") is None
 
-    def fake_sdk(payload):
-        captured["p"] = payload
-        return None
 
-    def fake_rest(_key, payload):
-        captured["p"] = payload
-        return TINY_PNG_B64
-
-    monkeypatch.setattr(together_image, "_via_sdk", fake_sdk)
-    monkeypatch.setattr(together_image, "_via_rest", fake_rest)
-    out = together_image.generate_floorplan_image("plan", reference_png_b64="YWJj")
-    assert out
-    uri = (captured.get("p") or {}).get("image_url") or ""
-    assert uri.startswith("data:image/jpeg;base64,YWJj")
+def test_model_name_default(monkeypatch):
+    monkeypatch.delenv("EDENAI_IMAGE_MODEL", raising=False)
+    assert together_image.model_name() == "image/generation/google/gemini-3-pro-image-preview"
 
 
 def test_available_with_eden_key_only(monkeypatch):
@@ -392,8 +380,9 @@ def test_generate_image_false_skips_png(monkeypatch):
 
 def test_render_preview_sends_brief_straight_to_flux(monkeypatch):
     monkeypatch.setenv("TOGETHER_API_KEY", "dummy")
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
     monkeypatch.setenv("IMAGE_BACKEND", "together")
-    monkeypatch.setenv("IMAGE_RENDERER", "flux")
+    monkeypatch.setenv("IMAGE_RENDERER", "gemini")
     monkeypatch.setenv("TOGETHER_PLANNER", "0")
     captured: dict = {}
 
@@ -412,7 +401,7 @@ def test_render_preview_sends_brief_straight_to_flux(monkeypatch):
     assert "Sweet Home" in (captured.get("prompt") or "")
     assert "NO TEXT" in (captured.get("prompt") or "")
     assert "Invent a NEW" not in (captured.get("prompt") or "")
-    assert method.startswith("flux2-max")
+    assert method.startswith("gemini-3-pro-image")
     assert b64 == "ZmFrZXBpbmc="
 
 
@@ -505,8 +494,9 @@ def test_flux_uses_gpt_oss_furniture_inventory(monkeypatch):
     import json
 
     monkeypatch.setenv("TOGETHER_API_KEY", "dummy")
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
     monkeypatch.setenv("IMAGE_BACKEND", "together")
-    monkeypatch.setenv("IMAGE_RENDERER", "flux")
+    monkeypatch.setenv("IMAGE_RENDERER", "gemini")
     monkeypatch.delenv("TOGETHER_PLANNER", raising=False)
     captured: dict = {}
 
@@ -533,7 +523,7 @@ def test_flux_uses_gpt_oss_furniture_inventory(monkeypatch):
     assert "L-sofa" in (captured.get("prompt") or "")
     assert "U-shaped counters" in (captured.get("prompt") or "")
     assert "LAYOUT TO FOLLOW" in (captured.get("prompt") or "")
-    assert method.startswith("flux2-max")
+    assert method.startswith("gemini-3-pro-image")
     assert b64 == "ZmFrZXBpbmc="
 
 
@@ -555,8 +545,9 @@ def test_flux_prompt_includes_repair_notes():
 
 def test_flux_draws_once_from_layout_guide(monkeypatch):
     monkeypatch.setenv("TOGETHER_API_KEY", "dummy")
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
     monkeypatch.setenv("IMAGE_BACKEND", "together")
-    monkeypatch.setenv("IMAGE_RENDERER", "flux")
+    monkeypatch.setenv("IMAGE_RENDERER", "gemini")
     captured: dict = {"flux": 0, "prompts": []}
     steps: list[str] = []
     spec = parse_brief("Maison 2 chambres avec cuisine", {})
@@ -583,15 +574,16 @@ def test_flux_draws_once_from_layout_guide(monkeypatch):
     assert "LAYOUT TO FOLLOW" in captured["prompts"][0]
     assert "never copy them into the kitchen" in captured["prompts"][0]
     assert str(captured.get("ref") or "").startswith("data:image/jpeg;base64,")
-    assert steps == ["flux"]
-    assert method == "flux2-max"
+    assert steps == ["gemini"]
+    assert method == "gemini-3-pro-image"
     assert b64 == "ZmFrZXBpbmc="
 
 
 def test_flux_keeps_drawing_without_furniture_llm(monkeypatch):
     monkeypatch.setenv("TOGETHER_API_KEY", "dummy")
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
     monkeypatch.setenv("IMAGE_BACKEND", "together")
-    monkeypatch.setenv("IMAGE_RENDERER", "flux")
+    monkeypatch.setenv("IMAGE_RENDERER", "gemini")
     calls = {"flux": 0}
 
     def fake_chat(_messages, **_kwargs):
@@ -607,7 +599,7 @@ def test_flux_keeps_drawing_without_furniture_llm(monkeypatch):
     b64, method = generate_flux_plan(spec.get("brief") or "", {}, spec)
     assert calls["flux"] == 1
     assert b64 == "ZmFrZXBpbmc="
-    assert method == "flux2-max"
+    assert method == "gemini-3-pro-image"
 
 
 def test_merge_llm_program_drops_invented_rooms():
@@ -796,17 +788,20 @@ def test_edit_plan_keeps_png_without_flux(monkeypatch):
         plan_document={"rooms": [{"type": "kitchen"}]},
         image_png_b64="ZmFrZXBpbmc=",
     )
-    assert out["image_png_b64"] == "ZmFrZXBpbmc="
+    assert out["method"] == "edit-clarify"
+    assert out["edit_status"] == "clarification_required"
+    assert out["image_png_b64"]
     assert out["reply_fr"]
     assert out["plan_document"]["rooms"]
 
 
-def test_edit_plan_redraws_from_current_image(monkeypatch):
+def test_edit_plan_does_not_change_only_the_current_image(monkeypatch):
     import json
 
     monkeypatch.setenv("TOGETHER_API_KEY", "dummy")
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
     monkeypatch.setenv("IMAGE_BACKEND", "together")
-    monkeypatch.setenv("IMAGE_RENDERER", "flux")
+    monkeypatch.setenv("IMAGE_RENDERER", "gemini")
     spec = parse_brief("Maison 2 chambres avec cuisine", {})
     png = _tiny_png_b64()
     captured: dict = {}
@@ -819,10 +814,8 @@ def test_edit_plan_redraws_from_current_image(monkeypatch):
             "rooms": None,
         })
 
-    def fake_flux(prompt, width_m=12.0, depth_m=10.0, reference_png_b64=None):
-        captured["prompt"] = prompt
-        captured["ref"] = reference_png_b64
-        return png
+    def fake_flux(*_args, **_kwargs):
+        pytest.fail("an image-only edit must not be generated")
 
     monkeypatch.setattr("app.together_image.chat_completion", fake_chat)
     monkeypatch.setattr("app.together_image.generate_floorplan_image", fake_flux)
@@ -833,12 +826,11 @@ def test_edit_plan_redraws_from_current_image(monkeypatch):
         image_png_b64=png,
     )
     assert captured.get("chat")
-    assert "CURRENT" in (captured.get("prompt") or "")
-    assert "kitchen island" in (captured.get("prompt") or "")
-    assert captured.get("ref")
-    assert out["reply_fr"].startswith("J'ajoute")
+    assert out["clarify"]
+    assert out["edit_status"] == "clarification_required"
+    assert out["reply_fr"].startswith("Pour modifier le plan")
     assert out["image_png_b64"] == png
-    assert "+edit" in out["method"]
+    assert out["method"] == "edit-clarify"
 
 
 def test_edit_plan_vague_room_keeps_png(monkeypatch):
@@ -853,7 +845,7 @@ def test_edit_plan_vague_room_keeps_png(monkeypatch):
         image_png_b64="ZmFrZXBpbmc=",
     )
     assert out["clarify"]
-    assert out["image_png_b64"] == "ZmFrZXBpbmc="
+    assert out["image_png_b64"]
     assert _program_counts(out["building_spec"]).get("garage") == 1
 
 
@@ -875,12 +867,13 @@ def test_edit_plan_removes_garage_without_flux(monkeypatch):
     assert all(str(r.get("type") or "") != "garage" for r in rooms)
 
 
-def test_edit_plan_remove_room_redraws_layout(monkeypatch):
+def test_edit_plan_room_change_renders_the_updated_document_locally(monkeypatch):
     import json
 
     monkeypatch.setenv("TOGETHER_API_KEY", "dummy")
+    monkeypatch.setenv("EDENAI_API_KEY", "dummy")
     monkeypatch.setenv("IMAGE_BACKEND", "together")
-    monkeypatch.setenv("IMAGE_RENDERER", "flux")
+    monkeypatch.setenv("IMAGE_RENDERER", "gemini")
     monkeypatch.setenv("TOGETHER_NLU", "0")
     spec = parse_brief("Maison 2 chambres avec garage", {})
     assert _program_counts(spec).get("garage") == 1
@@ -896,7 +889,7 @@ def test_edit_plan_remove_room_redraws_layout(monkeypatch):
 
     def fake_flux(prompt, width_m=12.0, depth_m=10.0, reference_png_b64=None):
         captured["prompt"] = prompt
-        return png
+        pytest.fail("room geometry must come from the validated PlanDocument")
 
     monkeypatch.setattr("app.together_image.chat_completion", fake_chat)
     monkeypatch.setattr("app.together_image.generate_floorplan_image", fake_flux)
@@ -904,14 +897,53 @@ def test_edit_plan_remove_room_redraws_layout(monkeypatch):
         "retire le garage",
         brief="Maison 2 chambres avec garage",
         spec=spec,
+        plan_document=_plan_document_for_edit_test(),
         image_png_b64=png,
     )
     assert "garage" not in _program_counts(out["building_spec"])
-    assert "CURRENT" not in (captured.get("prompt") or "")
-    assert "LAYOUT TO FOLLOW" in (captured.get("prompt") or "")
     assert not out.get("clarify")
-    assert out["image_png_b64"] == png
-    assert "+edit" in out["method"]
+    assert out["image_png_b64"] != png
+    assert out["method"] == "procedural+edit"
+    assert out["edit_status"] == "applied"
+    assert not captured
+
+
+def _plan_document_for_edit_test():
+    """Return a minimal valid room layout for edit-pipeline integration tests."""
+    return {
+        "version": "1.0",
+        "units": "m",
+        "floor": {"bounds": {"width": 8, "depth": 6}},
+        "rooms": [
+            {
+                "id": "living-1",
+                "type": "living",
+                "polygon": [
+                    {"x": 0, "y": 0},
+                    {"x": 5, "y": 0},
+                    {"x": 5, "y": 6},
+                    {"x": 0, "y": 6},
+                ],
+            },
+            {
+                "id": "garage-1",
+                "type": "garage",
+                "polygon": [
+                    {"x": 5, "y": 0},
+                    {"x": 8, "y": 0},
+                    {"x": 8, "y": 3},
+                    {"x": 5, "y": 3},
+                ],
+            },
+        ],
+        "walls": [
+            {"id": "w1", "a": {"x": 0, "y": 0}, "b": {"x": 8, "y": 0}, "thickness_m": 0.15},
+            {"id": "w2", "a": {"x": 8, "y": 0}, "b": {"x": 8, "y": 6}, "thickness_m": 0.15},
+            {"id": "w3", "a": {"x": 8, "y": 6}, "b": {"x": 0, "y": 6}, "thickness_m": 0.15},
+            {"id": "w4", "a": {"x": 0, "y": 6}, "b": {"x": 0, "y": 0}, "thickness_m": 0.15},
+        ],
+        "openings": [],
+    }
 
 
 # --- SSRF : téléchargement d'images pointées par une réponse externe ---------

@@ -49,8 +49,8 @@ BULKY = frozenset({"sofa.2seat", "sofa.lshape", "table.dining"})
 def door_zones(openings: list[dict[str, Any]] | None, walls: list[dict[str, Any]] | None) -> list[Zone]:
     """Carrés de débattement des portes (x0, y0, x1, y1) : rien de facultatif ne doit s'y trouver.
 
-    Le battant tourne autour de la charnière (début de l'ouverture sur le mur) et balaie un quart
-    de disque du côté de la normale (-uy, ux) : c'est le sens dessiné par l'éditeur. La zone est le
+    Le battant tourne autour de la charnière déclarée et balaie un quart de disque du côté de la
+    normale positive ou négative : c'est le sens dessiné par l'éditeur. La zone est le
     carré qui contient ce quart de disque. Les portes de garage (plus larges que `MAX_LEAF`) n'ont
     pas de battant : elles ne réservent rien. Le passage de l'autre côté est dans `door_passages`.
     """
@@ -73,9 +73,18 @@ def door_zones(openings: list[dict[str, Any]] | None, walls: list[dict[str, Any]
         p0 = (ax + ux * offset, ay + uy * offset)
         p1 = (p0[0] + ux * width, p0[1] + uy * width)
         r = width + 0.05
-        nx, ny = -uy, ux
-        corners = [p0, (p0[0] + ux * r, p0[1] + uy * r), (p0[0] + nx * r, p0[1] + ny * r),
-                   (p0[0] + (ux + nx) * r, p0[1] + (uy + ny) * r)]
+        hinge_at_end = op.get("hinge") == "end"
+        hinge = p1 if hinge_at_end else p0
+        tangent_sign = -1 if hinge_at_end else 1
+        swing_sign = -1 if op.get("swing") == "negative" else 1
+        tx, ty = ux * tangent_sign, uy * tangent_sign
+        nx, ny = -uy * swing_sign, ux * swing_sign
+        corners = [
+            hinge,
+            (hinge[0] + tx * r, hinge[1] + ty * r),
+            (hinge[0] + nx * r, hinge[1] + ny * r),
+            (hinge[0] + (tx + nx) * r, hinge[1] + (ty + ny) * r),
+        ]
         xs, ys = [c[0] for c in corners], [c[1] for c in corners]
         zones.append((min(xs), min(ys), max(xs), max(ys)))
     return zones
@@ -101,7 +110,13 @@ def door_passages(openings: list[dict[str, Any]] | None, walls: list[dict[str, A
         ux, uy = (bx - ax) / length, (by - ay) / length
         p0 = (ax + ux * offset, ay + uy * offset)
         p1 = (p0[0] + ux * width, p0[1] + uy * width)
-        back = [p0, p1, (p0[0] + uy * PASSAGE, p0[1] - ux * PASSAGE), (p1[0] + uy * PASSAGE, p1[1] - ux * PASSAGE)]
+        swing_sign = -1 if op.get("swing") == "negative" else 1
+        back = [
+            p0,
+            p1,
+            (p0[0] + uy * PASSAGE * swing_sign, p0[1] - ux * PASSAGE * swing_sign),
+            (p1[0] + uy * PASSAGE * swing_sign, p1[1] - ux * PASSAGE * swing_sign),
+        ]
         out.append((min(c[0] for c in back), min(c[1] for c in back), max(c[0] for c in back), max(c[1] for c in back)))
     return out
 

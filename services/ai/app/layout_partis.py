@@ -419,8 +419,10 @@ def realizations(
 
 def compliance_failures(rooms: list[Room], width: float, depth: float) -> set[str]:
     """Clés des contrôles de `compliance` qui échouent sur ce plan (murs et portes générés)."""
+    from app.plan_openings import default_openings
+    from app.plan_walls import perimeter_and_internal_walls
+
     from . import compliance
-    from .diffusion import default_openings, perimeter_and_internal_walls
 
     walls = perimeter_and_internal_walls(rooms, width, depth)
     openings = default_openings(walls, width, depth, rooms)
@@ -464,7 +466,8 @@ def door_issues(rooms: list[Room], width: float, depth: float) -> set[str]:
     C'est un contrôle de circulation, que `compliance` ne fait pas : elle ne
     regarde que les murs communs, jamais les portes.
     """
-    from .diffusion import _served_rooms, default_openings, perimeter_and_internal_walls
+    from app.plan_openings import _served_rooms, default_openings
+    from app.plan_walls import perimeter_and_internal_walls
 
     walls = perimeter_and_internal_walls(rooms, width, depth)
     openings = default_openings(walls, width, depth, rooms)

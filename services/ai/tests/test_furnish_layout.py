@@ -74,6 +74,39 @@ def test_the_passage_is_on_the_side_the_door_does_not_open_to():
     assert passage == [pytest.approx((2.0, -fu.PASSAGE, 2.9, 0.0))]
 
 
+@pytest.mark.parametrize(
+    "hinge,swing,expected",
+    [
+        ("start", "positive", (2.0, 0.0, 2.95, 0.95)),
+        ("end", "positive", (1.95, 0.0, 2.9, 0.95)),
+        ("start", "negative", (2.0, -0.95, 2.95, 0.0)),
+        ("end", "negative", (1.95, -0.95, 2.9, 0.0)),
+    ],
+)
+def test_explicit_door_semantics_control_the_reserved_swing_square(hinge, swing, expected):
+    door = {**_door("w", 2.0), "hinge": hinge, "swing": swing}
+    assert door_zones([door], [_wall("w", 0, 0, 10, 0)]) == [pytest.approx(expected)]
+
+
+def test_explicit_swing_moves_the_passage_to_the_opposite_side():
+    door = {**_door("w", 2.0), "hinge": "end", "swing": "negative"}
+    passage = door_passages([door], [_wall("w", 0, 0, 10, 0)])
+    assert passage == [pytest.approx((2.0, 0.0, 2.9, fu.PASSAGE))]
+
+
+@pytest.mark.parametrize(
+    "wall,expected_zone,expected_passage",
+    [
+        (_wall("w", 0, 0, 0, 10), (-0.95, 2.0, 0.0, 2.95), (0.0, 2.0, fu.PASSAGE, 2.9)),
+        (_wall("w", 10, 0, 0, 0), (7.05, -0.95, 8.0, 0.0), (7.1, 0.0, 8.0, fu.PASSAGE)),
+    ],
+)
+def test_explicit_semantics_follow_vertical_and_reversed_walls(wall, expected_zone, expected_passage):
+    door = {**_door("w", 2.0), "hinge": "start", "swing": "positive"}
+    assert door_zones([door], [wall]) == [pytest.approx(expected_zone)]
+    assert door_passages([door], [wall]) == [pytest.approx(expected_passage)]
+
+
 # --- Lits et armoires -----------------------------------------------------------------------
 
 def _bedroom_items(w, h, **kw):

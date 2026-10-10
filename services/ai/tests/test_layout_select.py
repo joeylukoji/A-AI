@@ -363,14 +363,68 @@ def test_adapt_falls_back_to_the_classic_when_the_parti_cannot_realize_the_plan(
     assert canonical_hash(with_layout["plan_document"]["rooms"]) == canonical_hash(classic["plan_document"]["rooms"])
 
 
-def test_adapt_records_the_arrangement_and_strips_the_internal_marker():
+@pytest.fixture
+def arrangement_doors_only(monkeypatch):
+    """Isolate arrangement metadata from the separately tested window heuristic.
+
+    The real RICH fixture has an impossible garage/window conflict; its refusal
+    is asserted below rather than bypassing validation in production.
+    """
+    from app import plan_adapt
+
+    place = plan_adapt.default_openings
+
+    def doors_only(*args, **kwargs):
+        return [opening for opening in place(*args, **kwargs) if opening["type"] == "door"]
+
+    monkeypatch.setattr(plan_adapt, "default_openings", doors_only)
+
+
+def test_real_arrangement_with_unplaceable_window_is_rejected():
+    from app.opening_intervals import OpeningGeometryError
+
+    with pytest.raises(OpeningGeometryError, match="window_no_free_span: o3"):
+        adapt({"plan_document": _plan(layout={"parti": "zoned", "seed": 4}), "parcel": {}, "rules": {}})
+
+
+def test_real_windows_preserve_recorded_arrangement():
+    plan = _plan(layout={"parti": "zoned", "seed": 4})
+    plan["rooms"] = [room for room in plan["rooms"] if room["type"] != "garage"]
+    first = adapt({"plan_document": plan})["plan_document"]
+    assert any(opening["type"] == "window" for opening in first["openings"])
+    plan["layout"] = {**first["layout"], "seed": 9}
+    again = adapt({"plan_document": plan})["plan_document"]
+    assert again["layout"]["arr"] == first["layout"]["arr"]
+    assert again["rooms"] == first["rooms"]
+    assert again["openings"] == first["openings"]
+
+
+@pytest.mark.parametrize("seed", range(12))
+def test_real_diverse_opening_outcomes_are_explicit(seed):
+    from app.opening_intervals import OpeningGeometryError, validate_openings
+
+    plan = {
+        "floor": {"bounds": {"width": DIVERSE["width"], "depth": DIVERSE["depth"]}},
+        "rooms": [{"id": r["id"], "type": r["type"], "polygon": []} for r in DIVERSE["rooms"]],
+        "layout": {"parti": "zoned", "seed": seed},
+    }
+    if seed == 7:
+        with pytest.raises(OpeningGeometryError, match="window_no_free_span: o4"):
+            adapt({"plan_document": plan})
+    else:
+        document = adapt({"plan_document": plan})["plan_document"]
+        assert any(opening["type"] == "window" for opening in document["openings"])
+        validate_openings(document["walls"], document["openings"])
+
+
+def test_adapt_records_the_arrangement_and_strips_the_internal_marker(arrangement_doors_only):
     out = adapt({"plan_document": _plan(layout={"parti": "zoned", "seed": 4}), "parcel": {}, "rules": {}})
     layout = out["plan_document"]["layout"]
     assert layout["parti"] == "zoned" and layout["seed"] == 4 and lo._ARRANGEMENT.match(layout["arr"])
     assert "_arr" not in json.dumps(out["plan_document"])
 
 
-def test_the_recorded_arrangement_is_reproduced_whatever_the_seed_says():
+def test_the_recorded_arrangement_is_reproduced_whatever_the_seed_says(arrangement_doors_only):
     """Retouche : la graine seule tirerait un autre arrangement ; l'arrangement mémorisé le retient."""
     first = adapt({"plan_document": _plan(layout={"parti": "zoned", "seed": 4}), "parcel": {}, "rules": {}})
     arr = first["plan_document"]["layout"]["arr"]
@@ -380,7 +434,7 @@ def test_the_recorded_arrangement_is_reproduced_whatever_the_seed_says():
         assert again["plan_document"]["layout"]["arr"] == arr, other_seed
 
 
-def test_without_the_recorded_arrangement_other_seeds_do_change_the_house(monkeypatch):
+def test_without_the_recorded_arrangement_other_seeds_do_change_the_house(arrangement_doors_only):
     """Sur un programme qui a plusieurs arrangements acceptables, la graine change la maison."""
     plan = {"version": "1.0", "units": "m", "walls": [], "openings": [],
             "floor": {"level": 0, "height_m": 2.7, "bounds": {"width": DIVERSE["width"], "depth": DIVERSE["depth"]}},

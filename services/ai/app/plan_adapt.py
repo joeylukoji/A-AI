@@ -3,8 +3,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.document_validation import validate_generated_document
+from app.parcel_constraints import resolve_parcel
+from app.plan_openings import default_openings, fit_generated_windows
+from app.plan_walls import perimeter_and_internal_walls
+
 from . import compliance
-from .diffusion import default_openings, perimeter_and_internal_walls
 from .furnish import furnish
 from .layout_opt import PartiUnavailable, normalize_variant, optimize_rooms
 
@@ -160,7 +164,8 @@ def apply_opening_rules(openings: list[dict[str, Any]], rules: dict[str, Any], w
             item["width_m"] = max(window, float(item.get("width_m") or 0))
         elif item.get("type") == "door":
             outer = wall_id.startswith("w_outer")
-            item["width_m"] = entry if outer else inner
+            # These are minimum widths, not replacements for wider vehicle doors.
+            item["width_m"] = max(entry if outer else inner, float(item.get("width_m") or 0))
         out.append(item)
     _ = (width, depth)
     return out
@@ -170,18 +175,11 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
     plan = dict(payload.get("plan_document") or {})
     parcel = dict(payload.get("parcel") or {})
     rules = {**DEFAULT_RULES, **(payload.get("rules") or {})}
-    grid = float(rules.get("grid_m") or 0.1)
-    min_side = float(rules.get("min_side_m") or 2.0)
-    setback = max(0.0, float(parcel.get("setback_m") or 0))
-
     bounds = (plan.get("floor") or {}).get("bounds") or {}
-    # Bornée : `perimeter_and_internal_walls` / le rendu vectoriel itèrent en
-    # mètres ; une valeur `parcel.width_m` absurde ferait boucler très
-    # longtemps (DoS). Mêmes bornes que `nlu._clamp_dim`.
-    lot_w = max(2.0, min(200.0, float(parcel.get("width_m") or bounds.get("width") or 12)))
-    lot_d = max(2.0, min(200.0, float(parcel.get("depth_m") or bounds.get("depth") or 10)))
-    house_w = _snap(max(min_side * 2, lot_w - 2 * setback), grid)
-    house_d = _snap(max(min_side * 2, lot_d - 2 * setback), grid)
+    resolved = resolve_parcel(parcel, bounds, rules)
+    grid, min_side, setback = resolved.grid_m, resolved.min_side_m, resolved.setback_m
+    lot_w, lot_d = resolved.width_m, resolved.depth_m
+    house_w, house_d = resolved.buildable_width_m, resolved.buildable_depth_m
     height = float(rules.get("height_m") or 2.7)
 
     rooms_in = [r for r in (plan.get("rooms") or []) if (r.get("polygon") or r.get("type"))]
@@ -235,8 +233,9 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
     for room in packed:
         room.pop("_arr", None)
     walls = perimeter_and_internal_walls(packed, house_w, house_d)
-    openings = default_openings(walls, house_w, house_d, packed)
-    openings = apply_opening_rules(openings, rules, house_w, house_d)
+    original_openings = default_openings(walls, house_w, house_d, packed)
+    openings = apply_opening_rules(original_openings, rules, house_w, house_d)
+    openings = fit_generated_windows(walls, openings, packed, original_openings=original_openings)
 
     doc = {
         "version": "1.0",
@@ -268,6 +267,7 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
         # d'avant cette fonctionnalité.
         doc["layout"] = variant
     dimensions = [_dimension_row(r) for r in doc["rooms"]]
+    validate_generated_document(doc)
     return {
         "plan_document": doc,
         "dimensions": dimensions,

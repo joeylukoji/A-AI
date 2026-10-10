@@ -214,6 +214,29 @@ def _open(rooms, w, d):
     return walls, default_openings(walls, w, d, rooms)
 
 
+def test_door_semantics_swing_into_the_served_room_and_park_near_its_edge():
+    from app.plan_openings import assign_door_semantics
+
+    wall = {"id": "w", "a": {"x": 0, "y": 0}, "b": {"x": 10, "y": 0}}
+    door = {"id": "o", "wall_id": "w", "type": "door", "offset_m": 4, "width_m": 0.9}
+    room = _rect("living", "living", 0, 0, 5, 4)
+    result = assign_door_semantics([door], [wall], [room])
+    assert result[0]["swing"] == "positive"
+    assert result[0]["hinge"] == "end"
+    assert result[0] is not door
+    assert "hinge" not in door and "swing" not in door
+
+
+def test_internal_door_swings_out_of_the_hallway_on_the_negative_side():
+    from app.plan_openings import assign_door_semantics
+
+    wall = {"id": "w", "a": {"x": 0, "y": 0}, "b": {"x": 10, "y": 0}}
+    door = {"id": "o", "wall_id": "w", "type": "door", "offset_m": 2, "width_m": 0.9}
+    rooms = [_rect("hall", "hallway", 0, 0, 5, 2), _rect("bed", "bedroom", 0, -4, 5, 0)]
+    result = assign_door_semantics([door], [wall], rooms)
+    assert result[0]["swing"] == "negative"
+
+
 @pytest.mark.parametrize("w,d", [(10, 8), (12, 9.3), (14, 11), (9, 6.5), (16, 12.7)])
 def test_the_historic_garage_door_is_kept_when_the_garage_holds_the_east_wall(w, d):
     """Compatibilité : un garage qui tient la façade est garde EXACTEMENT sa porte d'avant.

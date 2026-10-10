@@ -1,4 +1,5 @@
 """HouseDiffusion inference: model250000.pt → pièces vectorielles."""
+
 from __future__ import annotations
 
 import os
@@ -80,7 +81,9 @@ def rooms_from_spec(spec: dict[str, Any]) -> list[str]:
     return out[:12]
 
 
-def build_syn_kwargs(room_types: list[str], device: Any) -> tuple[tuple[int, int, int], dict[str, Any]]:
+def build_syn_kwargs(
+    room_types: list[str], device: Any
+) -> tuple[tuple[int, int, int], dict[str, Any]]:
     import torch
 
     n_rooms = len(room_types)
@@ -183,7 +186,10 @@ def _load(device: Any, steps: int) -> tuple[Any, Any]:
         return _MODEL, _DIFF
     if str(VENDOR) not in sys.path:
         sys.path.insert(0, str(VENDOR))
-    from house_diffusion.script_util import create_model_and_diffusion, update_arg_parser
+    from house_diffusion.script_util import (
+        create_model_and_diffusion,
+        update_arg_parser,
+    )
 
     class A:
         analog_bit = False
@@ -235,7 +241,9 @@ def _load(device: Any, steps: int) -> tuple[Any, Any]:
     return model, diffusion
 
 
-def _decode_rooms(coords: np.ndarray, kw: dict[str, Any], width: float, depth: float) -> list[dict[str, Any]]:
+def _decode_rooms(
+    coords: np.ndarray, kw: dict[str, Any], width: float, depth: float
+) -> list[dict[str, Any]]:
     mask = kw["syn_src_key_padding_mask"][0].cpu().numpy()
     types = kw["syn_room_types"][0].cpu().numpy()
     ridx = kw["syn_room_indices"][0].cpu().numpy()
@@ -295,6 +303,19 @@ def generate(spec: dict[str, Any]) -> dict[str, Any]:
 
     from . import diffusion as proc
 
+    # Make benchmark seeds effective while leaving normal application calls
+    # untouched when the variable is absent.
+    seed_text = os.getenv("HOUSEDIFFUSION_SEED", "").strip()
+    if seed_text:
+        try:
+            seed = int(seed_text)
+        except ValueError as exc:
+            raise ValueError("HOUSEDIFFUSION_SEED must be an integer") from exc
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        np.random.seed(seed)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     steps = int(os.getenv("HOUSEDIFFUSION_STEPS", "100"))
     model, diff = _load(device, steps)
@@ -320,7 +341,7 @@ def generate(spec: dict[str, Any]) -> dict[str, Any]:
     if len(raw_rooms) < 2:
         raise RuntimeError("HouseDiffusion: moins de 2 pièces décodées")
     for i, room in enumerate(raw_rooms):
-        room["id"] = f"hd_r{i+1}"
+        room["id"] = f"hd_r{i + 1}"
     from .layout_opt import optimize_rooms
 
     layout_rooms = optimize_rooms(raw_rooms, width, depth, spec)
@@ -338,11 +359,18 @@ def generate(spec: dict[str, Any]) -> dict[str, Any]:
     for room in layout_rooms:
         poly = [(p["x"] * sx, p["y"] * sy) for p in room["polygon"]]
         if len(poly) >= 3:
-            draw.polygon(poly, fill=ROOM_FILL.get(room.get("type") or "", (220, 230, 240)), outline=(40, 40, 40))
+            draw.polygon(
+                poly,
+                fill=ROOM_FILL.get(room.get("type") or "", (220, 230, 240)),
+                outline=(40, 40, 40),
+            )
             _draw_room_contents(draw, room, sx, sy, font)
     for wall in walls:
         draw.line(
-            [(wall["a"]["x"] * sx, wall["a"]["y"] * sy), (wall["b"]["x"] * sx, wall["b"]["y"] * sy)],
+            [
+                (wall["a"]["x"] * sx, wall["a"]["y"] * sy),
+                (wall["b"]["x"] * sx, wall["b"]["y"] * sy),
+            ],
             fill=(20, 20, 20),
             width=3,
         )

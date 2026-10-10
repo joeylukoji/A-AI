@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.plan_openings import default_openings
+from app.room_program import expand_rooms
+
 from .furnish import furnish
 from .layout_opt import normalize_variant
 
@@ -27,16 +30,16 @@ def _program(spec: dict[str, Any]) -> list[dict[str, Any]]:
     donc reproduit ses déformations (couloir découpé en cinq « pièces » de 30 m², séjour rogné)
     au lieu de viser les surfaces demandées.
     """
-    from .diffusion import expand_rooms
-
     out: list[dict[str, Any]] = []
     for room in expand_rooms(_seq(spec.get("rooms"))):
-        out.append({
-            "id": str(room["id"]),
-            "type": str(room["type"]),
-            "name": str(room.get("name") or room["type"]),
-            "area_m2": round(float(room["area_m2"]), 1),
-        })
+        out.append(
+            {
+                "id": str(room["id"]),
+                "type": str(room["type"]),
+                "name": str(room.get("name") or room["type"]),
+                "area_m2": round(float(room["area_m2"]), 1),
+            }
+        )
     return out
 
 
@@ -52,11 +55,11 @@ def vectorize(payload: dict[str, Any]) -> dict[str, Any]:
     rooms = [r for r in _seq(layout.get("rooms")) if isinstance(r, dict)]
     walls = [w for w in _seq(layout.get("walls")) if isinstance(w, dict)]
     openings = [
-        o for o in _seq(layout.get("openings")) if isinstance(o, dict) and o.get("wall_id")
+        o
+        for o in _seq(layout.get("openings"))
+        if isinstance(o, dict) and o.get("wall_id")
     ]
     if not openings and walls:
-        from .diffusion import default_openings
-
         openings = default_openings(walls, width, depth, rooms)
 
     plan = {
@@ -85,7 +88,8 @@ def vectorize(payload: dict[str, Any]) -> dict[str, Any]:
         plan["program"] = program
     # Le parti choisi à l'implantation voyage avec le plan, pour que l'adaptation
     # et la retouche re-pavent avec le même (cf. `plan_adapt.adapt`).
-    variant = normalize_variant(layout.get("variant"))
+    preferred_layout = _obj(payload.get("preferred_layout"))
+    variant = normalize_variant(preferred_layout or layout.get("variant"))
     if variant is None:
         # Import tardif : `layout_select` charge tout le moteur de partis. Drapeau
         # `LAYOUT_VARIANTS` éteint par défaut : `choose_variant` rend alors None et

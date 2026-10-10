@@ -19,7 +19,7 @@ def refine(payload: dict[str, Any]) -> dict[str, Any]:
         return {"layout": layout, "preview_key": "", "image_png_b64": "", "method": "gan_refine_skip"}
 
     # Image Together / rendu vectoriel : pas de GAN ni ControlNet (ils dégraderaient le plan).
-    if method.startswith(("flux", "together", "vector-plan")):
+    if method.startswith(("flux", "together", "gemini", "eden", "vector-plan")):
         return {"layout": layout, "image_png_b64": b64, "preview_key": "", "method": "together_passthrough"}
 
     if os.getenv("AI_STUB", "1") != "1":

@@ -28,8 +28,8 @@ _NLU_SYSTEM = (
     "bathroom, and bedrooms when a house/apartment is implied.\n"
     "- Do NOT invent garage, office, dining, laundry, storage, or a second bathroom "
     "unless the brief mentions them.\n"
-    "- Add hallway if there is at least one bedroom (night/day corridor). Always add it "
-    "for 2+ bedrooms.\n"
+    "- Add hallway if there is at least one bedroom (night/day corridor), or a separate WC. "
+    "Always add it for 2+ bedrooms.\n"
     "- Add a separate type wc if the brief mentions WC, toilettes, toilet, or w.c. "
     "as its own room — do not fold it into bathroom.\n"
     "- type must be one of: living, kitchen, bedroom, bathroom, wc, hallway, garage, "
@@ -78,6 +78,8 @@ def _heuristic_parse(brief: str, constraints: dict[str, Any]) -> dict[str, Any]:
         add("dining", 14, adjacent_to=["r1"])
     if _mentions_wc(text):
         add("wc", 3.5)
+        if not any(r["type"] == "hallway" for r in rooms):
+            add("hallway", 6)
     if "buanderie" in text or "laundry" in text:
         add("laundry", 4)
     if "cellier" in text or "rangement" in text or "débarras" in text or "debarra" in text:
@@ -164,12 +166,13 @@ def _filter_invented_rooms(brief: str, rooms: list[dict[str, Any]]) -> list[dict
         "wc": _mentions_wc(text),
     }
     bedroom_n = sum(int(r.get("count") or 1) for r in rooms if r.get("type") == "bedroom")
+    has_wc = any(r.get("type") == "wc" for r in rooms) or mentioned.get("wc")
     out: list[dict[str, Any]] = []
     for room in rooms:
         typ = str(room.get("type") or "")
         keep = (
             typ in {"living", "kitchen", "bedroom", "bathroom"}  # noyau du logement
-            or (typ == "hallway" and bedroom_n >= 1)             # circulation nuit
+            or (typ == "hallway" and (bedroom_n >= 1 or has_wc))
             or bool(mentioned.get(typ))                          # demandée au brief
         )
         if keep:
@@ -186,6 +189,7 @@ def _mentions_wc(text: str) -> bool:
 
 
 def _finalize_spec(brief: str, rooms: list[dict[str, Any]], constraints: dict[str, Any]) -> dict[str, Any]:
+    rooms = _ensure_hallway_in_program(rooms)
     total = float(
         constraints.get("total_area_m2")
         or sum(float(r.get("area_m2") or 10) * int(r.get("count") or 1) for r in rooms) * 1.15
@@ -213,6 +217,17 @@ def _finalize_spec(brief: str, rooms: list[dict[str, Any]], constraints: dict[st
             "max_depth_m": depth,
         },
     }
+
+
+def _ensure_hallway_in_program(rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Couloir dès qu'il y a des chambres ou un WC séparé (circulation jour/nuit)."""
+    types = {str(r.get("type") or "") for r in rooms}
+    need = "bedroom" in types or "wc" in types
+    if not need or "hallway" in types:
+        return rooms
+    out = list(rooms)
+    out.append({"id": "r_hall", "type": "hallway", "area_m2": 8, "count": 1})
+    return out
 
 
 def _parse_json_obj(raw: str | None) -> dict[str, Any] | None:

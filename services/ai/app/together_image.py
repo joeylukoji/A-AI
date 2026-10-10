@@ -2,17 +2,15 @@
 
 Le PlanDocument (pièces / murs / meubles) est calculé localement pour l'éditeur.
 L'aperçu PNG : plan vectoriel local, puis `gemini-3-pro-image-preview` (Eden AI)
-le redessine. Repli Together FLUX.2-max si la clé Eden manque, sinon rendu local.
+le redessine. Sans clé Eden, repli sur le rendu vectoriel local — jamais FLUX.
 
 Config (voir `deploy/.env.example`) :
-  EDENAI_API_KEY          clé Eden AI — image Gemini (prioritaire sur Flux)
+  EDENAI_API_KEY          clé Eden AI — image Gemini (obligatoire pour l'aperçu API)
   EDENAI_IMAGE_MODEL      défaut image/generation/google/gemini-3-pro-image-preview
-  TOGETHER_API_KEY        clé Together — NLU + pavage, et Flux si Eden absent
+  TOGETHER_API_KEY        clé Together — NLU + pavage seulement (gpt-oss-120b)
   IMAGE_BACKEND           "together" (défaut si une clé image est là) ; "procedural" force le local
-  TOGETHER_IMAGE_MODEL    défaut "black-forest-labs/FLUX.2-max" (repli)
   TOGETHER_IMAGE_STYLE    "illustration" (défaut) | "cad" | "render3d"
   TOGETHER_IMAGE_LABELS   "none" (défaut) | "model"
-  TOGETHER_IMAGE_STEPS    optionnel (entier), défaut 32
   TOGETHER_IMAGE_MAX_PX   optionnel, défaut 1024
   TOGETHER_PLANNER        "1" (défaut) | "0" pour couper l'étape LLM de disposition
   TOGETHER_PLANNER_MODEL  défaut "openai/gpt-oss-120b"
@@ -32,18 +30,19 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from app import generation_trace
+
 if TYPE_CHECKING:  # pragma: no cover - typage seulement
     from PIL.Image import Image as PILImage
 
-DEFAULT_MODEL = "black-forest-labs/FLUX.2-max"
-API_URL = "https://api.together.xyz/v1/images/generations"
+DEFAULT_MODEL = "google/gemini-3-pro-image-preview"
 CHAT_URL = "https://api.together.xyz/v1/chat/completions"
 EDEN_URL = "https://api.edenai.run/v3/universal-ai/"
 EDEN_IMAGES_URL = "https://api.edenai.run/v3/images/generations"
 EDEN_EDITS_URL = "https://api.edenai.run/v3/images/edits"
 DEFAULT_EDEN_MODEL = "image/generation/google/gemini-3-pro-image-preview"
 PLANNER_MODEL = "openai/gpt-oss-120b"
-METHOD = "flux2-max"
+METHOD = "gemini-3-pro-image"
 
 # Bornes de sécurité sur ce qui vient de l'environnement ou d'une réponse
 # externe : sans elles une variable mal réglée (ou un fournisseur qui répond
@@ -51,7 +50,6 @@ METHOD = "flux2-max"
 # le temps de blocage d'un worker.
 MIN_IMAGE_PX = 512
 MAX_IMAGE_PX = 2048
-MAX_IMAGE_STEPS = 100
 MAX_CHAT_RETRIES = 5
 MAX_IMAGE_TIMEOUT_S = 600.0
 MAX_REMOTE_IMAGE_BYTES = 24 * 1024 * 1024
@@ -91,13 +89,11 @@ def _eden_llm_model() -> str:
 
 
 def method_name() -> str:
-    if _eden_key():
-        return "gemini-3-pro-image"
     return METHOD
 
 
 def model_name() -> str:
-    return (os.getenv("TOGETHER_IMAGE_MODEL") or DEFAULT_MODEL).strip()
+    return (os.getenv("EDENAI_IMAGE_MODEL") or DEFAULT_EDEN_MODEL).strip() or DEFAULT_MODEL
 
 
 def _backend_allows_api() -> bool:
@@ -110,10 +106,10 @@ def _backend_allows_api() -> bool:
 
 
 def available() -> bool:
-    """True si une API image (Eden Gemini ou Together Flux) doit fournir l'aperçu."""
+    """True si Gemini (Eden AI) doit fournir l'aperçu — pas Together FLUX."""
     if not _backend_allows_api():
         return False
-    return bool(_eden_key() or _api_key())
+    return bool(_eden_key())
 
 
 def planner_model() -> str:
@@ -252,46 +248,14 @@ def generate_floorplan_image(
     depth_m: float = 10.0,
     reference_png_b64: str | None = None,
 ) -> str | None:
-    """PNG base64 depuis Gemini (Eden) ou FLUX.2-max, sinon None (repli local).
+    """PNG base64 depuis Gemini 3 Pro (Eden AI), sinon None (repli local).
 
     `reference_png_b64` : plan vectoriel (géométrie + mobilier déjà au bon endroit).
     """
     if not available():
         return None
-    if _eden_key():
-        return _via_eden(prompt, width_m, depth_m, reference_png_b64)
-    key = _api_key()
-    if not key:
-        return None
-    try:
-        max_px = int(os.getenv("TOGETHER_IMAGE_MAX_PX", "1024"))
-    except ValueError:
-        max_px = 1024
-    w, h = _dims(width_m, depth_m, max_px)
-    steps = os.getenv("TOGETHER_IMAGE_STEPS", "").strip()
-    base: dict[str, Any] = {
-        "model": model_name(),
-        "prompt": prompt,
-        "width": w,
-        "height": h,
-        "n": 1,
-        "response_format": "b64_json",
-        # Borné : le nombre d'étapes est facturé, `TOGETHER_IMAGE_STEPS=100000`
-        # partait droit vers un appel interminable et hors de prix.
-        "steps": min(MAX_IMAGE_STEPS, max(1, int(steps))) if steps.isdigit() else 32,
-    }
-    data_uri = _as_data_uri(reference_png_b64)
-    payload = dict(base)
-    if data_uri:
-        payload["image_url"] = data_uri
-    else:
-        print("[together_image] pas de plan de référence — FLUX texte seul", file=sys.stderr)
-    kind = "url" if data_uri else "txt"
-    print(f"[together_image] FLUX {base['model']} {w}x{h} via={kind}", file=sys.stderr)
-    raw_b64 = _via_sdk(payload) or _via_rest(key, payload)
-    if raw_b64:
-        return _as_png_b64(raw_b64)
-    return None
+    generation_trace.provider_invocation(_eden_llm_model(), configured_model=eden_model())
+    return _via_eden(prompt, width_m, depth_m, reference_png_b64)
 
 
 def _eden_size(width_m: float, depth_m: float) -> str:
@@ -408,6 +372,7 @@ def _eden_post(
 ) -> dict[str, Any] | None:
     try:
         with httpx.Client(timeout=timeout or _image_timeout()) as client:
+            generation_trace.http_attempt(payload.get("model"))
             r = client.post(
                 url,
                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
@@ -579,7 +544,7 @@ def _as_data_uri(raw_b64: str | None) -> str | None:
 
 
 def style_reference_b64() -> str | None:
-    """Capture Sweet Home 3D (image.png) encodée JPEG, pour guider le style FLUX."""
+    """Capture Sweet Home 3D (image.png) encodée JPEG, pour guider le style Gemini."""
     global _STYLE_CACHE, _STYLE_LOADED
 
     if _STYLE_LOADED:
@@ -685,38 +650,6 @@ def _as_png_b64(b64: str | None) -> str | None:
         return None
 
 
-def _via_sdk(payload: dict[str, Any]) -> str | None:
-    try:
-        from together import Together
-    except Exception:
-        return None
-    try:
-        client = Together(api_key=_api_key(), timeout=_image_timeout(), max_retries=0)
-        kwargs = dict(payload)
-        rf = kwargs.get("response_format")
-        if rf == "b64_json":
-            kwargs["response_format"] = "base64"
-        resp = None
-        try:
-            resp = client.images.generate(**kwargs)
-        except TypeError:
-            kwargs.pop("response_format", None)
-            resp = client.images.generate(**kwargs)
-        data = getattr(resp, "data", None) or []
-        if not data:
-            return None
-        item = data[0]
-        b64 = (
-            getattr(item, "b64_json", None)
-            or getattr(item, "b64", None)
-            or (item.get("b64_json") if isinstance(item, dict) else None)
-        )
-        return b64
-    except Exception as exc:  # noqa: BLE001
-        print(f"[together_image] SDK échec: {exc}", file=sys.stderr)
-        return None
-
-
 def _image_timeout() -> float:
     """Timeout HTTP de l'appel image, borné des deux côtés.
 
@@ -727,32 +660,3 @@ def _image_timeout() -> float:
         return max(30.0, min(MAX_IMAGE_TIMEOUT_S, float(os.getenv("TOGETHER_IMAGE_TIMEOUT") or 240)))
     except ValueError:
         return 240.0
-
-
-def _via_rest(key: str, payload: dict[str, Any]) -> str | None:
-    try:
-        with httpx.Client(timeout=_image_timeout()) as client:
-            r = client.post(
-                API_URL,
-                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                json=payload,
-            )
-            if r.status_code >= 400:
-                print(
-                    f"[together_image] REST {r.status_code}: {(r.text or '')[:400]}",
-                    file=sys.stderr,
-                )
-                return None
-            data = (r.json() or {}).get("data") or []
-            if not isinstance(data, list) or not data:
-                return None
-            first = data[0] if isinstance(data[0], dict) else {}
-            b64 = _strip_b64(first.get("b64_json"))
-            if b64:
-                return b64
-        # Hors du client ci-dessus : `_fetch_image_url` borne HTTPS + taille,
-        # au lieu d'aspirer sans limite une URL choisie par le fournisseur.
-        return _fetch_image_url(first.get("url"))
-    except Exception as exc:  # noqa: BLE001
-        print(f"[together_image] REST échec: {exc}", file=sys.stderr)
-    return None

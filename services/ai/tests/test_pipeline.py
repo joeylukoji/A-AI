@@ -25,7 +25,10 @@ def test_healthz():
 
 
 def test_pipeline_accepts_null_constraints():
-    res = client.post("/v1/pipeline", json={"brief": "Maison 3 chambres avec garage", "constraints": None})
+    res = client.post(
+        "/v1/pipeline",
+        json={"brief": "Maison 3 chambres avec garage", "constraints": None},
+    )
     assert res.status_code == 200, res.text
     body = res.json()
     assert "plan_document" in body
@@ -35,7 +38,9 @@ def test_pipeline_accepts_null_constraints():
 
 
 def test_pipeline_without_constraints_key():
-    res = client.post("/v1/pipeline", json={"brief": "Appartement 2 chambres cuisine ouverte"})
+    res = client.post(
+        "/v1/pipeline", json={"brief": "Appartement 2 chambres cuisine ouverte"}
+    )
     assert res.status_code == 200, res.text
 
 
@@ -153,7 +158,9 @@ def test_diffusion_and_vectorize_orthogonal():
 
 
 def test_api_pipeline_helper():
-    out = api_pipeline(PipelineRequest(brief="Villa 5 chambres avec bureau", constraints={}))
+    out = api_pipeline(
+        PipelineRequest(brief="Villa 5 chambres avec bureau", constraints={})
+    )
     assert "building_spec" in out
     assert out["plan_document"]["floor"]["height_m"] > 0
     assert 0 <= out["compliance"]["score"] <= 100
@@ -201,10 +208,12 @@ def test_plan_adapt_clamps_absurd_parcel(monkeypatch):
     spec = parse_brief("Maison 2 chambres", {})
     gen = generate(spec)
     plan = vectorize({"layout": gen["layout"], "building_spec": spec})["plan_document"]
-    out = adapt({
-        "plan_document": plan,
-        "parcel": {"width_m": 1e9, "depth_m": 1e9},
-    })
+    out = adapt(
+        {
+            "plan_document": plan,
+            "parcel": {"width_m": 1e9, "depth_m": 1e9},
+        }
+    )
     assert out["parcel"]["buildable_width_m"] <= 200.0
     assert out["parcel"]["buildable_depth_m"] <= 200.0
 
@@ -224,16 +233,64 @@ def test_pipeline_rejects_oversized_brief():
 
 def test_edit_keeps_plan_without_together_key(monkeypatch):
     monkeypatch.delenv("TOGETHER_API_KEY", raising=False)
-    res = client.post("/v1/edit", json={
-        "instruction": "ajoute un îlot",
-        "brief": "Maison 2 chambres",
-        "image_png_b64": "ZmFrZQ==",
-        "plan_document": {"rooms": []},
-    })
+    res = client.post(
+        "/v1/edit",
+        json={
+            "instruction": "ajoute un îlot",
+            "brief": "Maison 2 chambres",
+            "image_png_b64": "ZmFrZQ==",
+            "plan_document": {"rooms": []},
+        },
+    )
     assert res.status_code == 200, res.text
     body = res.json()
-    assert body["image_png_b64"] == "ZmFrZQ=="
+    assert body["image_png_b64"]
+    assert body["clarify"] is True
+    assert body["edit_status"] == "clarification_required"
     assert body["reply_fr"]
+
+
+def test_edit_endpoint_preserves_applied_service_result(monkeypatch):
+    from app import api as api_module
+
+    request = {
+        "instruction": "  déplace le canapé  ",
+        "brief": "Maison avec séjour",
+        "building_spec": {"rooms": [{"type": "living", "count": 1}]},
+        "plan_document": {"version": "1.0", "rooms": [{"id": "r1"}]},
+        "image_png_b64": "cHJldmlldy1zb3VyY2U=",
+        "job_id": "job-edit-123",
+    }
+    service_result = {
+        "plan_document": {"version": "1.0", "rooms": [{"id": "r1", "name": "Séjour"}]},
+        "building_spec": {"rooms": [{"type": "living", "count": 1}]},
+        "image_png_b64": "cHJldmlldy1lZGl0ZWQ=",
+        "reply_fr": "Le canapé a été déplacé.",
+        "edit_status": "applied",
+        "clarify": False,
+        "method": "procedural+edit",
+    }
+    observed = {}
+
+    def fake_edit_plan(instruction, **kwargs):
+        observed["instruction"] = instruction
+        observed.update(kwargs)
+        return service_result
+
+    monkeypatch.setattr(api_module.diffusion, "edit_plan", fake_edit_plan)
+    response = client.post("/v1/edit", json=request)
+
+    assert response.status_code == 200, response.text
+    assert response.json() == service_result
+    assert observed == {
+        "instruction": "déplace le canapé",
+        "brief": request["brief"],
+        "constraints": {},
+        "spec": request["building_spec"],
+        "plan_document": request["plan_document"],
+        "image_png_b64": request["image_png_b64"],
+        "job_id": request["job_id"],
+    }
 
 
 def test_free_form_payloads_never_return_500():
@@ -251,7 +308,8 @@ def test_free_form_payloads_never_return_500():
         "/v1/generate": lambda v: {"rooms": v, "constraints": v, "style": v},
         "/v1/adapt": lambda v: {"plan_document": {"rooms": v, "walls": v, "floor": v}},
         "/v1/edit": lambda v: {
-            "instruction": "agrandir", "plan_document": {"rooms": v, "walls": v},
+            "instruction": "agrandir",
+            "plan_document": {"rooms": v, "walls": v},
         },
     }
     for path, build in builders.items():
@@ -267,11 +325,20 @@ def test_malformed_polygons_are_ignored_not_fatal():
     from app.main import app
 
     client = TestClient(app, raise_server_exceptions=False)
-    for poly in ([{"x": 1}], [{"x": "a", "y": 1}], ["x"], [{"x": 1, "y": None}], [[0, 0]]):
-        res = client.post("/v1/vectorize", json={
-            "layout": {
-                "rooms": [{"type": "living", "polygon": poly}],
-                "walls": [{"a": {"x": 0, "y": 0}, "b": poly}],
-            }
-        })
+    for poly in (
+        [{"x": 1}],
+        [{"x": "a", "y": 1}],
+        ["x"],
+        [{"x": 1, "y": None}],
+        [[0, 0]],
+    ):
+        res = client.post(
+            "/v1/vectorize",
+            json={
+                "layout": {
+                    "rooms": [{"type": "living", "polygon": poly}],
+                    "walls": [{"a": {"x": 0, "y": 0}, "b": poly}],
+                }
+            },
+        )
         assert res.status_code < 500, (poly, res.text[:200])

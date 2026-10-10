@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 import redis
 
-from . import compliance, diffusion, gan_refine, nlu, plan_adapt, vectorize
+from app import pipeline
 
 QUEUE = "queue:generate_2d"
 
@@ -48,65 +48,55 @@ def _loop() -> None:
 
 
 def _process(job: dict[str, Any], api: str, token: str) -> None:
+    """Run the shared use case, then persist its exact document and preview."""
     job_id = job["job_id"]
     inp = job.get("input") or {}
-    brief = inp.get("brief") or ""
-    constraints = inp.get("constraints") or {}
     headers = {"X-Internal-Token": token, "Content-Type": "application/json"}
     with httpx.Client(timeout=420.0) as client:
-        client.post(f"{api}/internal/jobs/{job_id}/running", headers=headers, json={"step": "nlu"})
-        spec = nlu.parse_brief(brief, constraints)
-        client.post(f"{api}/internal/jobs/{job_id}/running", headers=headers, json={"step": "flux"})
-        preview_b64, preview_method = diffusion.generate_flux_plan(
-            brief, constraints, spec=spec, job_id=job_id
-        )
-        client.post(f"{api}/internal/jobs/{job_id}/running", headers=headers, json={"step": "diffusion"})
-        gen = diffusion.generate(spec, image=False)
-        client.post(f"{api}/internal/jobs/{job_id}/running", headers=headers, json={"step": "refine"})
-        refined = gan_refine.refine({"image_png_b64": gen.get("image_png_b64"), "layout": gen.get("layout"), "building_spec": spec, "method": gen.get("method")})
-        client.post(f"{api}/internal/jobs/{job_id}/running", headers=headers, json={"step": "vectorize"})
-        plan = vectorize.vectorize({"layout": refined.get("layout") or gen.get("layout"), "building_spec": spec})
-        c = spec.get("constraints") or {}
-        adapted = plan_adapt.adapt({
-            "plan_document": plan["plan_document"],
-            "parcel": {
-                "width_m": (constraints.get("parcel_width_m") if isinstance(constraints, dict) else None) or c.get("max_width_m"),
-                "depth_m": (constraints.get("parcel_depth_m") if isinstance(constraints, dict) else None) or c.get("max_depth_m"),
-                "setback_m": (constraints.get("setback_m") if isinstance(constraints, dict) else 0) or 0,
-            },
-            "rules": (constraints.get("rules") if isinstance(constraints, dict) else None) or {},
-        })
-        doc = adapted["plan_document"]
-        if not preview_b64:
-            preview_b64 = diffusion.render_plan_document(doc)
-            preview_method = preview_method or "procedural"
-        user_id = inp.get("user_id")
-        project_id = job.get("project_id")
-        rev = client.post(
-            f"{api}/internal/projects/{project_id}/revisions",
-            headers=headers,
-            json={
-                "user_id": user_id,
-                "source": "ai",
-                "plan_document": doc,
-                "building_spec": spec,
-                "compliance": compliance.evaluate(doc),
-                "preview_key": refined.get("preview_key") or "",
-                "image_png_b64": preview_b64,
-            },
-        )
-        rev.raise_for_status()
-        revision = rev.json()
-        client.post(
-            f"{api}/internal/jobs/{job_id}/complete",
-            headers=headers,
-            json={
+
+        def post(path: str, payload: dict[str, Any]) -> httpx.Response:
+            response = client.post(f"{api}{path}", headers=headers, json=payload)
+            response.raise_for_status()
+            return response
+
+        def progress(step: str) -> None:
+            post(f"/internal/jobs/{job_id}/running", {"step": step})
+
+        try:
+            result = pipeline.generate_plan(inp.get("brief") or "", inp.get("constraints") or {}, progress=progress)
+            revision = post(
+                f"/internal/projects/{job.get('project_id')}/revisions",
+                {
+                    "user_id": inp.get("user_id"),
+                    "source": "ai",
+                    "plan_document": result["plan_document"],
+                    "building_spec": result["building_spec"],
+                    "compliance": result["compliance"],
+                    "preview_key": result["preview_key"],
+                    "image_png_b64": result["image_png_b64"],
+                },
+            ).json()
+        except Exception:
+            # No retry here: revision creation is not yet idempotent. The queue
+            # recovery / acknowledgement policy belongs to the reliability sprint.
+            post(
+                f"/internal/jobs/{job_id}/complete",
+                {
+                    "status": "failed",
+                    "error": "2D generation or revision persistence failed",
+                },
+            )
+            raise
+
+        post(
+            f"/internal/jobs/{job_id}/complete",
+            {
                 "status": "succeeded",
                 "step": "vectorize",
                 "output": {
                     "revision_id": revision.get("ID") or revision.get("id"),
                     "version": revision.get("Version") or revision.get("version"),
-                    "method": preview_method,
+                    "method": result["method"],
                 },
             },
         )
