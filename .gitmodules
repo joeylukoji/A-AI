@@ -1,0 +1,3 @@
+[submodule "vendor/house_diffusion"]
+	path = vendor/house_diffusion
+	url = https://github.com/aminshabani/house_diffusion.git
