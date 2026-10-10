@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -248,6 +249,10 @@ func (s *Server) handleEditPlan(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) processEditPlan(jobID, projectID, userID uuid.UUID, brief, instruction string, rev *domain.PlanRevision) {
 	ctx := context.Background()
+	projectStatusOnFailure := "draft"
+	if rev != nil {
+		projectStatusOnFailure = "ready"
+	}
 	imageB64 := ""
 	if rev != nil && rev.PreviewKey != "" && s.storage != nil {
 		if data, _, err := s.storage.Get(ctx, rev.PreviewKey); err == nil && len(data) > 0 {
@@ -266,7 +271,7 @@ func (s *Server) processEditPlan(jobID, projectID, userID uuid.UUID, brief, inst
 	out, err := s.jobs.RunInlineEdit(ctx, jobID, instruction, brief, specRaw, planRaw, imageB64, map[string]any{})
 	if err != nil {
 		_ = s.jobs.Complete(ctx, jobID, jobs.CompleteRequest{Status: "failed", Error: err.Error(), Step: "edit"})
-		_ = s.projects.SetStatus(ctx, projectID, "draft")
+		_ = s.projects.SetStatus(ctx, projectID, projectStatusOnFailure)
 		return
 	}
 	reply, _ := out["reply_fr"].(string)
@@ -290,9 +295,23 @@ func (s *Server) processEditPlan(jobID, projectID, userID uuid.UUID, brief, inst
 			previewKey = key
 		}
 	}
-	saved, err := s.projects.SaveRevision(ctx, projectID, userID, "ai", planOut, specOut, previewKey, nil)
+	var baseRevisionID *uuid.UUID
+	if rev != nil {
+		baseRevisionID = &rev.ID
+	}
+	saved, err := s.projects.SaveRevision(ctx, projectID, userID, "ai", planOut, specOut, previewKey, baseRevisionID)
 	if err != nil {
+		if errors.Is(err, project.ErrConflict) {
+			_ = s.projects.SetStatus(ctx, projectID, "ready")
+			_ = s.jobs.Complete(ctx, jobID, jobs.CompleteRequest{
+				Status: "failed",
+				Error:  "revision_conflict",
+				Step:   "edit",
+			})
+			return
+		}
 		_ = s.jobs.Complete(ctx, jobID, jobs.CompleteRequest{Status: "failed", Error: err.Error()})
+		_ = s.projects.SetStatus(ctx, projectID, projectStatusOnFailure)
 		return
 	}
 	_ = s.jobs.Complete(ctx, jobID, jobs.CompleteRequest{
@@ -769,7 +788,9 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 404, "not_found", "job not found")
 		return
 	}
-	writeJSON(w, 200, j)
+	view := *j
+	view.Error = jobs.PublicError(j.Error) // branded copy; raw string stays in DB
+	writeJSON(w, 200, view)
 }
 
 func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
@@ -828,6 +849,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", res.ContentType)
+	w.Header().Set("Content-Length", strconv.Itoa(len(res.Data)))
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, res.Filename))
 	w.Header().Set("X-Checksum-SHA256", hex.EncodeToString(sum[:]))
 	if res.Tool != "" {

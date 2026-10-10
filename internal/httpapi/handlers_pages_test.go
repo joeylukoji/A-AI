@@ -248,3 +248,99 @@ func TestScoreAccessorsHandleNilPointer(t *testing.T) {
 		t.Errorf("admin.PlanRow.Score() = %d, want 73", got)
 	}
 }
+
+// TestProductPagesHideVendorModels is the customer-facing copy contract:
+// Together / FLUX / Gemini / gpt-oss / Blender must not appear in the UI.
+func TestProductPagesHideVendorModels(t *testing.T) {
+	tmpl, err := web.Templates()
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &Server{tmpl: tmpl, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	user := domain.User{ID: uuid.New(), Name: "Ada", Email: "a@b.c"}
+	org := domain.Org{ID: uuid.New(), Name: "Studio"}
+	proj := &domain.Project{ID: uuid.New(), OrgID: org.ID, Name: "Villa", Status: "ready"}
+
+	pages := []struct {
+		name string
+		data map[string]any
+	}{
+		{"landing.html", map[string]any{"Title": "Accueil"}},
+		{"project.html", map[string]any{
+			"Title": proj.Name, "User": user, "Org": org, "Project": proj,
+			"Revision": nil, "Role": domain.RoleOwner, "HasPreview": false,
+			"PlanJSON": safeScriptJSON("{}"), "Compliance": nil, "Nav": "plan2d",
+			"Revisions": []project.RevisionSummary{},
+		}},
+		{"project3d.html", map[string]any{
+			"Title": proj.Name, "User": user, "Org": org, "Project": proj,
+			"Revision": nil, "Role": domain.RoleOwner, "Nav": "plan3d",
+		}},
+	}
+	forbidden := []string{
+		"Together", "FLUX", "Gemini", "gpt-oss", "Eden", "Blender", "MinIO",
+		"QCAD", "LibreCAD", "HouseDiffusion",
+	}
+	for _, pg := range pages {
+		rr := httptest.NewRecorder()
+		srv.render(rr, httptest.NewRequest(http.MethodGet, "/", nil), pg.name, pg.data)
+		body := rr.Body.String()
+		for _, word := range forbidden {
+			if strings.Contains(body, word) {
+				t.Errorf("%s leaks vendor %q", pg.name, word)
+			}
+		}
+		if !strings.Contains(body, "Congo Architecture") {
+			t.Errorf("%s: expected Congo Architecture branding", pg.name)
+		}
+	}
+}
+
+// TestDashboardShellUsesLocalCSSAndScrollableMobileLayout guards two UX
+// regressions: Tailwind Play CDN (slow first paint) and a 100dvh overflow-hidden
+// shell that clipped project cards on phones.
+func TestDashboardShellUsesLocalCSSAndScrollableMobileLayout(t *testing.T) {
+	tmpl, err := web.Templates()
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &Server{tmpl: tmpl, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	user := domain.User{ID: uuid.New(), Name: "Ada", Email: "a@b.c"}
+	org := domain.Org{ID: uuid.New(), Name: "Studio"}
+	proj := &domain.Project{ID: uuid.New(), OrgID: org.ID, Name: "Villa longue qui doit revenir à la ligne", Status: "ready"}
+
+	pages := []struct {
+		name string
+		data map[string]any
+	}{
+		{"projects.html", map[string]any{
+			"Title": "Projets", "User": user, "Org": org,
+			"Projects": []domain.Project{*proj}, "Nav": "projects",
+		}},
+		{"project.html", map[string]any{
+			"Title": proj.Name, "User": user, "Org": org, "Project": proj,
+			"Revision": &domain.PlanRevision{ID: uuid.New(), ProjectID: proj.ID, Version: 1, Source: "ai"},
+			"Role": domain.RoleOwner, "HasPreview": false,
+			"PlanJSON": safeScriptJSON("{}"), "Compliance": nil, "Nav": "plan2d",
+			"Revisions": []project.RevisionSummary{},
+		}},
+	}
+	for _, pg := range pages {
+		rr := httptest.NewRecorder()
+		srv.render(rr, httptest.NewRequest(http.MethodGet, "/", nil), pg.name, pg.data)
+		body := rr.Body.String()
+		renderedPageIsComplete(t, pg.name, body)
+		if strings.Contains(body, "cdn.tailwindcss.com") {
+			t.Errorf("%s still loads Tailwind from the Play CDN", pg.name)
+		}
+		if !strings.Contains(body, "/static/css/tailwind.css") {
+			t.Errorf("%s: expected compiled local Tailwind CSS", pg.name)
+		}
+		if !strings.Contains(body, "min-h-[100dvh]") {
+			t.Errorf("%s: expected a min-height mobile shell so project cards are not clipped", pg.name)
+		}
+		if strings.Contains(body, "h-[100dvh] overflow-hidden flex flex-col md:flex-row") {
+			t.Errorf("%s: 100dvh overflow-hidden shell clips cards on phones", pg.name)
+		}
+	}
+}

@@ -11,13 +11,13 @@ import (
 
 // securityHeaders sets baseline hardening headers on every response. The CSP
 // intentionally allows 'unsafe-inline' script/style and the CDNs already used
-// by the templates (Tailwind Play CDN, unpkg for <model-viewer>) so it does
+// by the templates (Google Fonts, unpkg for <model-viewer>) so it does
 // not regress the current UI; it still blocks framing, plugin content and
 // base-URI hijacking, which cost nothing functionally.
 func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	csp := strings.Join([]string{
 		"default-src 'self'",
-		"script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com",
+		"script-src 'self' 'unsafe-inline' https://unpkg.com",
 		"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 		"img-src 'self' data: blob: https:",
 		"font-src 'self' https://fonts.gstatic.com data:",

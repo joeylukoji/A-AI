@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"os"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -19,7 +21,7 @@ func testDB(t *testing.T) *sql.DB {
 	t.Helper()
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		t.Skip("DATABASE_URL not set")
+		databaseUnavailable(t, "DATABASE_URL not set")
 	}
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
@@ -27,12 +29,58 @@ func testDB(t *testing.T) *sql.DB {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	if err := db.PingContext(context.Background()); err != nil {
-		t.Skip("database unavailable")
+		databaseUnavailable(t, "database unavailable")
 	}
 	if _, err := db.ExecContext(context.Background(), `SELECT 1 FROM plan_revisions LIMIT 1`); err != nil {
-		t.Skip("schema not migrated")
+		databaseUnavailable(t, "schema not migrated")
 	}
 	return db
+}
+
+func databaseUnavailable(t *testing.T, reason string) {
+	t.Helper()
+	if databaseTestsRequired() {
+		t.Fatalf("PostgreSQL integration tests are required but unavailable: %s", reason)
+	}
+	t.Skip(reason)
+}
+
+func databaseTestsRequired() bool {
+	return os.Getenv("REQUIRE_DATABASE_TESTS") == "1"
+}
+
+func TestDatabaseUnavailableProbe(t *testing.T) {
+	if os.Getenv("AAI_DATABASE_UNAVAILABLE_PROBE") != "1" {
+		return
+	}
+	databaseUnavailable(t, "probe reason")
+}
+
+func TestDatabaseUnavailableOutcomes(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		value    string
+		want     string
+		wantFail bool
+	}{
+		{name: "local mode skips", value: "", want: "--- SKIP: TestDatabaseUnavailableProbe"},
+		{name: "required mode fails", value: "1", want: "PostgreSQL integration tests are required but unavailable: probe reason", wantFail: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			command := exec.Command(os.Args[0], "-test.v", "-test.run=^TestDatabaseUnavailableProbe$")
+			for _, entry := range os.Environ() {
+				if strings.HasPrefix(entry, "REQUIRE_DATABASE_TESTS=") || strings.HasPrefix(entry, "AAI_DATABASE_UNAVAILABLE_PROBE=") {
+					continue
+				}
+				command.Env = append(command.Env, entry)
+			}
+			command.Env = append(command.Env, "REQUIRE_DATABASE_TESTS="+tc.value, "AAI_DATABASE_UNAVAILABLE_PROBE=1")
+			output, err := command.CombinedOutput()
+			if (err != nil) != tc.wantFail || !strings.Contains(string(output), tc.want) {
+				t.Fatalf("probe error = %v, output = %s; want failure=%t and output containing %q", err, output, tc.wantFail, tc.want)
+			}
+		})
+	}
 }
 
 // seedOrgProjectUser inserts the minimum rows needed to own a project: an

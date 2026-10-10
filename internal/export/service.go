@@ -71,8 +71,7 @@ func Export(doc *PlanDocument, format string) (*Result, error) {
 		b := toSVG(doc)
 		return &Result{ContentType: "image/svg+xml", Filename: "plan.svg", Data: b}, nil
 	case "pdf":
-		// Minimal PDF wrapping the SVG text representation for MVP.
-		b := toSimplePDF(doc)
+		b := toPlanPDF(doc)
 		return &Result{ContentType: "application/pdf", Filename: "plan.pdf", Data: b}, nil
 	case "dxf":
 		b, tool := exportDXF(doc)
@@ -156,32 +155,6 @@ func toGLTF(doc *PlanDocument) []byte {
 	}
 	b, _ := json.MarshalIndent(payload, "", "  ")
 	return b
-}
-
-func toSimplePDF(doc *PlanDocument) []byte {
-	// Extremely small PDF with text summary (valid enough for download MVP).
-	content := fmt.Sprintf("A-AI Plan\\nWalls: %d\\nRooms: %d\\nSize: %.1fx%.1fm",
-		len(doc.Walls), len(doc.Rooms), doc.Floor.Bounds.Width, doc.Floor.Bounds.Depth)
-	var buf bytes.Buffer
-	buf.WriteString("%PDF-1.1\n")
-	o1 := buf.Len()
-	buf.WriteString("1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n")
-	o2 := buf.Len()
-	buf.WriteString("2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj\n")
-	o3 := buf.Len()
-	buf.WriteString("3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources<< /Font<< /F1 5 0 R >> >> >>endobj\n")
-	stream := fmt.Sprintf("BT /F1 18 Tf 50 700 Td (%s) Tj ET", content)
-	o4 := buf.Len()
-	buf.WriteString(fmt.Sprintf("4 0 obj<< /Length %d >>stream\n%s\nendstream\nendobj\n", len(stream), stream))
-	o5 := buf.Len()
-	buf.WriteString("5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj\n")
-	xref := buf.Len()
-	buf.WriteString("xref\n0 6\n0000000000 65535 f \n")
-	for _, off := range []int{o1, o2, o3, o4, o5} {
-		buf.WriteString(fmt.Sprintf("%010d 00000 n \n", off))
-	}
-	buf.WriteString(fmt.Sprintf("trailer<< /Size 6 /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF", xref))
-	return buf.Bytes()
 }
 
 func centroid(pts []Point) (float64, float64) {

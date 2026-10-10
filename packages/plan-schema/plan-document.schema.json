@@ -70,8 +70,20 @@
           "wall_id": { "type": "string" },
           "type": { "type": "string", "enum": ["door", "window"] },
           "offset_m": { "type": "number", "minimum": 0 },
-          "width_m": { "type": "number", "exclusiveMinimum": 0 }
-        }
+          "width_m": { "type": "number", "exclusiveMinimum": 0 },
+          "hinge": { "type": "string", "enum": ["start", "end"] },
+          "swing": { "type": "string", "enum": ["positive", "negative"] }
+        },
+        "dependentRequired": {
+          "hinge": ["swing"],
+          "swing": ["hinge"]
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "type": { "const": "window" } }, "required": ["type"] },
+            "then": { "not": { "anyOf": [{ "required": ["hinge"] }, { "required": ["swing"] }] } }
+          }
+        ]
       }
     },
     "furniture": {
@@ -131,15 +143,28 @@
         "catalog_id": {
           "type": "string",
           "enum": [
-            "chair.dining",
-            "bed.single",
+            "armchair",
+            "bathtub",
             "bed.double",
-            "table.dining",
-            "table.coffee",
-            "sofa.2seat",
+            "bed.single",
+            "car.sedan",
+            "chair.dining",
+            "counter.kitchen",
+            "desk",
+            "fireplace",
+            "fridge",
             "nightstand",
-            "wardrobe",
-            "counter.kitchen"
+            "plant.pot",
+            "rug.rect",
+            "sink.basin",
+            "sofa.2seat",
+            "sofa.lshape",
+            "stove",
+            "table.coffee",
+            "table.dining",
+            "toilet",
+            "tv.console",
+            "wardrobe"
           ]
         },
         "room_id": { "type": "string" },

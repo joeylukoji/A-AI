@@ -184,14 +184,16 @@ func (s *Service) Complete(ctx context.Context, id uuid.UUID, req CompleteReques
 	if err != nil {
 		return err
 	}
+	// SSE feeds the product UI: strip vendor names and upstream dumps.
+	// The raw error stays in the jobs.error column for operators.
 	_ = s.Publish(ctx, j.ProjectID, map[string]any{
 		"event":      "job.updated",
 		"job_id":     j.ID.String(),
 		"type":       j.Type,
 		"status":     req.Status,
-		"step":       req.Step,
+		"step":       PublicStep(req.Step),
 		"output":     req.Output,
-		"error":      req.Error,
+		"error":      PublicError(req.Error),
 		"project_id": j.ProjectID.String(),
 		"org_id":     j.OrgID.String(),
 	})
@@ -239,7 +241,7 @@ func (s *Service) MarkRunning(ctx context.Context, id uuid.UUID, step string) er
 		"job_id":     id.String(),
 		"type":       j.Type,
 		"status":     "running",
-		"step":       step,
+		"step":       PublicStep(step),
 		"project_id": j.ProjectID.String(),
 		"org_id":     j.OrgID.String(),
 	})

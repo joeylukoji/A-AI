@@ -1,0 +1,141 @@
+{
+  "base": {
+    "version": "1.0", "units": "m",
+    "floor": {"level": 0, "height_m": 2.7, "bounds": {"width": 10, "depth": 8}},
+    "walls": [
+      {"id": "w1", "a": {"x": 0, "y": 0}, "b": {"x": 10, "y": 0}, "thickness_m": 0.2},
+      {"id": "w2", "a": {"x": 10, "y": 0}, "b": {"x": 10, "y": 8}, "thickness_m": 0.2},
+      {"id": "w3", "a": {"x": 10, "y": 8}, "b": {"x": 0, "y": 8}, "thickness_m": 0.2},
+      {"id": "w4", "a": {"x": 0, "y": 8}, "b": {"x": 0, "y": 0}, "thickness_m": 0.2}
+    ],
+    "rooms": [{"id": "r1", "type": "living", "polygon": [{"x": 0, "y": 0}, {"x": 5, "y": 0}, {"x": 5, "y": 4}]}],
+    "openings": [{"id": "o1", "wall_id": "w1", "type": "door", "offset_m": 1, "width_m": 0.9}]
+  },
+  "cases": [
+    {"id": "valid-triangle", "code": null, "changes": []},
+    {"id": "root-null", "code": "invalid_structure", "changes": [{"path": [], "value": null}]},
+    {"id": "root-list", "code": "invalid_structure", "changes": [{"path": [], "value": []}]},
+    {"id": "wrong-units", "code": "invalid_header", "changes": [{"path": ["units"], "value": "cm"}]},
+    {"id": "missing-version", "code": "invalid_header", "changes": [{"path": ["version"], "remove": true}]},
+    {"id": "floor-null", "code": "invalid_structure", "changes": [{"path": ["floor"], "value": null}]},
+    {"id": "bounds-zero", "code": "invalid_bounds", "changes": [{"path": ["floor", "bounds", "width"], "value": 0}]},
+    {"id": "bounds-string", "code": "invalid_number", "changes": [{"path": ["floor", "bounds", "width"], "value": "10"}]},
+    {"id": "walls-null", "code": "invalid_structure", "changes": [{"path": ["walls"], "value": null}]},
+    {"id": "walls-empty", "code": "insufficient_walls", "changes": [{"path": ["walls"], "value": []}]},
+    {"id": "wall-null", "code": "invalid_structure", "changes": [{"path": ["walls", 0], "value": null}]},
+    {"id": "wall-duplicate", "code": "invalid_wall_id", "changes": [{"path": ["walls", 1, "id"], "value": "w1"}]},
+    {"id": "wall-id-object", "code": "invalid_wall_id", "changes": [{"path": ["walls", 0, "id"], "value": {}}]},
+    {"id": "wall-point-null", "code": "invalid_wall_point", "changes": [{"path": ["walls", 0, "a"], "value": null}]},
+    {"id": "wall-coordinate-missing", "code": "invalid_number", "changes": [{"path": ["walls", 0, "a", "x"], "remove": true}]},
+    {"id": "wall-coordinate-null", "code": "invalid_number", "changes": [{"path": ["walls", 0, "a", "x"], "value": null}]},
+    {"id": "wall-coordinate-bool", "code": "invalid_number", "changes": [{"path": ["walls", 0, "a", "x"], "value": false}]},
+    {"id": "wall-zero", "code": "invalid_wall_segment", "changes": [{"path": ["walls", 0, "b"], "value": {"x": 0, "y": 0}}]},
+    {"id": "wall-diagonal", "code": "invalid_wall_segment", "changes": [{"path": ["walls", 0, "b", "y"], "value": 1}]},
+    {"id": "wall-outside", "code": "point_out_of_bounds", "changes": [{"path": ["walls", 0, "a", "x"], "value": -1}]},
+    {"id": "rooms-missing", "code": "invalid_structure", "changes": [{"path": ["rooms"], "remove": true}]},
+    {"id": "room-no-id", "code": "invalid_room_id", "changes": [{"path": ["rooms", 0, "id"], "remove": true}]},
+    {"id": "room-empty", "code": "invalid_room_polygon", "changes": [{"path": ["rooms", 0, "polygon"], "value": []}]},
+    {"id": "room-collinear", "code": "invalid_room_polygon", "changes": [{"path": ["rooms", 0, "polygon", 2], "value": {"x": 8, "y": 0}}]},
+    {"id": "room-outside", "code": "point_out_of_bounds", "changes": [{"path": ["rooms", 0, "polygon", 2, "y"], "value": 9}]},
+    {"id": "room-number-string", "code": "invalid_number", "changes": [{"path": ["rooms", 0, "polygon", 2, "y"], "value": "4"}]},
+    {"id": "openings-absent", "code": null, "changes": [{"path": ["openings"], "remove": true}]},
+    {"id": "openings-null", "code": "invalid_structure", "changes": [{"path": ["openings"], "value": null}]},
+    {"id": "opening-null", "code": "invalid_structure", "changes": [{"path": ["openings", 0], "value": null}]},
+    {"id": "opening-unknown-wall", "code": "unknown_wall", "changes": [{"path": ["openings", 0, "wall_id"], "value": "none"}]},
+    {"id": "opening-wall-object", "code": "unknown_wall", "changes": [{"path": ["openings", 0, "wall_id"], "value": {}}]},
+    {"id": "opening-offset-missing", "code": "invalid_number", "changes": [{"path": ["openings", 0, "offset_m"], "remove": true}]},
+    {"id": "opening-width-bool", "code": "invalid_number", "changes": [{"path": ["openings", 0, "width_m"], "value": true}]},
+    {"id": "opening-zero-width", "code": "invalid_opening_width", "changes": [{"path": ["openings", 0, "width_m"], "value": 0}]},
+    {"id": "opening-type", "code": "invalid_opening_type", "changes": [{"path": ["openings", 0, "type"], "value": "arch"}]},
+    {"id": "opening-negative", "code": "opening_out_of_bounds", "changes": [{"path": ["openings", 0, "offset_m"], "value": -0.1}]},
+    {"id": "opening-too-long", "code": "opening_out_of_bounds", "changes": [{"path": ["openings", 0, "width_m"], "value": 10}]},
+    {"id": "opening-exact-end", "code": null, "changes": [{"path": ["openings", 0, "offset_m"], "value": 9.1}]},
+    {"id": "opening-reversed-wall", "code": null, "changes": [{"path": ["openings", 0, "wall_id"], "value": "w3"}, {"path": ["openings", 0, "offset_m"], "value": 9.1}]},
+    {"id": "opening-contact", "code": null, "changes": [{"path": ["openings"], "value": [{"id":"a","wall_id":"w1","type":"door","offset_m":0,"width_m":2},{"id":"b","wall_id":"w1","type":"window","offset_m":2,"width_m":1}]}]},
+    {"id": "opening-overlap", "code": "overlapping_openings", "changes": [{"path": ["openings"], "value": [{"id":"a","wall_id":"w1","type":"door","offset_m":0,"width_m":2},{"id":"b","wall_id":"w1","type":"window","offset_m":1.9,"width_m":1}]}]},
+    {"id": "opening-duplicate", "code": "invalid_opening_id", "changes": [{"path": ["openings"], "value": [{"id":"a","wall_id":"w1","type":"door","offset_m":0,"width_m":2},{"id":"a","wall_id":"w1","type":"window","offset_m":3,"width_m":1}]}]},
+    {"id": "metadata-compatible", "code": null, "changes": [{"path": ["program"], "value": []}, {"path": ["layout"], "value": {"parti": "zoned", "seed": 4}}, {"path": ["furniture"], "value": [{"catalog_id": "car.sedan"}]}, {"path": ["future"], "value": {"enabled": true}}]},
+    {"id": "room-reversed", "code": null, "changes": [{"path": ["rooms", 0, "polygon"], "value": [{"x":5,"y":4},{"x":5,"y":0},{"x":0,"y":0}]}]},
+    {"id": "room-null-point", "code": "invalid_structure", "changes": [{"path": ["rooms", 0, "polygon", 0], "value": null}]},
+    {"id": "room-duplicate", "code": "invalid_room_id", "changes": [{"path": ["rooms"], "value": [{"id":"r1","polygon":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4}]},{"id":"r1","polygon":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4}]}]}]},
+    {"id": "room-area-below-tolerance", "code": "invalid_room_polygon", "changes": [{"path": ["rooms", 0, "polygon"], "value": [{"x":0,"y":0},{"x":1,"y":0},{"x":0,"y":0.000001}]}]},
+    {"id": "wall-overflow-length", "code": "invalid_wall_segment", "changes": [{"path": ["walls", 0, "a", "x"], "value": -1e308}, {"path": ["walls", 0, "b", "x"], "value": 1e308}]},
+    {"id": "opening-overflow-end", "code": "invalid_number", "changes": [{"path": ["openings", 0, "offset_m"], "value": 1e308}, {"path": ["openings", 0, "width_m"], "value": 1e308}]},
+    {"id": "separate-id-namespaces", "code": null, "changes": [{"path": ["rooms", 0, "id"], "value": "w1"}, {"path": ["openings", 0, "id"], "value": "w1"}]},
+    {"id": "opening-offset-within-tolerance", "code": null, "changes": [{"path": ["openings", 0, "offset_m"], "value": -0.0000005}]},
+    {"id": "perimeter-corner-gap", "code": "incomplete_perimeter", "changes": [{"path": ["walls",0,"a","x"], "value": 0.1}]},
+    {"id": "perimeter-end-gap", "code": "incomplete_perimeter", "changes": [{"path": ["walls",0,"b","x"], "value": 9.9}]},
+    {"id": "perimeter-start-tolerated", "code": null, "changes": [{"path": ["walls",0,"a","x"], "value": 0.0000005}]},
+    {"id": "perimeter-end-tolerated", "code": null, "changes": [{"path": ["walls",0,"b","x"], "value": 9.9999995}]},
+    {"id": "perimeter-gap-above-tolerance", "code": "incomplete_perimeter", "changes": [{"path": ["walls",0,"a","x"], "value": 0.0000015}]},
+    {"id": "perimeter-side-absent", "code": "incomplete_perimeter", "changes": [{"path": ["walls",0,"a","y"], "value": 1}, {"path": ["walls",0,"b","y"], "value": 1}]},
+    {"id": "perimeter-only-one-end-on-side", "code": "incomplete_perimeter", "changes": [{"path": ["walls",0,"a","y"], "value": 0.00000075}, {"path": ["walls",0,"b","y"], "value": 0.0000015}]},
+    {"id": "perimeter-ids-irrelevant", "code": null, "changes": [{"path": ["walls",0,"id"], "value": "custom-north"}, {"path": ["openings",0,"wall_id"], "value": "custom-north"}]},
+    {"id": "perimeter-reversed-split", "code": null, "changes": [{"path": ["openings"], "value": []}, {"path": ["walls"], "value": [
+      {"id":"n2","a":{"x":10,"y":0},"b":{"x":4,"y":0}},
+      {"id":"n1","a":{"x":4,"y":0},"b":{"x":0,"y":0}},
+      {"id":"e","a":{"x":10,"y":8},"b":{"x":10,"y":0}},
+      {"id":"s","a":{"x":0,"y":8},"b":{"x":10,"y":8}},
+      {"id":"w","a":{"x":0,"y":0},"b":{"x":0,"y":8}}
+    ]}]},
+    {"id": "perimeter-central-gap", "code": "incomplete_perimeter", "changes": [{"path": ["openings"], "value": []}, {"path": ["walls"], "value": [
+      {"id":"n1","a":{"x":0,"y":0},"b":{"x":4,"y":0}},
+      {"id":"n2","a":{"x":4.1,"y":0},"b":{"x":10,"y":0}},
+      {"id":"e","a":{"x":10,"y":0},"b":{"x":10,"y":8}},
+      {"id":"s","a":{"x":10,"y":8},"b":{"x":0,"y":8}},
+      {"id":"w","a":{"x":0,"y":8},"b":{"x":0,"y":0}}
+    ]}]},
+    {"id": "perimeter-contained-interval", "code": null, "changes": [{"path": ["walls"], "value": [
+      {"id":"w1","a":{"x":0,"y":0},"b":{"x":10,"y":0}},
+      {"id":"extra","a":{"x":3,"y":0},"b":{"x":2,"y":0}},
+      {"id":"e","a":{"x":10,"y":0},"b":{"x":10,"y":8}},
+      {"id":"s","a":{"x":10,"y":8},"b":{"x":0,"y":8}},
+      {"id":"w","a":{"x":0,"y":8},"b":{"x":0,"y":0}}
+    ]}]},
+    {"id": "perimeter-four-interior-walls", "code": "incomplete_perimeter", "changes": [{"path": ["openings"], "value": []}, {"path": ["walls"], "value": [
+      {"id":"n","a":{"x":1,"y":1},"b":{"x":9,"y":1}},
+      {"id":"e","a":{"x":9,"y":1},"b":{"x":9,"y":7}},
+      {"id":"s","a":{"x":9,"y":7},"b":{"x":1,"y":7}},
+      {"id":"w","a":{"x":1,"y":7},"b":{"x":1,"y":1}}
+    ]}]},
+    {"id":"room-closing-vertex","code":null,"changes":[{"path":["rooms",0,"polygon"],"value":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4},{"x":0,"y":0}]}]},
+    {"id":"room-repeated-internal-vertex","code":"invalid_room_polygon","changes":[{"path":["rooms",0,"polygon"],"value":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4},{"x":4,"y":4},{"x":5,"y":0}]}]},
+    {"id":"room-crossed-edges","code":"invalid_room_polygon","changes":[{"path":["rooms",0,"polygon"],"value":[{"x":0,"y":0},{"x":5,"y":4},{"x":0,"y":4},{"x":5,"y":0}]}]},
+    {"id":"room-backtracking-edge","code":"invalid_room_polygon","changes":[{"path":["rooms",0,"polygon"],"value":[{"x":0,"y":0},{"x":5,"y":0},{"x":3,"y":0},{"x":5,"y":4}]}]},
+    {"id":"room-collinear-forward","code":null,"changes":[{"path":["rooms",0,"polygon"],"value":[{"x":0,"y":0},{"x":2,"y":0},{"x":5,"y":0},{"x":5,"y":4}]}]},
+    {"id":"room-concave-valid","code":null,"changes":[{"path":["rooms",0,"polygon"],"value":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4},{"x":3,"y":2},{"x":0,"y":4}]}]},
+    {"id":"rooms-identical","code":"overlapping_rooms","changes":[{"path":["rooms"],"value":[
+      {"id":"a","polygon":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4}]},
+      {"id":"b","polygon":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4}]}
+    ]}]},
+    {"id":"room-contained","code":"overlapping_rooms","changes":[{"path":["rooms"],"value":[
+      {"id":"a","polygon":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4},{"x":0,"y":4}]},
+      {"id":"b","polygon":[{"x":1,"y":1},{"x":2,"y":1},{"x":2,"y":2},{"x":1,"y":2}]}
+    ]}]},
+    {"id":"rooms-shared-wall","code":null,"changes":[{"path":["rooms"],"value":[
+      {"id":"a","polygon":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4}]},
+      {"id":"b","polygon":[{"x":5,"y":0},{"x":8,"y":0},{"x":5,"y":4}]}
+    ]}]},
+    {"id":"rooms-shared-point","code":null,"changes":[{"path":["rooms"],"value":[
+      {"id":"a","polygon":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4}]},
+      {"id":"b","polygon":[{"x":5,"y":4},{"x":8,"y":4},{"x":8,"y":7}]}
+    ]}]},
+    {"id":"room-short-crossing-edges","code":"invalid_room_polygon","changes":[{"path":["rooms",0,"polygon"],"value":[
+      {"x":0.9995,"y":1},{"x":1.0005,"y":1},{"x":2,"y":0},
+      {"x":1,"y":0.9995},{"x":1,"y":1.0005},{"x":0,"y":3}
+    ]}]},
+    {"id":"room-short-obtuse-angle","code":null,"changes":[{"path":["rooms",0,"polygon"],"value":[
+      {"x":0,"y":0},{"x":1,"y":0},{"x":1.0001,"y":0.0001},
+      {"x":1,"y":0.00011},{"x":1,"y":2},{"x":0,"y":2}
+    ]}]},
+    {"id":"door-semantics-valid","code":null,"changes":[{"path":["openings",0,"hinge"],"value":"end"},{"path":["openings",0,"swing"],"value":"negative"}]},
+    {"id":"door-semantics-partial","code":"invalid_door_semantics","changes":[{"path":["openings",0,"hinge"],"value":"end"}]},
+    {"id":"door-semantics-invalid-hinge","code":"invalid_door_semantic_value","changes":[{"path":["openings",0,"hinge"],"value":"middle"},{"path":["openings",0,"swing"],"value":"positive"}]},
+    {"id":"door-semantics-invalid-swing","code":"invalid_door_semantic_value","changes":[{"path":["openings",0,"hinge"],"value":"start"},{"path":["openings",0,"swing"],"value":1}]},
+    {"id":"window-door-semantics","code":"invalid_door_semantics","changes":[{"path":["openings",0,"type"],"value":"window"},{"path":["openings",0,"hinge"],"value":"start"},{"path":["openings",0,"swing"],"value":"positive"}]},
+    {"id":"rooms-partial-overlap","code":"overlapping_rooms","changes":[{"path":["rooms"],"value":[
+      {"id":"a","polygon":[{"x":0,"y":0},{"x":5,"y":0},{"x":5,"y":4},{"x":0,"y":4}]},
+      {"id":"b","polygon":[{"x":4.9,"y":1},{"x":8,"y":1},{"x":8,"y":3},{"x":4.9,"y":3}]}
+    ]}]}
+  ]
+}
