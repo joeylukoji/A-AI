@@ -1,4 +1,7 @@
-.PHONY: run api ai up up-qcad tidy test test-go test-py test-ablation gan-refine
+.PHONY: run api ai up up-prod up-qcad tidy test test-go test-py test-ablation gan-refine css
+
+css:
+	npx --yes tailwindcss@3.4.17 -i web/static/css/tailwind.src.css -o web/static/css/tailwind.css --minify
 
 tidy:
 	go mod tidy
@@ -11,6 +14,10 @@ ai:
 
 up:
 	docker compose -f deploy/docker-compose.yml up --build
+
+# Preview AWS (nécessite deploy/.env généré, voir docs/deploy-aws.md).
+up-prod:
+	docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env up --build -d
 
 # QCAD est dans le compose par défaut (même commande que `up`).
 up-qcad:

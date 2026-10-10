@@ -1,0 +1,20 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$AAI_DOMAIN} {
+	encode gzip zstd
+	reverse_proxy api:8080
+
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	request_body {
+		max_size 32MB
+	}
+}

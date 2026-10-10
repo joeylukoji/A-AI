@@ -45,6 +45,38 @@ jobs:
       - name: go test
         run: go test -race -count=1 ./...
 
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aai
+          POSTGRES_PASSWORD: aai
+          POSTGRES_DB: aai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aai -d aai"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://aai:aai@localhost:5432/aai?sslmode=disable
+      REQUIRE_DATABASE_TESTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+          cache: true
+
+      - name: migrate integration database
+        run: go run ./cmd/api -migrate-only
+
+      - name: run PostgreSQL-backed API, job, and revision tests
+        run: go test -race -count=1 ./internal/httpapi ./internal/jobs ./internal/project
+
   govulncheck:
     runs-on: ubuntu-latest
     steps:
