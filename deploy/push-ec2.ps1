@@ -58,7 +58,7 @@ $stage = Join-Path $env:TEMP "aai-ec2-stage"
 if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
 New-Item -ItemType Directory -Path $stage | Out-Null
 
-$xd = @(".git", "vendor", "research", ".venv", "node_modules", ".cursor", ".claude", ".agents", "resplan")
+$xd = @(".git", "vendor", "research", ".venv", "node_modules", ".cursor", "resplan")
 $xf = @("*.pt", "*.pkl", "*.log", ".env")
 $robolog = Join-Path $env:TEMP "aai-robocopy.log"
 & robocopy $RepoRoot $stage /E /NFL /NDL /NJH /NJS /nc /ns /np /R:1 /W:1 /XD @xd /XF @xf /LOG:$robolog | Out-Null

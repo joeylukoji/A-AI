@@ -21,14 +21,10 @@ node_modules/
 # flagged to the user rather than removed silently.
 /session_memory.json
 
-# Local caches, benchmark outputs and editor/agent tooling (not part of the project)
+# Local caches and benchmark outputs (not part of the project)
 .cache/
 benchmark/
 .coverage
-.agents/
-.claude/
-.kilo/
-skills-lock.json
 /image.png
 /plan_*.png
 /test_plan_*.png
