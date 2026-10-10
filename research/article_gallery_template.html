@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plans générés — sélection pour l'article</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f3ef;color:#24332f;font:16px/1.6 system-ui,sans-serif}
+header,main{max-width:1440px;margin:auto;padding:28px}h1{font-size:clamp(26px,4vw,42px);line-height:1.2;margin:12px 0}
+.eyebrow,.meta{font-size:13px;color:#61726c}.eyebrow{text-transform:uppercase;letter-spacing:2px}
+.note{max-width:1050px;font-size:14px}.toolbar{position:sticky;top:0;background:#183e34;color:white;padding:14px 28px;z-index:2;box-shadow:0 4px 12px #0002}
+.toolbar p{margin:0}#selection{font-weight:600}button{font:inherit;padding:5px 12px;cursor:pointer;margin-top:8px}
+article{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(290px,1fr);background:white;border:1px solid #dde1d9;border-radius:12px;overflow:hidden;margin-bottom:28px}
+.image{display:flex;align-items:center;padding:12px;background:#fff}img{display:block;width:100%;height:auto}section{padding:28px;border-left:1px solid #eee}
+h2{font-size:28px;margin:0 0 20px}h3{font-size:13px;text-transform:uppercase;letter-spacing:1px}.brief{white-space:pre-wrap;overflow-wrap:anywhere}
+a{color:#16644d}label{display:block;padding:14px;background:#ecf3ed;border-radius:7px;cursor:pointer}input{width:20px;height:20px;vertical-align:middle;accent-color:#16644d}
+pre{white-space:pre-wrap;font-size:12px}article:has(input:checked){outline:3px solid #247b5e}
+@media(max-width:760px){article{grid-template-columns:1fr}section{border-left:0;border-top:1px solid #eee}header,main{padding:16px}}
+</style>
+<header><div class="eyebrow">A-AI · figures de recherche</div><h1>Choisis tes cinq plans</h1>
+<p>{{COUNT}} rendus récents récupérés dans PostgreSQL et MinIO. Aucune capture de l'éditeur, aucune nouvelle génération.</p>
+<p class="note">Le texte à droite est le <strong>brief historique exact du job</strong>, accompagné de ses contraintes.
+Le prompt technique complet envoyé au fournisseur n'a pas été archivé. Les journaux mentionnent Gemini via Eden ;
+l'attribution exacte du modèle à chaque fichier n'est pas conservée. Ce lot a été retenu après inspection visuelle,
+en écartant les rendus de secours locaux identifiés. Il ne représente pas tout l'historique.</p>
+<p class="note">Clique sur un plan pour voir l'original. Les plans peuvent comporter des erreurs : cette sélection éditoriale ne constitue pas une validation architecturale ni un benchmark.</p></header>
+<div class="toolbar"><p id="selection" role="status" aria-live="polite">0 / 5 — aucune image sélectionnée</p>
+<button id="download" disabled>Télécharger les cinq choix</button><p><small>Tu peux aussi transmettre les cinq numéros dans la conversation. La sélection reste active tant que cette page reste ouverte.</small></p></div>
+<main><!-- CARDS --></main>
+<script>
+const boxes = [...document.querySelectorAll('input[type="checkbox"]')];
+const status = document.querySelector('#selection');
+const download = document.querySelector('#download');
+function refresh() {
+  const selected = boxes.filter(box => box.checked);
+  boxes.forEach(box => { box.disabled = selected.length >= 5 && !box.checked; });
+  status.textContent = `${selected.length} / 5 — ${selected.map(box => box.value).join(', ') || 'aucune image sélectionnée'}`;
+  download.disabled = selected.length !== 5;
+}
+boxes.forEach(box => box.addEventListener('change', refresh));
+download.addEventListener('click', () => {
+  const selected = boxes.filter(box => box.checked).map(box => {
+    const card = box.closest('article');
+    return {id:box.value, prompt_utilisateur:card.querySelector('.brief').textContent,
+      image:card.querySelector('img').getAttribute('src')};
+  });
+  const url = URL.createObjectURL(new Blob([JSON.stringify(selected, null, 2)], {type:'application/json'}));
+  const link = document.createElement('a');
+  link.href = url; link.download = 'selection-cinq-plans.json'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+</script>
+</html>
