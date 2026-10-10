@@ -32,6 +32,11 @@ Plateforme SaaS qui transforme un brief en langage naturel en plan architectural
 | [docs/research.md](docs/research.md) | Dataset, métriques, piste publication |
 | [docs/getting-started.md](docs/getting-started.md) | Installation et démarrage local |
 | [docs/product.md](docs/product.md) | Produit SaaS, plans tarifaires, roadmap |
+| [docs/pipeline-scientific-audit.md](docs/pipeline-scientific-audit.md) | Audit scientifique du pipeline de génération |
+| [docs/architecture-2d-audit.md](docs/architecture-2d-audit.md) | Audit de l'architecture du plan 2D |
+| [docs/layout-variants.md](docs/layout-variants.md) | Variantes de partis d'aménagement |
+| [docs/deploy-aws.md](docs/deploy-aws.md) | Déploiement sur AWS EC2 |
+| [docs/gaps.md](docs/gaps.md) | Écarts connus et limites |
 
 ## Structure du dépôt
 
@@ -59,6 +64,9 @@ docker compose -f deploy/docker-compose.yml up --build
 
 Puis ouvrir `http://localhost:8080`.
 
+Preview clients sur une instance AWS : [docs/deploy-aws.md](docs/deploy-aws.md)
+(`deploy/docker-compose.prod.yml`, pas la compose de dev).
+
 ## Tests
 
 ```bash
@@ -75,6 +83,15 @@ python -m pytest services/ai/tests research/metrics services/blender/tests servi
 
 L’image 2D générée par l’IA est un **brouillon visuel**. La source de vérité exploitable est le **`PlanDocument`** vectoriel (pièces, murs, ouvertures, cotes), versionné et exportable (PDF, SVG/DXF, OBJ/glTF).
 
+
+
+## Reproductibilité (évaluation scientifique)
+
+- Toute la suite de tests est exécutable hors ligne : `make test` (Go + Python) et `node --test web/tests/` (éditeur JS).
+- Les métriques géométriques et les benchmarks sont dans [`research/`](research/) (`make test-ablation` pour les ablations).
+- Le contrat de validation des plans est spécifié dans [`packages/plan-schema/`](packages/plan-schema/) (`validation-profile.md`, `validation-cases.json`), partagé entre Go et Python.
+- Les limites connues sont listées sans complaisance dans [docs/gaps.md](docs/gaps.md).
+
 ## Licence
 
-Propriétaire — tous droits réservés (à définir).
+Code sous licence [MIT](LICENSE). Le dataset ResPlan et les modèles 3D tiers conservent leurs propres licences : voir [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
