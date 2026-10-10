@@ -4,7 +4,7 @@
     <p class="section-title">Critères & parcelle</p>
     <span class="badge bg-teal-500/10 text-teal-600 dark:text-teal-400">Règles d'habitabilité</span>
   </div>
-  <div class="grid grid-cols-3 gap-2">
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
     <div>
       <label class="label" for="parcel-w">Longueur (m)</label>
       <input id="parcel-w" type="number" min="6" step="0.1" value="12" class="input"/>
@@ -22,6 +22,18 @@
 </div>
 {{end}}
 
+{{define "plan_style_scripts"}}
+<script src="/static/js/plan-style-palette.js"></script>
+<script src="/static/js/plan-style-floors.js"></script>
+<script src="/static/js/plan-style-furniture.js"></script>
+<script src="/static/js/plan-style-assets.js"></script>
+<script src="/static/js/plan-style-presentation.js"></script>
+<script src="/static/js/plan-style-walls.js"></script>
+<script src="/static/js/plan-style-openings.js"></script>
+<script src="/static/js/plan-style-annotations.js"></script>
+<script src="/static/js/plan-style.js"></script>
+{{end}}
+
 {{define "devis_card"}}
 <div class="card p-5 space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-2">
@@ -29,7 +41,7 @@
     <span class="badge bg-teal-500/10 text-teal-600 dark:text-teal-400">USD · TVA 16 %</span>
   </div>
   <p class="text-[10px] leading-relaxed text-zinc-400">
-    Document professionnel rédigé par l'IA (gpt-oss-120b) : résumé du projet, cahier des charges
+    Document professionnel rédigé par Congo Architecture IA : résumé du projet, cahier des charges
     (normes ACNOR, DTU à titre technique, raccordements REGIDESO/SNEL), cahier technique par lot
     et budgétisation détaillée en USD adaptée au marché de la RDC.
   </p>
@@ -65,7 +77,9 @@
       const j = e.detail || {};
       if (j.project_id && j.project_id !== projectId) return;
       if (j.type !== 'generate_devis') return;
-      devisStatus.textContent = j.error ? `${j.status} — ${j.error}` : j.status;
+      devisStatus.textContent = j.error
+        ? ((window.CAIA && window.CAIA.publicError) ? window.CAIA.publicError(j.error) : j.error)
+        : (j.status === 'running' || j.status === 'queued' ? 'Rédaction du devis…' : j.status);
       if (j.status === 'succeeded') {
         const dl = j.output && j.output.download;
         const tot = j.output && j.output.devis && j.output.devis.total_ttc;
@@ -92,7 +106,9 @@
           }
           return;
         }
-        devisStatus.textContent = j.error ? `${j.status} — ${j.error}` : j.status;
+        devisStatus.textContent = j.error
+          ? ((window.CAIA && window.CAIA.publicError) ? window.CAIA.publicError(j.error) : j.error)
+          : (j.status === 'succeeded' ? 'Devis prêt' : 'Rédaction du devis…');
         if (j.status === 'succeeded') {
           clearInterval(poll);
           const dl = j.output && j.output.download;

@@ -215,3 +215,19 @@ test('a hallway edge shared with a room of another type keeps its wall', () => {
   };
   assert.strictEqual(E.hallwayOnlyWalls(p).size, 0);
 });
+
+test('door swing cycles through four explicit states without changing other fields', () => {
+  const door = { id: 'o', type: 'door', wall_id: 'w', offset_m: 1, width_m: 0.9 };
+  const expected = [
+    ['end', 'positive'], ['end', 'negative'], ['start', 'negative'], ['start', 'positive'],
+  ];
+  for (const [hinge, swing] of expected) {
+    assert.deepStrictEqual(E.cycleDoorSwing(door), { hinge, swing });
+    assert.strictEqual(door.hinge, hinge);
+    assert.strictEqual(door.swing, swing);
+    assert.strictEqual(door.wall_id, 'w');
+  }
+  const window = { id: 'win', type: 'window' };
+  assert.strictEqual(E.cycleDoorSwing(window), null);
+  assert.deepStrictEqual(window, { id: 'win', type: 'window' });
+});

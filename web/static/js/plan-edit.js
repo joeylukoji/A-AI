@@ -214,9 +214,25 @@
     return { action: 'cancel', dx: 0, dy: 0, target: -1 };
   }
 
+  function cycleDoorSwing(opening) {
+    if (!opening || opening.type !== 'door') return null;
+    const states = [
+      ['start', 'positive'], ['end', 'positive'],
+      ['end', 'negative'], ['start', 'negative'],
+    ];
+    const hinge = opening.hinge === 'end' ? 'end' : 'start';
+    const swing = opening.swing === 'negative' ? 'negative' : 'positive';
+    const current = states.findIndex((state) => state[0] === hinge && state[1] === swing);
+    const next = states[(current + 1) % states.length];
+    opening.hinge = next[0];
+    opening.swing = next[1];
+    return { hinge: next[0], swing: next[1] };
+  }
+
   const api = {
     EPS, MIN_OVERLAP, samePt, sameEdge, bboxOf, overlapArea, maxOverlap, insideHouse, canMove,
     snapMove, translateRoom, swapRooms, roomAt, resolveDrop, polyArea, hallwayOnlyWalls,
+    cycleDoorSwing,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PlanEdit = api;

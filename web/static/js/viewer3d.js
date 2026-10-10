@@ -32,7 +32,7 @@
         mv.src = URL.createObjectURL(blob);
         mv.style.display = 'block';
         canvas.style.display = 'none';
-        statusEl.textContent = 'Modèle Blender (GLB) depuis MinIO';
+        statusEl.textContent = 'Maquette 3D prête';
         return true;
       }
     }

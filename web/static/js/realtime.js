@@ -10,6 +10,27 @@
  *   caia:live         { connected: boolean }
  */
 (function () {
+  function downloadBlob(buffer, filename, contentType) {
+    const mime = String(contentType || 'application/octet-stream').split(';')[0].trim()
+      || 'application/octet-stream';
+    const blob = new Blob([buffer], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'fichier';
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    // Safari/iOS vide le fichier si l'URL est révoquée trop tôt.
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 2500);
+  }
+
+  window.CAIA = Object.assign(window.CAIA || {}, { downloadBlob });
+
   const orgId = document.body.getAttribute('data-org-id') || '';
   const projectId = document.body.getAttribute('data-project-id') || '';
   if (!orgId) return;
@@ -30,6 +51,7 @@
   const steps = {
     nlu: 'analyse du brief',
     flux: 'dessin du plan',
+    gemini: 'dessin du plan',
     verify: 'vérification du plan',
     regenerate: 'On régénère le plan…',
     edit: 'modification du plan',
@@ -38,8 +60,25 @@
     vectorize: 'vectorisation',
     adapt: 'calage parcelle',
     devis: 'rédaction du devis',
+    model: 'extrusion 3D',
     blender: 'extrusion 3D',
+    pipeline: 'génération',
   };
+  const vendorRe = /together(\s*ai)?|eden(\s*ai)?|edenai|gemini|flux(\.2)?|gpt-oss|openai|black-forest|housediffusion|controlnet|minio|blender|qcad|librecad|fastapi/i;
+  const brandedFailure = 'Le moteur Congo Architecture IA n’a pas pu terminer cette étape. Réessayez dans un instant.';
+
+  function publicError(msg) {
+    if (!msg) return '';
+    const text = String(msg);
+    if (vendorRe.test(text) || /^\s*[\{\[<]/.test(text) || /traceback|ai pipeline|ai edit|ai devis|ai adapt/i.test(text)) {
+      return brandedFailure;
+    }
+    return text;
+  }
+
+  function jobKind(type) {
+    return labels[type] || 'Tâche';
+  }
 
   let es = null;
   let retryMs = 1000;
@@ -73,12 +112,12 @@
   }
 
   function jobLine(data) {
-    const kind = labels[data.type] || data.type || 'Tâche';
+    const kind = jobKind(data.type);
     const st = data.status || '';
     if (st === 'queued') return `${kind} · en file`;
-    if (st === 'running') return `${kind} · ${steps[data.step] || data.step || 'en cours'}`;
+    if (st === 'running') return `${kind} · ${steps[data.step] || 'en cours'}`;
     if (st === 'succeeded') return `${kind} · terminé`;
-    if (st === 'failed') return `${kind} · échec${data.error ? ' — ' + data.error : ''}`;
+    if (st === 'failed') return `${kind} · échec${data.error ? ' — ' + publicError(data.error) : ''}`;
     return `${kind} · ${st}`;
   }
 
@@ -156,7 +195,9 @@
     orgId,
     projectId,
     isLive: () => connected,
-    jobStep: (step) => steps[step] || step || '',
+    jobKind,
+    jobStep: (step) => steps[step] || '',
+    publicError,
     onJob(fn) { window.addEventListener('caia:job', (e) => fn(e.detail)); },
     onPlanReady(fn) { window.addEventListener('caia:plan.ready', (e) => fn(e.detail)); },
     onModelReady(fn) { window.addEventListener('caia:model.ready', (e) => fn(e.detail)); },

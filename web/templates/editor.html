@@ -4,14 +4,14 @@
 <div class="max-w-6xl mx-auto space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-3 animate-blur-slide">
     <div class="min-w-0">
-      <h2 class="font-extrabold text-xl tracking-tight truncate">Éditeur · {{.Project.Name}}</h2>
+      <h2 class="font-extrabold text-xl tracking-tight break-words">Éditeur · {{.Project.Name}}</h2>
       <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
         <a href="/projects/{{.Project.ID}}" class="hover:text-teal-500 transition">← Plan 2D</a>
       </p>
     </div>
-    <div class="flex items-center gap-2">
-      <span id="topo-status" class="text-xs text-zinc-400"></span>
-      <span id="save-status" class="text-xs text-zinc-400">Prêt</span>
+    <div class="flex flex-wrap items-center gap-2">
+      <span id="topo-status" role="status" class="text-xs text-zinc-400"></span>
+      <span id="save-status" role="status" class="text-xs text-zinc-400">Prêt</span>
       {{if .CanEdit}}
       <button id="btn-save" class="btn-accent">Enregistrer</button>
       {{end}}
@@ -23,6 +23,7 @@
     <button type="button" data-tool="select" class="tool-btn btn-dark">Déplacer</button>
     <button type="button" data-tool="room" class="tool-btn btn-line">Pièce</button>
     <button type="button" data-tool="door" class="tool-btn btn-line">Porte</button>
+    <button type="button" data-tool="door-swing" class="tool-btn btn-line" title="Cliquer sur une porte pour changer la charnière et le débattement">Sens porte</button>
     <button type="button" data-tool="window" class="tool-btn btn-line">Fenêtre</button>
     <button type="button" data-tool="delete" class="tool-btn btn-danger">Supprimer</button>
     <button type="button" id="btn-undo" class="btn-line" title="Annuler (Ctrl+Z)">Annuler</button>
@@ -43,6 +44,9 @@
   <div class="card overflow-hidden animate-blur-slide stagger-2">
     <canvas
       id="plan-canvas"
+      tabindex="0"
+      aria-label="Plan architectural interactif"
+      aria-describedby="editor-instructions"
       width="960"
       height="640"
       class="block w-full bg-[#fbfaf7]"
@@ -56,16 +60,21 @@
     <ul id="room-legend" class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-500 dark:text-zinc-400"></ul>
     <div id="compliance-score"></div>
     <div id="plan-dimensions"></div>
-    <p class="text-[10px] text-zinc-400">
-      Déplacer : cliquez une pièce, glissez-la vers un espace libre (elle s'aimante aux murs voisins) ou déposez-la sur une autre pièce pour les échanger ; flèches du clavier = 10 cm (Maj : 50 cm), Échap annule, Ctrl+Z revient en arrière.
+    <p id="editor-instructions" class="text-[10px] text-zinc-400">
+      {{if .CanEdit}}
+      Déplacer : cliquez une pièce, glissez-la vers un espace libre (elle s'aimante aux murs voisins) ou déposez-la sur une autre pièce pour les échanger ; flèches du clavier = 10 cm (Maj : 50 cm), Échap annule.
+      Sur le plan au clavier : Entrée sélectionne la pièce suivante (Maj+Entrée la précédente), puis les flèches la déplacent.
       Poignée turquoise au survol d'un mur : tirer le mur. Fond du plan : glisser pour déplacer la vue, molette pour zoomer.
       Pièce : clic dans le plan. Porte / fenêtre : clic sur un mur. Supprimer : clic sur une ouverture, une pièce ou un mur.
+      {{else}}
+      Lecture seule : utilisez les boutons Ajuster et Zoom pour explorer le plan ; glissez le fond pour déplacer la vue.
+      {{end}}
     </p>
   </div>
 </div>
 
 <script type="application/json" id="plan-document-data">{{.PlanJSON}}</script>
-<script src="/static/js/plan-style.js"></script>
+{{template "plan_style_scripts" .}}
 <script src="/static/js/plan-compliance.js"></script>
 <script src="/static/js/plan-edit.js"></script>
 <script src="/static/js/editor.js"></script>

@@ -3,61 +3,20 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>{{.Title}} · Congo Architecture IA</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml"/>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            paper: '#fbfaf7',
-            panel: '#f4f0ea',
-            line: '#e9e4da',
-            ink: '#191919',
-            cream: '#f5f5f2',
-            creamcard: '#e9e8e4',
-            skyx: '#b9e5f3',
-            zinc: { 850: 'rgba(63, 63, 70, 0.45)' },
-          },
-          fontFamily: {
-            sans: ['Geist', 'system-ui', '-apple-system', 'sans-serif'],
-            mono: ['"Geist Mono"', 'monospace'],
-            maison: ['"DM Sans"', 'system-ui', 'sans-serif'],
-            serifit: ['"Instrument Serif"', 'Georgia', 'serif'],
-          },
-        },
-      },
-    }
-  </script>
-  <style type="text/tailwindcss">
-    @layer components {
-      .clickable-scale { transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1) !important; }
-      .clickable-scale:active { transform: scale(0.96) !important; }
-      .card { @apply rounded-2xl border shadow-none bg-white border-line dark:bg-zinc-900 dark:border-zinc-850; }
-      .btn-accent { @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-zinc-950 text-xs font-bold transition clickable-scale disabled:opacity-50 disabled:pointer-events-none; }
-      .btn-dark { @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 text-zinc-100 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white text-xs font-bold transition clickable-scale disabled:opacity-50 disabled:pointer-events-none; }
-      .btn-ghost { @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition clickable-scale disabled:opacity-50 disabled:pointer-events-none; }
-      .btn-line { @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-line dark:border-zinc-700 text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition clickable-scale disabled:opacity-50 disabled:pointer-events-none; }
-      .btn-danger { @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-red-500/40 text-red-500 text-xs font-bold hover:bg-red-500/10 transition clickable-scale disabled:opacity-50 disabled:pointer-events-none; }
-      .input { @apply w-full px-3 py-2 text-xs rounded-xl font-semibold outline-none border bg-zinc-100 border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 focus:ring-1 focus:ring-teal-500 transition; }
-      .label { @apply block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1; }
-      .navlink { @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-zinc-500 dark:text-zinc-400 hover:bg-zinc-900/5 dark:hover:bg-zinc-800/60 transition clickable-scale; }
-      .navlink-active { @apply bg-teal-500/10 text-teal-600 dark:text-teal-400 hover:bg-teal-500/10 dark:hover:bg-teal-500/10; }
-      .badge { @apply inline-flex items-center px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide; }
-      .kpi { @apply font-extrabold text-2xl tracking-tight; }
-      .icon-btn { @apply w-9 h-9 inline-flex items-center justify-center rounded-xl border bg-white border-line dark:bg-zinc-900 dark:border-zinc-700 transition clickable-scale; }
-      .section-title { @apply font-bold text-sm tracking-tight; }
-    }
-  </style>
+  <link rel="stylesheet" href="/static/css/tailwind.css"/>
   <link rel="stylesheet" href="/static/css/app.css"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+  </noscript>
 </head>
-<body class="font-sans antialiased text-ink dark:text-zinc-50 bg-paper dark:bg-zinc-950"
+<body class="font-sans antialiased text-ink dark:text-zinc-50 bg-paper dark:bg-zinc-950 overflow-x-hidden"
       data-org-id="{{if .Org}}{{.Org.ID}}{{end}}"
       data-project-id="{{if .Project}}{{.Project.ID}}{{end}}">
 {{end}}
@@ -78,10 +37,11 @@
     document.documentElement.classList.toggle('dark', dark);
   })();
 </script>
-<div class="h-screen overflow-hidden flex flex-col md:flex-row bg-paper dark:bg-zinc-950 text-ink dark:text-zinc-50">
+<div class="min-h-[100dvh] md:h-[100dvh] md:overflow-hidden flex flex-col md:flex-row bg-paper dark:bg-zinc-950 text-ink dark:text-zinc-50">
   <div id="sidebar-overlay" class="fixed inset-0 bg-black/45 z-40 hidden md:hidden"></div>
 
-  <aside id="sidebar" class="fixed md:sticky top-0 left-0 z-50 h-screen w-52 shrink-0 p-4 border-r
+  <aside id="sidebar" class="fixed md:sticky top-0 left-0 z-50 h-[100dvh] w-[min(16.5rem,85vw)] md:w-52 shrink-0 border-r overflow-y-auto overscroll-contain
+      px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]
       bg-panel border-line dark:bg-zinc-900 dark:border-zinc-850
       flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-200">
     <div class="min-w-0">
@@ -132,21 +92,22 @@
     </div>
   </aside>
 
-  <div class="flex-grow flex flex-col min-w-0 overflow-hidden">
-    <header class="sticky top-0 z-30 h-16 px-4 md:px-6 py-3 border-b backdrop-blur-md
-        bg-paper/60 border-line dark:bg-zinc-950/40 dark:border-zinc-850 flex items-center justify-between gap-3">
+  <div class="flex-grow flex flex-col min-w-0 min-h-0 md:overflow-hidden">
+    <header class="sticky top-0 z-30 min-h-14 md:h-16 px-3 md:px-6 py-2 md:py-3 border-b backdrop-blur-md
+        bg-paper/60 border-line dark:bg-zinc-950/40 dark:border-zinc-850 flex items-center justify-between gap-2
+        pt-[max(0.5rem,env(safe-area-inset-top))]">
       <div class="flex items-center gap-2 min-w-0">
         <button id="btn-menu" class="icon-btn md:hidden" aria-label="Menu">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
         </button>
         <h1 class="font-bold text-sm tracking-tight truncate">{{.Title}}</h1>
       </div>
-      <div class="flex items-center gap-2 min-w-0">
+      <div class="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink-0">
         <span id="live-dot" class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-line dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/70">
           <span id="live-dot-pip" class="h-1.5 w-1.5 rounded-full bg-zinc-400 shrink-0"></span>
-          <span id="live-label" class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">En direct</span>
+          <span id="live-label" class="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-zinc-400">En direct</span>
         </span>
-        <span id="live-job" class="hidden sm:block text-[10px] font-semibold text-zinc-400 truncate max-w-[12rem]"></span>
+        <span id="live-job" class="hidden md:block text-[10px] font-semibold text-zinc-400 truncate max-w-[10rem]"></span>
         <span class="badge bg-teal-500/10 text-teal-600 dark:text-teal-400 hidden lg:inline-flex">RDC · USD</span>
         <button id="btn-theme" class="icon-btn" aria-label="Thème">
           <svg class="w-4 h-4 dark:hidden" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/></svg>
@@ -154,7 +115,7 @@
         </button>
       </div>
     </header>
-    <main class="flex-grow overflow-y-auto min-w-0 p-4 md:p-8">
+    <main class="flex-grow md:overflow-y-auto overflow-x-hidden min-w-0 min-h-0 p-4 md:p-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
 {{end}}
 
 {{define "dash_end"}}
@@ -169,13 +130,14 @@
     const close = () => { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); };
     document.getElementById('btn-menu')?.addEventListener('click', open);
     overlay?.addEventListener('click', close);
+    sidebar?.querySelectorAll('a').forEach((a) => a.addEventListener('click', close));
     document.getElementById('btn-theme')?.addEventListener('click', () => {
       const dark = document.documentElement.classList.toggle('dark');
       localStorage.setItem('caia-theme', dark ? 'dark' : 'light');
     });
   })();
 </script>
-<div id="live-toast" class="fixed bottom-4 right-4 z-50 max-w-sm px-4 py-3 rounded-xl border border-line dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold shadow-lg opacity-0 pointer-events-none translate-y-2 transition"></div>
+<div id="live-toast" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-50 sm:max-w-sm px-4 py-3 rounded-xl border border-line dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold shadow-lg opacity-0 pointer-events-none translate-y-2 transition"></div>
 <script src="/static/js/realtime.js"></script>
 {{end}}
 

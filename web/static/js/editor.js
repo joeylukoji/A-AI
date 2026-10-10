@@ -269,7 +269,9 @@
 
     // libellés : capitales + surface, un seul pour un couloir continu
     if (style && style.drawRoomLabels) {
-      style.drawRoomLabels(ctx, plan.rooms, toScreen);
+      style.drawRoomLabels(ctx, plan.rooms, toScreen, {
+        furniture: plan.furniture || [], dimensions: true,
+      });
     } else {
       (plan.rooms || []).forEach((room) => {
         if (!room.polygon?.length) return;
@@ -444,13 +446,15 @@
   }
 
   function addOpening(type, hit) {
-    plan.openings.push({
+    const opening = {
       id: uid('o'),
       wall_id: hit.wall.id,
       type,
       offset_m: Math.max(0.2, +(hit.offset - 0.45).toFixed(2)),
       width_m: type === 'window' ? 1.2 : 0.9,
-    });
+    };
+    if (type === 'door') Object.assign(opening, { hinge: 'start', swing: 'positive' });
+    plan.openings.push(opening);
   }
 
   // Déplace un sommet de mur et synchronise les sommets de polygones coïncidents,
@@ -476,6 +480,7 @@
     status.textContent = message || 'Modifié';
     draw(true);
     if (!cfg.canEdit) return;
+    if (saving) saveQueued = true;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(save, 1200);
   }
@@ -516,6 +521,7 @@
       return;
     }
     if (e.button !== 0) return;
+    canvas.focus({ preventScroll: true });
 
     if (tool === 'select') {
       const h = cfg.canEdit ? hitHandle(x, y) : null;
@@ -551,6 +557,18 @@
         addOpening(tool, hit);
         markDirty();
       }
+      return;
+    }
+    if (tool === 'door-swing') {
+      const oi = hitOpening(x, y);
+      const opening = oi >= 0 ? plan.openings[oi] : null;
+      if (!opening || opening.type !== 'door') {
+        say('Cliquez sur une porte pour changer son sens');
+        return;
+      }
+      checkpoint();
+      const next = Edit.cycleDoorSwing(opening);
+      markDirty(`Porte : charnière ${next.hinge}, ouverture ${next.swing}`);
       return;
     }
     if (tool === 'delete') {
@@ -691,8 +709,10 @@
 
   // Échap annule un déplacement en cours ; les flèches déplacent la pièce sélectionnée de 10 cm (Maj : 50 cm).
   window.addEventListener('keydown', (e) => {
+    const editingText = e.target && (e.target.isContentEditable ||
+      /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName));
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && cfg.canEdit
-        && !(e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) {
+        && !editingText) {
       e.preventDefault();
       undo();
       return;
@@ -703,8 +723,19 @@
       draw(false);
       return;
     }
+    if (e.target === canvas && cfg.canEdit && tool === 'select' && e.key === 'Enter') {
+      if (!(plan.rooms || []).length) return;
+      e.preventDefault();
+      const direction = e.shiftKey ? -1 : 1;
+      selected = selected < 0
+        ? (direction > 0 ? 0 : plan.rooms.length - 1)
+        : (selected + direction + plan.rooms.length) % plan.rooms.length;
+      say(`${style_label(plan.rooms[selected])} sélectionnée — flèches pour déplacer, Entrée pour la pièce suivante`);
+      draw(false);
+      return;
+    }
     if (!cfg.canEdit || tool !== 'select' || selected < 0 || !plan.rooms[selected]) return;
-    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if (e.target !== canvas) return;
     const step = e.shiftKey ? 0.5 : GRID;
     const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
     if (!delta) return;
@@ -756,6 +787,7 @@
     toolBtns.forEach((b) => {
       b.classList.remove('btn-dark', 'btn-line', 'btn-danger');
       b.classList.add(b.dataset.tool === name ? 'btn-dark' : (b.dataset.tool === 'delete' ? 'btn-danger' : 'btn-line'));
+      b.setAttribute('aria-pressed', b.dataset.tool === name ? 'true' : 'false');
     });
     canvas.style.cursor = name === 'select' ? 'default' : (name === 'delete' ? 'not-allowed' : 'crosshair');
     draw(false);
@@ -764,8 +796,11 @@
 
   // ---- sauvegarde -------------------------------------------------------------------
   let saving = false;
+  let saveQueued = false;
   async function save() {
     if (!cfg.canEdit || saving) return;
+    clearTimeout(saveTimer);
+    saveTimer = null;
     const issue = topology();
     if (issue) {
       status.textContent = issue;
@@ -797,6 +832,12 @@
     } finally {
       saving = false;
       if (saveBtn) saveBtn.disabled = false;
+      if (saveQueued) {
+        saveQueued = false;
+        clearTimeout(saveTimer);
+        saveTimer = null;
+        void save();
+      }
     }
   }
 
@@ -813,4 +854,5 @@
 
   setTool('select');
   resize();
+  window.PlanStyle?.prepareFurniture(plan.furniture).then(() => draw(false));
 })();

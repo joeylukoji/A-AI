@@ -4,7 +4,7 @@
 <div class="max-w-6xl mx-auto space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-3 animate-blur-slide">
     <div class="min-w-0">
-      <h2 class="font-extrabold text-xl tracking-tight truncate">Maquette 3D · {{.Project.Name}}</h2>
+      <h2 class="font-extrabold text-xl tracking-tight break-words">Maquette 3D · {{.Project.Name}}</h2>
       <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
         <a href="/projects/{{.Project.ID}}/3d" class="hover:text-teal-500 transition">← Plan 3D</a>
       </p>
@@ -13,7 +13,7 @@
   </div>
 
   <div class="card overflow-hidden animate-blur-slide stagger-1">
-    <div id="viewer" class="bg-[#101012] h-[68vh] relative">
+    <div id="viewer" class="bg-[#101012] h-[min(55vh,22rem)] sm:h-[68vh] relative">
       <model-viewer
         id="model-viewer"
         camera-controls

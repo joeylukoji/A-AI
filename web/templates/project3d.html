@@ -4,8 +4,8 @@
 <div class="max-w-6xl mx-auto space-y-6">
   <div class="flex flex-wrap items-end justify-between gap-3 animate-blur-slide">
     <div class="min-w-0">
-      <h2 class="font-extrabold text-xl tracking-tight truncate">{{.Project.Name}} — Maquette 3D</h2>
-      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">{{.Project.Brief}}</p>
+      <h2 class="font-extrabold text-xl tracking-tight break-words">{{.Project.Name}} — Maquette 3D</h2>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 break-words line-clamp-3">{{.Project.Brief}}</p>
     </div>
     {{if .Revision}}
     <span class="badge bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">Révision v{{.Revision.Version}}</span>
@@ -14,13 +14,13 @@
 
   <div class="grid lg:grid-cols-5 gap-6">
     <!-- Colonne gauche : génération + critères + devis -->
-    <div class="lg:col-span-2 space-y-6">
+    <div class="lg:col-span-2 space-y-6 order-2 lg:order-1 min-w-0">
       <div class="card p-5 space-y-4 animate-blur-slide stagger-1">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="section-title">Génération 3D</p>
-          <span class="badge bg-amber-500/10 text-amber-500">Blender</span>
+          <span class="badge bg-amber-500/10 text-amber-500">Congo Architecture IA</span>
         </div>
-        <p class="text-[10px] leading-relaxed text-zinc-400">La maquette est extrudée depuis le plan 2D courant (murs, ouvertures, mobilier), puis rendue en GLB par le worker Blender.</p>
+        <p class="text-[10px] leading-relaxed text-zinc-400">La maquette est extrudée depuis le plan 2D courant (murs, ouvertures, mobilier), puis rendue en GLB.</p>
         <div class="flex flex-wrap gap-2">
           <button id="btn-3d" class="btn-accent">{{template "icon-cube"}} Générer la maquette 3D</button>
           <a class="btn-line" href="/projects/{{.Project.ID}}">{{template "icon-plan"}} Plan 2D</a>
@@ -37,7 +37,7 @@
           <button data-export="obj" class="export-btn btn-line">OBJ</button>
           <button data-export="dxf" class="export-btn btn-line">DXF</button>
         </div>
-        <p class="text-[10px] text-zinc-400">GLB/OBJ pour viewers et moteurs 3D ; DXF du plan pour QCAD / LibreCAD.</p>
+        <p class="text-[10px] text-zinc-400">GLB/OBJ pour viewers et moteurs 3D ; DXF du plan pour votre logiciel de CAO.</p>
       </div>
 
       <div class="animate-blur-slide stagger-3">{{template "criteres_card" .}}</div>
@@ -45,13 +45,13 @@
     </div>
 
     <!-- Colonne droite : viewer -->
-    <div class="lg:col-span-3">
+    <div class="lg:col-span-3 order-1 lg:order-2 min-w-0">
       <div class="card p-5 space-y-4 animate-blur-slide stagger-2">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="section-title">Viewer 3D</p>
           <p id="viewer-status" class="text-xs text-zinc-500 dark:text-zinc-400">Chargement du modèle…</p>
         </div>
-        <div id="viewer" class="rounded-xl border border-line dark:border-zinc-850 bg-[#101012] h-[60vh] relative overflow-hidden">
+        <div id="viewer" class="rounded-xl border border-line dark:border-zinc-850 bg-[#101012] h-[min(55vh,22rem)] sm:h-[60vh] relative overflow-hidden">
           <model-viewer
             id="model-viewer"
             camera-controls
@@ -80,16 +80,18 @@
 
   function applyJobStatus(data) {
     if (!data || (data.project_id && data.project_id !== projectId)) return;
+    const kind = (window.CAIA && window.CAIA.jobKind) ? window.CAIA.jobKind(data.type) : 'Tâche';
     if (data.error) {
-      statusEl.textContent = `${data.type}: ${data.status} — ${data.error}`;
+      const err = (window.CAIA && window.CAIA.publicError) ? window.CAIA.publicError(data.error) : data.error;
+      statusEl.textContent = `${kind} — ${err}`;
       return;
     }
     if (data.status === 'running' && data.step === 'regenerate') {
       statusEl.textContent = 'On régénère le plan…';
       return;
     }
-    const step = (window.CAIA && window.CAIA.jobStep) ? window.CAIA.jobStep(data.step) : (data.step || '');
-    statusEl.textContent = `${data.type}: ${data.status}${step ? ' · ' + step : ''}`;
+    const step = (window.CAIA && window.CAIA.jobStep) ? window.CAIA.jobStep(data.step) : '';
+    statusEl.textContent = step ? `${kind} · ${step}` : `${kind} · ${data.status || 'en cours'}`;
   }
   window.addEventListener('caia:job', (e) => applyJobStatus(e.detail));
   window.addEventListener('caia:model.ready', (e) => {
@@ -121,7 +123,9 @@
         return;
       }
       if (j.status !== 'succeeded' && j.status !== 'failed') return;
-      statusEl.textContent = j.error ? `${j.type}: ${j.status} — ${j.error}` : `${j.type}: ${j.status}`;
+      statusEl.textContent = j.error
+        ? `${(window.CAIA && window.CAIA.jobKind) ? window.CAIA.jobKind(j.type) : 'Tâche'} — ${(window.CAIA && window.CAIA.publicError) ? window.CAIA.publicError(j.error) : j.error}`
+        : ((window.CAIA && window.CAIA.jobKind) ? window.CAIA.jobKind(j.type) : 'Tâche') + ' · terminé';
       clearInterval(poll);
       if (j.status === 'succeeded') location.reload();
     }, 1000);
@@ -136,7 +140,7 @@
       const res = await fetch(`/api/v1/projects/${projectId}/generate-3d`, { method:'POST', headers:{'Accept':'application/json'} });
       const data = await res.json();
       if (!res.ok) { statusEl.textContent = data.error?.message || 'Erreur 3D'; return; }
-      statusEl.textContent = `3D job ${data.job_id}`;
+      statusEl.textContent = 'Génération 3D en cours…';
       pollJob(data.job_id);
     } catch {
       statusEl.textContent = 'Réseau indisponible';
@@ -158,12 +162,7 @@
         if (!res.ok) { alert('Export échoué'); return; }
         const raw = await res.arrayBuffer();
         const type = res.headers.get('Content-Type') || 'application/octet-stream';
-        const blob = new Blob([raw], { type });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `plan.${btn.dataset.export}`;
-        a.click();
-        URL.revokeObjectURL(a.href);
+        window.CAIA.downloadBlob(raw, `plan.${btn.dataset.export}`, type);
       } catch {
         alert('Export échoué — réseau indisponible');
       } finally {

@@ -4,7 +4,7 @@
 
   <!-- Nav -->
   <nav id="nav" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
-    <div class="mx-auto w-[91.5vw] max-w-7xl flex items-center justify-between py-5">
+    <div class="mx-auto w-full px-4 sm:w-[91.5vw] sm:px-0 max-w-7xl flex items-center justify-between py-5">
       <a href="/" class="flex items-center gap-3">
         <span class="relative flex h-8 w-8 items-center justify-center rounded-full border border-black/70">
           <span class="h-2.5 w-2.5 rounded-full bg-[#090b0c]"></span>
@@ -29,9 +29,9 @@
   <!-- Hero -->
   <section id="home" class="relative min-h-[100svh] overflow-hidden flex flex-col">
     <canvas id="particles" class="pointer-events-none absolute inset-0 opacity-40"></canvas>
-    <div class="relative z-10 mx-auto w-[91.5vw] max-w-7xl flex flex-col items-center text-center pt-[17vh]">
+    <div class="relative z-10 mx-auto w-full px-4 sm:w-[91.5vw] sm:px-0 max-w-7xl flex flex-col items-center text-center pt-[17vh]">
       <p class="mb-5 text-[11px] font-medium uppercase tracking-[0.18rem] text-black/55">Plans de maisons par IA · République démocratique du Congo</p>
-      <h1 class="max-w-[88vw] text-[clamp(3rem,7.2vw,7.5rem)] font-semibold leading-[0.88] tracking-[-0.06em]">
+      <h1 class="max-w-[88vw] text-[clamp(2.15rem,10vw,7.5rem)] font-semibold leading-[0.92] sm:leading-[0.88] tracking-[-0.06em] break-words">
         Architecture pour une vie<br/><span class="font-display-italic">pleinement habitée.</span>
       </h1>
       <p class="mt-8 max-w-xl text-sm leading-6 text-black/60">
@@ -52,7 +52,7 @@
     <!-- visuel hero : rendu 3D isométrique -->
     <div class="relative mt-auto pt-14">
       <div class="pointer-events-none absolute -bottom-[14vh] left-[-10vw] h-[34vh] w-[75vw] rounded-full bg-white/75 blur-3xl"></div>
-      <div id="heroImage" class="relative mx-auto w-[92vw] max-w-5xl overflow-hidden rounded-t-[2rem] border border-black/10 shadow-[0_-20px_80px_rgba(0,0,0,0.10)]">
+      <div id="heroImage" class="relative mx-auto w-full max-w-5xl overflow-hidden rounded-t-[2rem] border border-black/10 shadow-[0_-20px_80px_rgba(0,0,0,0.10)]">
         <img src="/static/img/hero-plan.png" alt="Plan de maison 3D généré par Congo Architecture IA"
           class="h-[42vh] md:h-[56vh] w-full object-cover object-[50%_35%] scale-[1.02]"/>
         <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent"></div>
@@ -65,7 +65,7 @@
   </section>
 
   <!-- Manifesto -->
-  <section id="approche" class="mx-auto w-[91.5vw] max-w-7xl py-28 md:py-40">
+  <section id="approche" class="mx-auto w-full px-4 sm:w-[91.5vw] sm:px-0 max-w-7xl py-28 md:py-40">
     <div class="mb-8 flex items-center gap-3 reveal">
       <span class="h-px w-5 bg-black/60"></span>
       <p class="text-[11px] font-medium uppercase tracking-[0.16rem] text-black/55">Notre approche</p>
@@ -79,28 +79,28 @@
 
   <!-- Metrics -->
   <section class="bg-creamcard/60 border-y border-black/10">
-    <div class="mx-auto w-[91.5vw] max-w-7xl py-16 grid grid-cols-2 md:grid-cols-4 gap-10">
-      <div class="reveal"><p class="text-5xl md:text-6xl font-semibold tracking-[-0.05em]"><span class="counter" data-to="2">0</span><span class="font-display-italic">D</span></p><p class="mt-2 text-[11px] uppercase tracking-[0.16rem] text-black/55">Plans vectoriels éditables</p></div>
-      <div class="reveal"><p class="text-5xl md:text-6xl font-semibold tracking-[-0.05em]"><span class="counter" data-to="3">0</span><span class="font-display-italic">D</span></p><p class="mt-2 text-[11px] uppercase tracking-[0.16rem] text-black/55">Maquettes GLB / OBJ</p></div>
-      <div class="reveal"><p class="text-5xl md:text-6xl font-semibold tracking-[-0.05em]"><span class="counter" data-to="16">0</span><span class="font-display-italic">%</span></p><p class="mt-2 text-[11px] uppercase tracking-[0.16rem] text-black/55">TVA RDC dans les devis</p></div>
-      <div class="reveal"><p class="text-5xl md:text-6xl font-semibold tracking-[-0.05em]"><span class="counter" data-to="9">0</span></p><p class="mt-2 text-[11px] uppercase tracking-[0.16rem] text-black/55">Lots chiffrés au devis</p></div>
+    <div class="mx-auto w-full px-4 sm:w-[91.5vw] sm:px-0 max-w-7xl py-16 grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-10">
+      <div class="reveal"><p class="text-4xl md:text-6xl font-semibold tracking-[-0.05em]"><span class="counter" data-to="2">0</span><span class="font-display-italic">D</span></p><p class="mt-2 text-[11px] uppercase tracking-[0.16rem] text-black/55">Plans vectoriels éditables</p></div>
+      <div class="reveal"><p class="text-4xl md:text-6xl font-semibold tracking-[-0.05em]"><span class="counter" data-to="3">0</span><span class="font-display-italic">D</span></p><p class="mt-2 text-[11px] uppercase tracking-[0.16rem] text-black/55">Maquettes GLB / OBJ</p></div>
+      <div class="reveal"><p class="text-4xl md:text-6xl font-semibold tracking-[-0.05em]"><span class="counter" data-to="16">0</span><span class="font-display-italic">%</span></p><p class="mt-2 text-[11px] uppercase tracking-[0.16rem] text-black/55">TVA RDC dans les devis</p></div>
+      <div class="reveal"><p class="text-4xl md:text-6xl font-semibold tracking-[-0.05em]"><span class="counter" data-to="9">0</span></p><p class="mt-2 text-[11px] uppercase tracking-[0.16rem] text-black/55">Lots chiffrés au devis</p></div>
     </div>
   </section>
 
   <!-- Services -->
-  <section id="services" class="mx-auto w-[91.5vw] max-w-7xl pb-28 md:pb-40">
+  <section id="services" class="mx-auto w-full px-4 sm:w-[91.5vw] sm:px-0 max-w-7xl pb-28 md:pb-40">
     <div class="grid md:grid-cols-3 gap-5">
-      <div class="reveal tilt rounded-2xl bg-creamcard p-8 md:p-10">
+      <div class="reveal tilt rounded-2xl bg-creamcard p-6 md:p-10">
         <p class="font-display-italic text-5xl text-black/30">01</p>
         <h3 class="mt-6 text-2xl font-semibold tracking-[-0.03em]">Plan 2D par IA</h3>
-        <p class="mt-3 text-sm leading-6 text-black/60">Le LLM compose le programme pièce par pièce, le moteur applique les règles d'habitabilité, puis FLUX.2 rend une illustration propre — et le plan reste éditable dans l'atelier.</p>
+        <p class="mt-3 text-sm leading-6 text-black/60">Congo Architecture IA compose le programme pièce par pièce, applique les règles d’habitabilité, puis dessine une illustration propre — et le plan reste éditable dans l’atelier.</p>
       </div>
-      <div class="reveal tilt rounded-2xl bg-creamcard p-8 md:p-10">
+      <div class="reveal tilt rounded-2xl bg-creamcard p-6 md:p-10">
         <p class="font-display-italic text-5xl text-black/30">02</p>
         <h3 class="mt-6 text-2xl font-semibold tracking-[-0.03em]">Maquette 3D</h3>
-        <p class="mt-3 text-sm leading-6 text-black/60">Extrusion fidèle du plan : murs, ouvertures, mobilier. Export glTF / OBJ / DXF pour QCAD, LibreCAD ou votre logiciel de CAO habituel.</p>
+        <p class="mt-3 text-sm leading-6 text-black/60">Extrusion fidèle du plan : murs, ouvertures, mobilier. Export glTF / OBJ / DXF pour votre logiciel de CAO habituel.</p>
       </div>
-      <div class="reveal tilt rounded-2xl bg-[#090b0c] text-white p-8 md:p-10">
+      <div class="reveal tilt rounded-2xl bg-[#090b0c] text-white p-6 md:p-10">
         <p class="font-display-italic text-5xl text-white/30">03</p>
         <h3 class="mt-6 text-2xl font-semibold tracking-[-0.03em]">Devis professionnel</h3>
         <p class="mt-3 text-sm leading-6 text-white/60">Cahier des charges, cahier technique et budgétisation en USD, TVA 16 %, prix du marché congolais — un PDF prêt à présenter à un client ou une banque.</p>
@@ -110,7 +110,7 @@
 
   <!-- Processus (fond noir) -->
   <section id="processus" class="bg-[#090b0c] text-white">
-    <div class="mx-auto w-[91.5vw] max-w-7xl py-28 md:py-36">
+    <div class="mx-auto w-full px-4 sm:w-[91.5vw] sm:px-0 max-w-7xl py-28 md:py-36">
       <div class="mb-14 flex items-center gap-3 reveal">
         <span class="h-px w-5 bg-white/60"></span>
         <p class="text-[11px] font-medium uppercase tracking-[0.16rem] text-white/55">Processus</p>
@@ -126,7 +126,7 @@
 
   <!-- CTA final -->
   <section class="bg-skyx">
-    <div class="mx-auto w-[91.5vw] max-w-7xl py-24 md:py-32 text-center">
+    <div class="mx-auto w-full px-4 sm:w-[91.5vw] sm:px-0 max-w-7xl py-24 md:py-32 text-center">
       <h2 class="reveal text-[clamp(2.4rem,5.5vw,5rem)] font-semibold leading-[0.95] tracking-[-0.05em] text-[#090b0c]">
         Votre terrain mérite<br/><span class="font-display-italic">un vrai plan.</span>
       </h2>
@@ -141,7 +141,7 @@
 
   <!-- Footer -->
   <footer class="bg-[#090c0d] text-white">
-    <div class="mx-auto w-[91.5vw] max-w-7xl pt-16 pb-8">
+    <div class="mx-auto w-full px-4 sm:w-[91.5vw] sm:px-0 max-w-7xl pt-16 pb-8">
       <div class="flex flex-wrap items-start justify-between gap-8 pb-14">
         <div class="flex items-center gap-3">
           <span class="relative flex h-8 w-8 items-center justify-center rounded-full border border-white/70">
@@ -155,7 +155,7 @@
           <div class="space-y-2 flex flex-col"><a class="hover:text-white transition" href="/login">Connexion</a><a class="hover:text-white transition" href="/register">Créer un compte</a></div>
         </div>
       </div>
-      <p class="select-none text-center font-semibold leading-none tracking-[-0.06em] text-white/10 text-[clamp(2.6rem,9vw,8.5rem)] whitespace-nowrap overflow-hidden">CONGO ARCH IA</p>
+      <p class="select-none text-center font-semibold leading-none tracking-[-0.06em] text-white/10 text-[clamp(1.6rem,8vw,8.5rem)] whitespace-nowrap overflow-hidden">CONGO ARCH IA</p>
       <p class="mt-6 text-center text-[10px] uppercase tracking-[0.18rem] text-white/35">Plans 2D → maquettes 3D → devis · RDC</p>
     </div>
   </footer>

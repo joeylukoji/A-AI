@@ -11,7 +11,7 @@
   </div>
 
   <form method="get" action="/admin/plans" class="card p-4 flex flex-wrap gap-3 items-end animate-blur-slide stagger-1">
-    <div class="flex-1 min-w-[16rem]">
+    <div class="flex-1 min-w-0 w-full sm:min-w-[16rem]">
       <label class="label" for="q">Rechercher</label>
       <input id="q" name="q" value="{{.Search}}" class="input" placeholder="Projet, organisation ou email de l'auteur"/>
     </div>
@@ -20,8 +20,8 @@
   </form>
 
   <div class="card p-5 space-y-3 animate-blur-slide stagger-2">
-    <div class="overflow-x-auto">
-      <table class="w-full text-xs">
+    <div class="overflow-x-auto -mx-1">
+      <table class="w-full text-xs min-w-[44rem]">
         <thead>
           <tr class="text-left text-zinc-400 border-b border-line dark:border-zinc-850">
             <th class="py-2 pr-3 font-semibold">Projet</th>

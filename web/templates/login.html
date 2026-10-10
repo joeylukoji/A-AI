@@ -1,5 +1,5 @@
 {{template "header" .}}
-<main class="min-h-screen bg-cream text-[#090b0c] font-maison flex items-center justify-center px-[5.5vw] py-16 relative overflow-hidden">
+<main class="min-h-screen bg-cream text-[#090b0c] font-maison flex items-center justify-center px-[5.5vw] py-16 relative overflow-x-hidden overflow-y-auto">
   <div class="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-white/70 blur-3xl"></div>
   <div class="pointer-events-none absolute -bottom-40 -right-24 h-[28rem] w-[28rem] rounded-full bg-skyx/50 blur-3xl"></div>
 
@@ -14,7 +14,7 @@
 
     <form method="post" action="/login" class="rounded-3xl border border-black/15 bg-creamcard/60 p-7 md:p-9 backdrop-blur-md">
       <p class="text-[11px] uppercase tracking-[0.16rem] text-black/50 mb-4">Connexion</p>
-      <h1 class="text-4xl font-medium tracking-[-0.05em] mb-1">Bon retour<span class="font-display-italic">.</span></h1>
+      <h1 class="text-3xl sm:text-4xl font-medium tracking-[-0.05em] mb-1">Bon retour<span class="font-display-italic">.</span></h1>
       <p class="text-xs text-black/50 mb-2">Démo : demo@a-ai.local / demo-demo-demo</p>
 
       {{if .Error}}

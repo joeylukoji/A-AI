@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .clickable-scale { transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1) !important; }
+  .clickable-scale:active { transform: scale(0.96) !important; }
+  .card { @apply rounded-2xl border shadow-none bg-white border-line dark:bg-zinc-900 dark:border-zinc-850; }
+  .btn-accent { @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-zinc-950 text-xs font-bold transition clickable-scale disabled:opacity-50 disabled:pointer-events-none min-h-11 sm:min-h-0; }
+  .btn-dark { @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-xl bg-zinc-900 text-zinc-100 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white text-xs font-bold transition clickable-scale disabled:opacity-50 disabled:pointer-events-none min-h-11 sm:min-h-0; }
+  .btn-ghost { @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition clickable-scale disabled:opacity-50 disabled:pointer-events-none; }
+  .btn-line { @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-xl border border-line dark:border-zinc-700 text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition clickable-scale disabled:opacity-50 disabled:pointer-events-none min-h-11 sm:min-h-0; }
+  .btn-danger { @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-xl border border-red-500/40 text-red-500 text-xs font-bold hover:bg-red-500/10 transition clickable-scale disabled:opacity-50 disabled:pointer-events-none min-h-11 sm:min-h-0; }
+  .input { @apply w-full px-3 py-2.5 sm:py-2 text-xs rounded-xl font-semibold outline-none border bg-zinc-100 border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 focus:ring-1 focus:ring-teal-500 transition min-h-11 sm:min-h-0; }
+  .label { @apply block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1; }
+  .navlink { @apply flex items-center gap-2.5 px-3 py-2.5 md:py-2 rounded-lg text-xs font-semibold text-zinc-500 dark:text-zinc-400 hover:bg-zinc-900/5 dark:hover:bg-zinc-800/60 transition clickable-scale; }
+  .navlink-active { @apply bg-teal-500/10 text-teal-600 dark:text-teal-400 hover:bg-teal-500/10 dark:hover:bg-teal-500/10; }
+  .badge { @apply inline-flex items-center px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide; }
+  .kpi { @apply font-extrabold text-2xl tracking-tight; }
+  .icon-btn { @apply w-11 h-11 md:w-9 md:h-9 inline-flex items-center justify-center rounded-xl border bg-white border-line dark:bg-zinc-900 dark:border-zinc-700 transition clickable-scale; }
+  .section-title { @apply font-bold text-sm tracking-tight; }
+}
