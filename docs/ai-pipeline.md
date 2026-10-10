@@ -1,5 +1,35 @@
 # Pipeline IA
 
+> Mise à jour du 22 septembre 2026 : les sections historiques ci-dessous décrivent
+> aussi des objectifs de recherche et d'anciens backends ; elles ne doivent pas
+> servir de description du parcours produit actuel. La référence vérifiée est
+> [l'audit scientifique de la pipeline](pipeline-scientific-audit.md).
+
+## Parcours produit actuel — référence
+
+`pipeline.generate_plan` enchaîne NLU (Together facultatif / heuristique),
+`diffusion.generate(image=False)` (placement LLM ou procédural), raffinement
+sauté faute d'image, assemblage vectoriel, adaptation par repavage, puis rendu
+du document final. Gemini via Eden AI peut redessiner le guide local ; un échec
+ou une API désactivée donne le rendu local. L'image Gemini ne reconstruit pas
+le PlanDocument utilisé par l'éditeur et les exports.
+
+Le modèle image configuré par défaut dans le code est
+`image/generation/google/gemini-3-pro-image-preview`. Le module
+`together_image.py` utilise Together pour le texte et Eden pour Gemini image.
+Les noms de fonctions/flags `flux` restent des alias historiques, pas la preuve
+d'un appel FLUX. `IMAGE_BACKEND=procedural` force le rendu local ; le chemin
+Gemini exige une clé Eden. Plusieurs tentatives réseau peuvent accompagner
+une seule demande d'aperçu. Les flags exacts sont définis dans le code et doivent
+être enregistrés dans chaque benchmark.
+
+Le GAN et la vectorisation raster décrits plus bas ne sont pas des contributions
+actives du parcours principal. Les scores existants ne prouvent pas une validité
+architecturale complète. [Plan des sprints](refactor-mvp-2d-1.md) et
+[protocole des comparaisons](../benchmark/README.md).
+
+## Documentation historique et objectifs de recherche
+
 ## Chaîne de génération
 
 ```

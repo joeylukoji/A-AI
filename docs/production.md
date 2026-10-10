@@ -1,8 +1,12 @@
 # Checklist mise en production
 
-`deploy/docker-compose.yml` est une stack de **développement local** : ports DB/Redis/MinIO
+Pour une **première preview clients sur une instance AWS EC2**, suivre
+[deploy-aws.md](deploy-aws.md) : `deploy/docker-compose.prod.yml` (Caddy TLS, ports
+internes uniquement, secrets générés par `deploy/gen-env.sh`).
+
+`deploy/docker-compose.yml` reste la stack de **développement local** : ports DB/Redis/MinIO
 exposés, secrets par défaut publics (committés dans `deploy/.env.example`), pas de TLS. Ne pas
-la déployer telle quelle. Ce document liste ce qu'il faut changer pour un déploiement réel.
+la déployer telle quelle. Ce document liste ce qu'il faut changer au-delà de la preview EC2.
 
 ## 1. Secrets
 

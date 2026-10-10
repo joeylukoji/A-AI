@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="920" viewBox="0 0 1120 920" role="img" aria-labelledby="title desc">
+  <title id="title">A-AI : génération, contrôles et validation après édition</title>
+  <desc id="desc">Le texte est interprété en programme puis construit en document. L'adaptation contrôle l'emprise et peut rejeter la demande. Le document adapté est validé avant livraison. L'éditeur passe par une validation serveur à la sauvegarde. L'image externe ne fournit aucune coordonnée.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#526275"/></marker>
+  </defs>
+  <style>
+    text{font-family:Arial,sans-serif;fill:#182c40;font-size:18px}
+    .title{font-size:26px;font-weight:700}.heading{font-weight:700}.small{font-size:15px;fill:#45586b}
+    .box{fill:#f4f7fa;stroke:#8396a8;stroke-width:1.5;rx:10}
+    .control{fill:#eaf5f0;stroke:#43846d;stroke-width:1.5;rx:10}
+    .flow{fill:none;stroke:#526275;stroke-width:2;marker-end:url(#arrow)}
+  </style>
+  <rect width="1120" height="920" fill="white"/>
+  <text x="40" y="42" class="title">Du besoin au document contrôlé</text>
+  <text x="40" y="69" class="small">Les mesures portent sur le document vectoriel, pas sur l'apparence de son illustration.</text>
+  <rect x="50" y="98" width="580" height="60" class="box"/>
+  <text x="340" y="124" text-anchor="middle" class="heading">Demande + contraintes + graine</text>
+  <text x="340" y="145" text-anchor="middle" class="small">Vérification du format numérique</text>
+  <path d="M340 158V180" class="flow"/>
+  <rect x="50" y="183" width="580" height="65" class="box"/>
+  <text x="340" y="210" text-anchor="middle" class="heading">Interprétation → BuildingSpec</text>
+  <text x="340" y="232" text-anchor="middle" class="small">Règles locales ou LLM ; types, effectifs, surfaces</text>
+  <path d="M340 248V270" class="flow"/>
+  <rect x="50" y="273" width="580" height="60" class="box"/>
+  <text x="340" y="299" text-anchor="middle" class="heading">Disposition initiale → document vectoriel</text>
+  <text x="340" y="321" text-anchor="middle" class="small">Le parcours local n'exécute ni diffusion apprise ni GAN</text>
+  <path d="M340 333V355" class="flow"/>
+  <rect x="50" y="358" width="580" height="114" class="control"/>
+  <text x="340" y="383" text-anchor="middle" class="heading">Adaptation à la parcelle</text>
+  <text x="340" y="410" text-anchor="middle">Emprise : W − 2r &gt; 0 et H − 2r &gt; 0 ?</text>
+  <text x="340" y="435" text-anchor="middle" class="small">Puis contraintes de grille, candidats, sélection</text>
+  <text x="340" y="456" text-anchor="middle" class="small">Construction et contrôle géométrique du document adapté</text>
+  <path d="M630 411H705" class="flow"/>
+  <text x="650" y="398" class="small">échec</text>
+  <rect x="710" y="373" width="355" height="90" fill="#fff4ef" stroke="#b77b64" rx="10"/>
+  <text x="887" y="405" text-anchor="middle" class="heading">Refus ou diagnostic</text>
+  <text x="887" y="430" text-anchor="middle" class="small">Incompatibilité ≠ recherche infructueuse</text>
+  <text x="887" y="451" text-anchor="middle" class="small">L'archive conserve le motif</text>
+  <path d="M340 472V495" class="flow"/>
+  <rect x="50" y="498" width="580" height="60" class="control"/>
+  <text x="340" y="524" text-anchor="middle" class="heading">Second contrôle géométrique (pipeline)</text>
+  <text x="340" y="546" text-anchor="middle" class="small">Une erreur interrompt la livraison normale</text>
+  <path d="M340 558V580" class="flow"/>
+  <rect x="50" y="583" width="580" height="65" class="box"/>
+  <text x="340" y="611" text-anchor="middle" class="heading">PlanDocument livré + provenance</text>
+  <text x="340" y="634" text-anchor="middle" class="small">Polygones, murs, ouvertures, mobilier ; unités en mètres</text>
+  <path d="M630 615H705" class="flow"/>
+  <rect x="710" y="572" width="355" height="90" class="box"/>
+  <text x="887" y="600" text-anchor="middle" class="heading">Présentation</text>
+  <text x="887" y="625" text-anchor="middle" class="small">Rendu local / illustration externe</text>
+  <text x="887" y="648" text-anchor="middle" class="small">Image ≠ géométrie certifiée</text>
+  <path d="M340 648V672" class="flow"/>
+  <rect x="50" y="675" width="580" height="60" class="box"/>
+  <text x="340" y="703" text-anchor="middle" class="heading">Éditeur 2D → demande de sauvegarde</text>
+  <text x="340" y="725" text-anchor="middle" class="small">Un geste local n'est pas encore une révision acceptée</text>
+  <path d="M340 735V757" class="flow"/>
+  <rect x="50" y="760" width="580" height="66" class="control"/>
+  <text x="340" y="788" text-anchor="middle" class="heading">Validateur Go côté serveur</text>
+  <text x="340" y="811" text-anchor="middle" class="small">Contrat géométrique satisfait → révision ; sinon → erreur</text>
+  <path d="M630 793H1068V705H634" class="flow"/>
+  <text x="855" y="778" text-anchor="middle" class="small">Correction et nouvelle sauvegarde</text>
+  <text x="50" y="866" class="small">Évaluation indépendante : géométrie (Shapely) + effectifs annotés + diversité des contours.</text>
+  <text x="50" y="891" class="small">Ces contrôles ne garantissent pas la conformité intégrale au schéma JSON publié (audit séparé, section 8.6).</text>
+</svg>

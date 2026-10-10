@@ -1,0 +1,27 @@
+[
+  {
+    "id": "G005",
+    "prompt_utilisateur": "Maison 4 chambres, 1 salon , une salle a manger , une cuisine , un garage , une salle de bain, ",
+    "image": "images/generation-005.png"
+  },
+  {
+    "id": "G007",
+    "prompt_utilisateur": "maison 6 chambres, 2 salon,  , salle a manger, une salle de bain , un garage une cuisine , 2 toilette \n",
+    "image": "images/generation-007.png"
+  },
+  {
+    "id": "G010",
+    "prompt_utilisateur": "maison 3 chambres, un salon,  , salle a manger, une salle de bain , un garage une cuisine , une toilette \n",
+    "image": "images/generation-010.png"
+  },
+  {
+    "id": "G013",
+    "prompt_utilisateur": "maison 3 chambres, un salon une toilette, salle a manger, une salle de bain , un garage une cuisine ",
+    "image": "images/generation-013.png"
+  },
+  {
+    "id": "G015",
+    "prompt_utilisateur": "maison 3 chambres, un salon une toilette, salle a manger, une salle de bain , un garage une cuisine ",
+    "image": "images/generation-015.png"
+  }
+]

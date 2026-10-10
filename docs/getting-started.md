@@ -14,6 +14,8 @@ cp deploy/.env.example deploy/.env
 docker compose -f deploy/docker-compose.yml up --build
 ```
 
+Pour une preview clients sur AWS EC2, ne pas réutiliser cette compose : voir [deploy-aws.md](deploy-aws.md).
+
 LibreCAD (GPLv2) est dans ce `up` : sidecar `http://localhost:9090/healthz`. L’API utilise `QCAD_URL=http://qcad:9090`. L’export **DXF** s’ouvre dans LibreCAD ou QCAD Community pour modifier les murs / pièces.
 
 Services :

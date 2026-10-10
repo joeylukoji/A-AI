@@ -44,7 +44,7 @@ Liste consolidée (recherche + produit + API) : [ameliorations.md](ameliorations
 ## Manques qualité / ops
 
 - Pas de tests d’intégration E2E automatisés (login → generate → export) dans CI
-- Pas de `.env` de prod / secrets manager (checklist manuelle : [production.md](production.md))
+- Secrets manager cloud (AWS SM) pas encore branché — preview EC2 : `deploy/gen-env.sh` + `deploy/.env` hors git ([deploy-aws.md](deploy-aws.md))
 - ~~Healthchecks Compose incomplets sur `api` / `ai`~~
 - ~~Favicon manquant~~
 - Encodage labels FR parfois cassé selon locale console (UTF-8 OK en HTTP)
