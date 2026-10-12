@@ -288,6 +288,11 @@ def render_preview(
     return render_plan_document(doc), method or "procedural"
 
 
+def gemini_only() -> bool:
+    """`GEMINI_ONLY=1` : aucun aperçu vectoriel local quand Gemini échoue."""
+    return (os.getenv("GEMINI_ONLY") or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def preview_from_document(
     brief: str,
     constraints: dict[str, Any] | None,
@@ -316,6 +321,11 @@ def preview_from_document(
         furniture=doc.get("furniture") or [],
     )
     if not preview_b64:
+        reason = "provider_failed" if preview_method == "flux-failed" else "disabled_or_unconfigured"
+        if gemini_only():
+            # Pas de dessin local de secours : l'utilisateur ne voit que Gemini.
+            preview_result("none", fallback_reason=reason)
+            return "", preview_method or "gemini-unavailable"
         preview_b64 = render_plan_document(doc)
         preview_method = preview_method or "procedural"
         preview_result(

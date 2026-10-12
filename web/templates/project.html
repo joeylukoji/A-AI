@@ -54,14 +54,21 @@
       <div class="card p-5 space-y-4 animate-blur-slide stagger-2">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="section-title">Plan 2D</p>
+          {{if not .GeminiOnly}}
           <div class="flex flex-wrap gap-2">
             <a class="btn-dark" href="/projects/{{.Project.ID}}/editor">{{template "icon-pencil"}} Ouvrir l'éditeur</a>
             <a class="btn-line" href="/projects/{{.Project.ID}}/3d">{{template "icon-cube"}} Plan 3D</a>
           </div>
+          {{end}}
         </div>
 
         {{if .HasPreview}}
         <img src="/api/v1/projects/{{.Project.ID}}/preview?v={{.Revision.Version}}" alt="Aperçu du plan" class="w-full rounded-xl border border-line dark:border-zinc-850 bg-white"/>
+        {{else if and .Revision .GeminiOnly}}
+        <div class="rounded-xl border border-dashed border-line dark:border-zinc-700 py-16 text-center">
+          <p class="text-sm font-bold text-zinc-400">Aperçu indisponible</p>
+          <p class="text-xs text-zinc-400 mt-1">Le rendu du plan a échoué. Relancez la génération.</p>
+        </div>
         {{else if .Revision}}
         <p class="text-xs text-zinc-500 dark:text-zinc-400">Plan vectoriel (pas encore d'illustration). Ouvrez l'éditeur pour le modifier.</p>
         <canvas id="plan-thumb" width="512" height="400" class="w-full rounded-xl border border-line dark:border-zinc-850 bg-[#f7f4ef]"></canvas>

@@ -48,6 +48,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 			p := principal(r)
 			m["IsPlatformAdmin"] = p != nil && p.IsPlatformAdmin
 		}
+		m["GeminiOnly"] = s.cfg.GeminiOnly
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.tmpl.ExecuteTemplate(w, name, data); err != nil {

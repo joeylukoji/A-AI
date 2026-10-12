@@ -58,8 +58,10 @@
         <a href="/projects" class="navlink {{if eq .Nav "projects"}}navlink-active{{end}}">{{template "icon-home"}} Projets</a>
         {{if .Project}}
         <a href="/projects/{{.Project.ID}}" class="navlink {{if eq .Nav "plan2d"}}navlink-active{{end}}">{{template "icon-plan"}} Plan 2D</a>
+        {{if not .GeminiOnly}}
         <a href="/projects/{{.Project.ID}}/3d" class="navlink {{if eq .Nav "plan3d"}}navlink-active{{end}}">{{template "icon-cube"}} Plan 3D</a>
         <a href="/projects/{{.Project.ID}}/editor" class="navlink {{if eq .Nav "editor"}}navlink-active{{end}}">{{template "icon-pencil"}} Éditeur</a>
+        {{end}}
         {{end}}
         <a href="/billing" class="navlink {{if eq .Nav "billing"}}navlink-active{{end}}">{{template "icon-card"}} Abonnement</a>
         {{if .IsPlatformAdmin}}

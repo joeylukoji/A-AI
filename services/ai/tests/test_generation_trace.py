@@ -102,3 +102,13 @@ def test_pipeline_records_renderer_and_skip(monkeypatch):
     result = pipeline.generate_plan("brief")
     assert result["provenance"]["preview"]["backend"] == "gemini"
     assert result["provenance"]["refinement"] == "unknown"  # stage replaced by test double
+
+
+def test_gemini_only_has_no_local_fallback(monkeypatch):
+    monkeypatch.setenv("GEMINI_ONLY", "1")
+    monkeypatch.setattr(diffusion, "generate_flux_plan", lambda *a, **kw: ("", "flux-failed"))
+    monkeypatch.setattr(diffusion, "render_plan_document", lambda doc: pytest.fail("local render used"))
+    with generation_trace.capture() as trace:
+        assert diffusion.preview_from_document("brief", {}, spec={}, doc={}) == ("", "flux-failed")
+    assert trace["preview"]["backend"] == "none"
+    assert trace["preview"]["fallback_reason"] == "provider_failed"

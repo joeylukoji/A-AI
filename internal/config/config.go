@@ -26,6 +26,9 @@ type Config struct {
 	StripePriceBur    string
 	AppEnv            string
 	TrustProxyHeaders bool
+	// GeminiOnly pauses the 2D editor and the 3D pages: users only see the
+	// Gemini preview and the exports. The routes redirect to the project page.
+	GeminiOnly bool
 	// AdminEmails lists the platform administrators (comma-separated in
 	// ADMIN_EMAILS). They are the only accounts allowed into /admin, which
 	// shows plans across every organisation.
@@ -55,6 +58,7 @@ func Load() Config {
 		StripePriceBur:    os.Getenv("STRIPE_PRICE_BUREAU"),
 		AppEnv:            getenv("APP_ENV", "development"),
 		TrustProxyHeaders: getenvBool("TRUST_PROXY_HEADERS", false),
+		GeminiOnly:        getenvBool("GEMINI_ONLY", false),
 		AdminEmails:       parseEmailList(os.Getenv("ADMIN_EMAILS")),
 	}
 }

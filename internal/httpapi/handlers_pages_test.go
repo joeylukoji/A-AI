@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/a-ai/a-ai/internal/admin"
+	"github.com/a-ai/a-ai/internal/config"
 	"github.com/a-ai/a-ai/internal/domain"
 	"github.com/a-ai/a-ai/internal/project"
 	"github.com/a-ai/a-ai/web"
@@ -342,5 +343,44 @@ func TestDashboardShellUsesLocalCSSAndScrollableMobileLayout(t *testing.T) {
 		if strings.Contains(body, "h-[100dvh] overflow-hidden flex flex-col md:flex-row") {
 			t.Errorf("%s: 100dvh overflow-hidden shell clips cards on phones", pg.name)
 		}
+	}
+}
+
+// TestGeminiOnlyPausesEditorAnd3D: with GEMINI_ONLY the editor and 3D pages
+// redirect to the project page, and the project page links to neither.
+func TestGeminiOnlyPausesEditorAnd3D(t *testing.T) {
+	tmpl, err := web.Templates()
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &Server{tmpl: tmpl, log: slog.New(slog.NewTextHandler(io.Discard, nil)), cfg: config.Config{GeminiOnly: true}}
+	id := uuid.New()
+
+	for _, path := range []string{"/editor", "/3d", "/viewer3d"} {
+		req := httptest.NewRequest(http.MethodGet, "/projects/"+id.String()+path, nil)
+		req.SetPathValue("id", id.String())
+		rr := httptest.NewRecorder()
+		srv.pausedInGeminiOnly(func(http.ResponseWriter, *http.Request) { t.Errorf("%s handler ran", path) })(rr, req)
+		if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/projects/"+id.String() {
+			t.Errorf("%s: got %d %q, want redirect to project", path, rr.Code, rr.Header().Get("Location"))
+		}
+	}
+
+	proj := &domain.Project{ID: id, Name: "Villa", Status: "ready"}
+	rev := &domain.PlanRevision{ID: uuid.New(), ProjectID: id, Version: 1, PlanDocument: []byte("{}")}
+	rr := httptest.NewRecorder()
+	srv.render(rr, httptest.NewRequest(http.MethodGet, "/", nil), "project.html", map[string]any{
+		"Title": "Villa", "User": domain.User{}, "Org": domain.Org{}, "Project": proj, "Revision": rev,
+		"Role": domain.RoleOwner, "HasPreview": false, "PlanJSON": safeScriptJSON("{}"), "Nav": "plan2d",
+		"Revisions": []project.RevisionSummary{},
+	})
+	body := rr.Body.String()
+	for _, link := range []string{"/editor", "/3d"} {
+		if strings.Contains(body, id.String()+link) {
+			t.Errorf("project page still links to %s", link)
+		}
+	}
+	if !strings.Contains(body, "Aperçu indisponible") || strings.Contains(body, `id="plan-thumb"`) {
+		t.Error("without a preview the page must say it is unavailable, not draw the vector plan")
 	}
 }

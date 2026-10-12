@@ -102,6 +102,7 @@ services:
       EDENAI_API_KEY: ${EDENAI_API_KEY:-}
       EDENAI_IMAGE_MODEL: ${EDENAI_IMAGE_MODEL:-image/generation/google/gemini-3-pro-image-preview}
       IMAGE_BACKEND: ${IMAGE_BACKEND:-together}
+      GEMINI_ONLY: ${GEMINI_ONLY:-1}
       TOGETHER_IMAGE_STYLE: ${TOGETHER_IMAGE_STYLE:-illustration}
       TOGETHER_IMAGE_LABELS: ${TOGETHER_IMAGE_LABELS:-none}
       TOGETHER_NLU: ${TOGETHER_NLU:-1}

@@ -86,9 +86,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /projects", s.requireAuth(s.handleProjectsPage))
 	s.mux.HandleFunc("POST /projects", s.requireAuth(s.handleCreateProjectForm))
 	s.mux.HandleFunc("GET /projects/{id}", s.requireAuth(s.handleProjectPage))
-	s.mux.HandleFunc("GET /projects/{id}/3d", s.requireAuth(s.handleProject3DPage))
-	s.mux.HandleFunc("GET /projects/{id}/editor", s.requireAuth(s.handleEditorPage))
-	s.mux.HandleFunc("GET /projects/{id}/viewer3d", s.requireAuth(s.handleViewer3DPage))
+	s.mux.HandleFunc("GET /projects/{id}/3d", s.requireAuth(s.pausedInGeminiOnly(s.handleProject3DPage)))
+	s.mux.HandleFunc("GET /projects/{id}/editor", s.requireAuth(s.pausedInGeminiOnly(s.handleEditorPage)))
+	s.mux.HandleFunc("GET /projects/{id}/viewer3d", s.requireAuth(s.pausedInGeminiOnly(s.handleViewer3DPage)))
 	s.mux.HandleFunc("GET /billing", s.requireAuth(s.handleBillingPage))
 
 	s.mux.HandleFunc("GET /api/v1/me", s.requireAuth(s.handleMe))
@@ -196,4 +196,16 @@ func (s *Server) setSessionCookie(w http.ResponseWriter, token string) {
 		Secure:   s.cfg.AppEnv == "production",
 		Expires:  time.Now().Add(30 * 24 * time.Hour),
 	})
+}
+
+// pausedInGeminiOnly sends the editor and 3D pages back to the project page
+// while GEMINI_ONLY is set. The handlers stay in place to be re-enabled.
+func (s *Server) pausedInGeminiOnly(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if s.cfg.GeminiOnly {
+			http.Redirect(w, r, "/projects/"+r.PathValue("id"), http.StatusSeeOther)
+			return
+		}
+		next(w, r)
+	}
 }
