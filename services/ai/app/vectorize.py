@@ -38,6 +38,7 @@ def _program(spec: dict[str, Any]) -> list[dict[str, Any]]:
                 "type": str(room["type"]),
                 "name": str(room.get("name") or room["type"]),
                 "area_m2": round(float(room["area_m2"]), 1),
+                **({"ensuite": True} if room.get("ensuite") else {}),
             }
         )
     return out

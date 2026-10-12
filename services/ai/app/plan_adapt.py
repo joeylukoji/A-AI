@@ -99,7 +99,8 @@ def _usable_program(plan: dict[str, Any], rooms_in: list[dict[str, Any]]) -> lis
         if not 0.5 <= area <= 500:
             return []
         out.append({"id": str(item.get("id") or f"p{len(out) + 1}"), "type": item["type"],
-                    "name": str(item.get("name") or item["type"]), "area_m2": area})
+                    "name": str(item.get("name") or item["type"]), "area_m2": area,
+                    **({"ensuite": True} if item.get("ensuite") is True else {})})
 
     def kinds(rooms: list[dict[str, Any]]) -> list[str]:
         return sorted(str(r.get("type") or "other") for r in rooms if r.get("type") != "hallway")
@@ -203,6 +204,7 @@ def adapt(payload: dict[str, Any]) -> dict[str, Any]:
             "name": room.get("name") or typ,
             "area_m2": area,
             "polygon": room.get("polygon") or [],
+            **({"ensuite": True} if room.get("ensuite") is True else {}),
         }
         work.append(item)
         spec_rooms.append({"type": typ, "area_m2": area, "count": 1})

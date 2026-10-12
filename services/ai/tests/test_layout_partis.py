@@ -40,6 +40,7 @@ def _r(rid: str, typ: str, x0: float, y0: float, x1: float, y1: float) -> dict:
 
 FULL = _rooms(("bedroom", 12), ("bedroom", 11), ("bathroom", 5), ("bathroom", 4), ("living", 24),
               ("kitchen", 10), ("dining", 9), ("wc", 2), ("garage", 16))
+FULL[3]["ensuite"] = True  # suite parentale demandée au brief (`nlu._mark_ensuite`)
 
 
 def test_every_room_lands_in_exactly_one_zone():
@@ -66,6 +67,11 @@ def test_ensuite_is_the_last_bath_beside_the_last_bedroom():
     assert types == ["bedroom", "bedroom", "bathroom", "bathroom"]
     night_ids = [r["id"] for r in zones[z.NIGHT]]
     assert night_ids.index("r3") == night_ids.index("r1") + 1     # suite parentale : chambre puis sa salle de bain
+
+
+def test_two_bathrooms_are_shared_unless_one_is_requested_as_ensuite():
+    rooms = _rooms(("bedroom", 12), ("bathroom", 5), ("bathroom", 4), ("living", 20))
+    assert lp.zone_items(rooms)[1] is None
 
 
 def test_a_single_bathroom_is_not_an_ensuite():

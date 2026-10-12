@@ -50,6 +50,7 @@ def expand_rooms(rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "type": typ,
                     "name": _label(typ, i + 1 if count > 1 else None),
                     "area_m2": area,
+                    **({"ensuite": True} if r.get("ensuite") else {}),
                 }
             )
     return out

@@ -104,7 +104,8 @@
           "id": { "type": "string" },
           "type": { "type": "string" },
           "name": { "type": "string" },
-          "area_m2": { "type": "number", "exclusiveMinimum": 0, "maximum": 500 }
+          "area_m2": { "type": "number", "exclusiveMinimum": 0, "maximum": 500 },
+            "ensuite": { "type": "boolean", "description": "Salle de bain privée d'une chambre, seulement si le brief la demande." }
         }
       }
     },

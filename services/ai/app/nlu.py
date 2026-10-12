@@ -188,7 +188,48 @@ def _mentions_wc(text: str) -> bool:
     ))
 
 
+# Salle d'eau privée seulement si le brief la demande. « ensuite » seul est exclu :
+# en français c'est « puis ».
+_ENSUITE_RE = re.compile(
+    r"suite\s+parentale|\ben-suite\b|\bensuite\s+bath|master\s+bath"
+    r"|(salles?\s+de\s+bains?|salles?\s+d'eau|sdb|douches?|toilettes?|wc)\s+"
+    r"(privatives?|attenantes?|int[ée]gr[ée]es?|dans\s+(la|sa|chaque|les)\s+chambres?)"
+    # « avec SA salle de bain » : sans possessif, « 3 chambres avec toilettes » décrit la maison.
+    r"|chambres?(\s+[a-zé]+)?\s+(avec|et)\s+(sa|son|leurs?)\s+(propres?\s+)?(salles?\s+de\s+bains?|salles?\s+d'eau|sdb|douches?|toilettes?|wc)"
+)
+
+
+def _wants_ensuite(text: str) -> bool:
+    return bool(_ENSUITE_RE.search((text or "").lower()))
+
+
+def _mark_ensuite(brief: str, rooms: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Une salle de bain `ensuite` si demandée ; sinon toutes les salles d'eau sont communes.
+
+    La salle de bain commune reste : les autres chambres et les invités en ont besoin.
+    """
+    if not _wants_ensuite(brief) or not any(r.get("type") == "bedroom" for r in rooms):
+        return rooms
+    out = [dict(r) for r in rooms]
+    baths = [r for r in out if r.get("type") == "bathroom"]
+    n_baths = sum(int(r.get("count") or 1) for r in baths)
+    if n_baths >= 2:
+        last = baths[-1]
+        if int(last.get("count") or 1) > 1:
+            last["count"] = int(last["count"]) - 1
+        else:
+            out.remove(last)
+        area = float(last.get("area_m2") or 5)
+    else:
+        area = 5.0
+    used = {str(r.get("id")) for r in out}
+    rid = next(f"r{i}" for i in range(len(out) + 1, len(out) + 100) if f"r{i}" not in used)
+    out.append({"id": rid, "type": "bathroom", "area_m2": area, "count": 1, "ensuite": True})
+    return out
+
+
 def _finalize_spec(brief: str, rooms: list[dict[str, Any]], constraints: dict[str, Any]) -> dict[str, Any]:
+    rooms = _mark_ensuite(brief, rooms)
     rooms = _ensure_hallway_in_program(rooms)
     total = float(
         constraints.get("total_area_m2")

@@ -516,8 +516,9 @@ def pack_house(
     # liste (`_first` n'en garde qu'un) : la pièce disparaissait du plan sans
     # le moindre signal. On les traite comme des pièces jour supplémentaires.
     leftovers.extend(kitchens[1:] + livings[1:] + garages[1:])
-    ensuite = baths[-1] if len(baths) >= 2 and beds else None
-    day_baths = baths[:-1] if ensuite else baths
+    # Suite parentale seulement si le brief l'a demandée (`nlu._mark_ensuite`).
+    ensuite = next((b for b in reversed(baths) if b.get("ensuite")), None) if beds else None
+    day_baths = [b for b in baths if b is not ensuite]
     hallways = _ensure_hallway(hallways, beds, living, kitchen, wcs, dinings)
     args = (
         beds, day_baths, ensuite, wcs, laundries, storages, offices, dinings,

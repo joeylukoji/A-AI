@@ -48,8 +48,8 @@ Room = dict[str, Any]
 def zone_items(rooms: list[Room]) -> tuple[dict[str, list[Room]], Room | None]:
     """Pièces de chaque zone, dans l'ordre d'usage du gabarit, et la salle de bain « ensuite ».
 
-    Reprend les règles de `pack_house` : la dernière chambre et la dernière salle
-    de bain forment la suite parentale quand il y a au moins deux salles de bain ;
+    Reprend les règles de `pack_house` : la dernière chambre et la salle de bain
+    marquée `ensuite` (demandée au brief) forment la suite parentale ;
     un couloir est créé dès qu'il en faut un (`_ensure_hallway`).
     """
     items: list[Room] = []
@@ -64,8 +64,9 @@ def zone_items(rooms: list[Room]) -> tuple[dict[str, list[Room]], Room | None]:
         return [i for i in items if i["type"] == typ]
 
     beds, baths, offices = of("bedroom"), of("bathroom"), of("office")
-    ensuite = baths[-1] if len(baths) >= 2 and beds else None
-    day_baths = baths[:-1] if ensuite else baths
+    # Suite parentale seulement si le brief l'a demandée (`nlu._mark_ensuite`).
+    ensuite = next((b for b in reversed(baths) if b.get("ensuite")), None) if beds else None
+    day_baths = [b for b in baths if b is not ensuite]
     living = of("living")[0] if of("living") else None
     kitchen = of("kitchen")[0] if of("kitchen") else None
     halls = lo._ensure_hallway(of("hallway"), beds, living, kitchen, of("wc"), of("dining"))

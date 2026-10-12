@@ -159,6 +159,7 @@ def default_openings(
         oid += 1
     if room_list:
         _add_missing_room_doors(openings, walls, internals, room_list, oid)
+        _one_door_per_wet_room(openings, walls, room_list)
     _ = (width, depth)
     return assign_door_semantics(openings, walls, room_list)
 
@@ -351,6 +352,50 @@ def _add_missing_room_doors(
         )
         oid += 1
         served.add(id(room))
+
+
+_WET_ROOMS = {"bathroom", "wc"}
+
+
+def _one_door_per_wet_room(
+    openings: list[dict[str, Any]], walls: list[dict[str, Any]], rooms: list[dict[str, Any]]
+) -> None:
+    """Une salle de bain ou un WC n'a qu'une porte.
+
+    Chaque mur autorisé reçoit une porte : une salle d'eau longeant un couloir en
+    deux segments en recevait deux. On garde la meilleure (chambre pour la suite
+    parentale, sinon couloir) et on ne retire une porte que si l'autre pièce
+    qu'elle dessert garde un accès.
+    """
+    by_id = {str(w.get("id")): w for w in walls}
+
+    def served(op: dict[str, Any]) -> list[dict[str, Any]]:
+        wall = by_id.get(str(op.get("wall_id")))
+        return _served_rooms(wall, op, rooms) if wall is not None else []
+
+    def doors_of(room: dict[str, Any]) -> list[dict[str, Any]]:
+        return [o for o in openings if o.get("type") == "door" and any(r is room for r in served(o))]
+
+    for room in rooms:
+        if room.get("type") not in _WET_ROOMS:
+            continue
+        doors = doors_of(room)
+        if len(doors) < 2:
+            continue
+        preferred = "bedroom" if room.get("ensuite") else "hallway"
+
+        def rank(op: dict[str, Any], room: dict[str, Any] = room, preferred: str = preferred) -> tuple:
+            others = [str(r.get("type") or "") for r in served(op) if r is not room]
+            other = others[0] if others else ""
+            return (other == preferred, _NEIGHBOUR_RANK.get(other, 0), float(op.get("width_m") or 0))
+
+        keep = max(doors, key=rank)
+        for op in doors:
+            if op is keep:
+                continue
+            others = [r for r in served(op) if r is not room]
+            if all(len(doors_of(r)) > 1 for r in others):
+                openings.remove(op)
 
 
 def _best_access_wall(
