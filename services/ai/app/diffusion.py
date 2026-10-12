@@ -386,6 +386,8 @@ def generate_flux_plan(
             repair_notes=notes,
             careful=careful,
             layout_guided=layout_guided,
+            walls=walls,
+            openings=openings,
         ),
         width,
         depth,
@@ -1258,6 +1260,63 @@ def _sanitary_layout_clause() -> str:
     )
 
 
+def _shape_clause() -> str:
+    """La disposition est juste mais Gemini déforme les pièces : on fixe la forme."""
+    return (
+        "SHAPES (mandatory): every room is an exact rectangle with straight, axis-aligned walls, "
+        "the same size and proportions as in image 1. Do not round, bend, stretch or shrink rooms; "
+        "do not add, remove or move any wall or door. "
+        "A WC or bathroom has exactly ONE door, never a second one. "
+        "WC: a small narrow room; the toilet stands against the wall opposite the door, facing it, "
+        "with a small washbasin; the door swing never touches the toilet. "
+        "Bathroom: bathtub or shower along one full wall, toilet and washbasin on the other walls, "
+        "all clear of the door swing. Toilets are drawn top-down: an oval bowl with a rectangular "
+        "tank against the wall. "
+    )
+
+
+def _wet_room_doors_clause(
+    rooms: list[dict[str, Any]] | None,
+    walls: list[dict[str, Any]] | None,
+    openings: list[dict[str, Any]] | None,
+) -> str:
+    """Porte unique de chaque salle d'eau : côté du mur et pièce desservie."""
+    from app.plan_openings import _room_bbox, _served_rooms
+
+    by_id = {str(w.get("id")): w for w in walls or []}
+    lines: list[str] = []
+    for room in rooms or []:
+        typ = str(room.get("type") or "")
+        box = _room_bbox(room)
+        if typ not in {"wc", "bathroom"} or not box:
+            continue
+        x0, y0, x1, y1 = box
+        for op in openings or []:
+            wall = by_id.get(str(op.get("wall_id")))
+            if op.get("type") != "door" or wall is None:
+                continue
+            served = _served_rooms(wall, op, rooms or [])
+            if not any(r is room for r in served):
+                continue
+            ax, ay = float(wall["a"]["x"]), float(wall["a"]["y"])
+            bx = float(wall["b"]["x"])
+            if abs(ax - bx) <= 0.15:
+                side = "west" if abs(ax - x0) <= abs(ax - x1) else "east"
+            else:
+                side = "north" if abs(ay - y0) <= abs(ay - y1) else "south"
+            other = next((r for r in served if r is not room), None)
+            onto = _FURN_ROOM_EN.get(str(other.get("type")), "the outside") if other else "the outside"
+            name = _FURN_ROOM_EN.get(typ, typ)
+            lines.append(
+                f"the {name} at x={x0:.1f}-{x1:.1f}m, y={y0:.1f}-{y1:.1f}m has its only door "
+                f"on its {side} wall, opening onto the {onto}"
+            )
+            break
+    if not lines:
+        return ""
+    return "WET ROOM DOORS (copy exactly): " + "; ".join(lines) + ". "
+
+
 def _topology_clause(
     rooms: list[dict[str, Any]] | None, width: float | None, depth: float | None
 ) -> str:
@@ -1425,6 +1484,8 @@ def _flux_prompt(
     repair_notes: list[str] | None = None,
     careful: bool = False,
     layout_guided: bool = False,
+    walls: list[dict[str, Any]] | None = None,
+    openings: list[dict[str, Any]] | None = None,
 ) -> str:
     """Brief + style Sweet Home 3D + (si layout_guided) consigne de suivre le plan attaché."""
     _ = label_mode
@@ -1461,6 +1522,8 @@ def _flux_prompt(
             "Do not draw two dining rooms. "
             "Each bedroom has exactly one bed — never two twin beds. "
             "If a WC room exists, draw a clearly visible toilet in it. "
+            f"{_shape_clause()}"
+            f"{_wet_room_doors_clause(rooms, walls, openings)}"
             "Redraw it as a simpler amateur Sweet Home 3D 2D screenshot: grey poche walls, "
             "simple floor fills, simple top-down furniture symbols, faint grid. "
             f"This request: {text}. "
@@ -1651,7 +1714,8 @@ _LAYOUT_SYSTEM = (
     "it from the circulation without crossing a private room. CUISINE west of the day zone. "
     "Family SDB opens onto the corridor; ensuite may open to the master bedroom only.\n"
     "- GARAGE on the EAST. SEJOUR is the largest day room, entrance on its south wall. "
-    "If two SDB, one is an ensuite east of the master bedroom.\n"
+    "An ensuite exists ONLY for a program room marked (ensuite); every other SDB is shared "
+    "and opens onto the corridor. A WC or SDB has exactly ONE door.\n"
     "- Keep proportions habitable: no room thinner than 1.8 m (WC/SDB may be 1.4 m).\n\n"
     "OUTPUT - one JSON object, no markdown:\n"
     '{"veranda_depth": 0, "rooms": [{"name": "SEJOUR", "area": 28, "zone": "front"}]}\n'
@@ -1668,6 +1732,7 @@ def _layout_user(
         try:
             lines.append(
                 f"- {name}: current area ~{float(r.get('area_m2') or 12):.0f} m2"
+                + (" (ensuite)" if r.get("ensuite") else "")
             )
         except (TypeError, ValueError):
             lines.append(f"- {name}")
@@ -1776,6 +1841,7 @@ def _merge_llm_program(
                 "name": src.get("name") or _label(p["typ"], None),
                 "area_m2": round(max(2.0, floored[i] * k), 1),
                 "_zone": _ZONE_ORDER.get(p["zone"], 3),
+                **({"ensuite": True} if src.get("ensuite") else {}),
             }
         )
     for j in unused:
@@ -1787,6 +1853,7 @@ def _merge_llm_program(
                 "name": src.get("name") or _label(str(src.get("type") or ""), None),
                 "area_m2": float(src.get("area_m2") or 8),
                 "_zone": 3,
+                **({"ensuite": True} if src.get("ensuite") else {}),
             }
         )
     if len(out) != len(program) or len(out) < 2:
